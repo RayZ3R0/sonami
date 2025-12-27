@@ -18,6 +18,12 @@ use symphonia::core::units::Time;
 
 const BUFFER_SIZE: usize = 65536; // Larger buffer for stability
 
+/// Type alias for the decoder tuple to reduce complexity
+type DecoderState = (Box<dyn FormatReader>, Box<dyn Decoder>, u32);
+
+/// Result type for load_track function
+type LoadTrackResult = Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String>;
+
 /// A simple thread-safe ring buffer for audio samples using a fixed-size array
 pub struct AudioBuffer {
     data: Box<[f32]>,
@@ -53,10 +59,10 @@ impl AudioBuffer {
 
         // SAFETY: We hold the lock so no concurrent access
         let data_ptr = self.data.as_ptr() as *mut f32;
-        for i in 0..to_write {
+        for (i, &sample) in samples.iter().enumerate().take(to_write) {
             let pos = ((write_pos as usize) + i) % (self.capacity as usize);
             unsafe {
-                *data_ptr.add(pos) = samples[i];
+                *data_ptr.add(pos) = sample;
             }
         }
 
@@ -81,9 +87,9 @@ impl AudioBuffer {
 
         // SAFETY: We hold the lock so no concurrent access
         let data_ptr = self.data.as_ptr();
-        for i in 0..to_read {
+        for (i, out_sample) in out.iter_mut().enumerate().take(to_read) {
             let pos = ((read_pos as usize) + i) % (self.capacity as usize);
-            out[i] = unsafe { *data_ptr.add(pos) };
+            *out_sample = unsafe { *data_ptr.add(pos) };
         }
 
         let new_read = (read_pos + to_read as u32) % self.capacity;
@@ -121,6 +127,10 @@ impl AudioBuffer {
             (self.capacity - read_pos + write_pos) as usize
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Playback state shared between audio thread and main thread
@@ -132,6 +142,12 @@ pub struct PlaybackState {
     pub is_playing: Arc<AtomicBool>,
     pub volume: Arc<AtomicU64>,
     pub current_path: Arc<RwLock<Option<String>>>,
+}
+
+impl Default for PlaybackState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PlaybackState {
@@ -182,6 +198,12 @@ pub struct AudioManager {
 
 unsafe impl Send for AudioManager {}
 unsafe impl Sync for AudioManager {}
+
+impl Default for AudioManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl AudioManager {
     pub fn new() -> Self {
@@ -315,7 +337,7 @@ fn decoder_thread(
     state: PlaybackState,
     next_track: Arc<RwLock<Option<String>>>,
 ) {
-    let mut current_decoder: Option<(Box<dyn FormatReader>, Box<dyn Decoder>, u32)> = None;
+    let mut current_decoder: Option<DecoderState> = None;
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
 
     loop {
@@ -451,9 +473,7 @@ fn decoder_thread(
     }
 }
 
-fn load_track(
-    path: &str,
-) -> Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String> {
+fn load_track(path: &str) -> LoadTrackResult {
     let path = Path::new(path);
     let file = File::open(path).map_err(|e| e.to_string())?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
