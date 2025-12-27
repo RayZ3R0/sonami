@@ -30,7 +30,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
             librsvg2-dev \
             patchelf \
             libssl-dev \
@@ -84,7 +83,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
             librsvg2-dev \
             patchelf \
             libssl-dev \
@@ -110,7 +108,7 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
           - name: macOS (Intel)
-            os: macos-13
+            os: macos-15
             target: x86_64-apple-darwin
           - name: macOS (ARM)
             os: macos-latest
@@ -144,7 +142,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
             librsvg2-dev \
             patchelf \
             libssl-dev \
