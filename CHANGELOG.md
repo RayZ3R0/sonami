@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Spotist will be documented in this file.
+All notable changes to Sonami will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -58,5 +58,5 @@ This project uses [Semantic Versioning](https://semver.org/):
 - `0.1.0-rc.1` → Release candidate
 - `0.1.0` → Stable release
 
-[Unreleased]: https://github.com/z3r0/spotist/compare/v0.1.0-alpha.1...HEAD
-[0.1.0-alpha.1]: https://github.com/z3r0/spotist/releases/tag/v0.1.0-alpha.1
+[Unreleased]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.1...HEAD
+[0.1.0-alpha.1]: https://github.com/z3r0/sonami/releases/tag/v0.1.0-alpha.1
