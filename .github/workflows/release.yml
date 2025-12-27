@@ -93,7 +93,7 @@ jobs:
             bundles: dmg
           
           # macOS Apple Silicon
-          - os: macos-14
+          - os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
           
@@ -110,7 +110,7 @@ jobs:
 
       # Setup Rust
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
 
