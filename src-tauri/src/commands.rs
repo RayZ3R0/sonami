@@ -108,3 +108,45 @@ pub async fn set_volume(state: State<'_, AudioManager>, volume: f32) -> Result<(
     state.set_volume(volume);
     Ok(())
 }
+
+/// Get the current playback position in seconds (sample-accurate)
+#[tauri::command]
+pub async fn get_position(state: State<'_, AudioManager>) -> Result<f64, String> {
+    Ok(state.get_position())
+}
+
+/// Get the total duration of the current track in seconds
+#[tauri::command]
+pub async fn get_duration(state: State<'_, AudioManager>) -> Result<f64, String> {
+    Ok(state.get_duration())
+}
+
+/// Get whether the player is currently playing
+#[tauri::command]
+pub async fn get_is_playing(state: State<'_, AudioManager>) -> Result<bool, String> {
+    Ok(state.is_playing())
+}
+
+/// Queue the next track for gapless playback
+#[tauri::command]
+pub async fn queue_next_track(state: State<'_, AudioManager>, path: String) -> Result<(), String> {
+    state.queue_next(path);
+    Ok(())
+}
+
+/// Get all playback state at once (position, duration, is_playing) - more efficient than multiple calls
+#[derive(Serialize)]
+pub struct PlaybackInfo {
+    pub position: f64,
+    pub duration: f64,
+    pub is_playing: bool,
+}
+
+#[tauri::command]
+pub async fn get_playback_info(state: State<'_, AudioManager>) -> Result<PlaybackInfo, String> {
+    Ok(PlaybackInfo {
+        position: state.get_position(),
+        duration: state.get_duration(),
+        is_playing: state.is_playing(),
+    })
+}

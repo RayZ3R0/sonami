@@ -1,93 +1,160 @@
 import { usePlayer } from "../context/PlayerContext";
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
+
+// Format seconds to mm:ss or h:mm:ss
+const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hrs > 0) {
+        return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 export const PlayerBar = () => {
-    const { currentTrack, isPlaying, togglePlay, currentTime, duration, seek, volume, setVolume } = usePlayer();
-    const volumeRef = useRef<HTMLDivElement>(null);
+    const { currentTrack, isPlaying, togglePlay, currentTime, duration, seek, volume, setVolume, nextTrack, prevTrack } = usePlayer();
+    const seekBarRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [hoverPosition, setHoverPosition] = useState<number | null>(null);
 
     if (!currentTrack) return null;
 
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-    const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
+    const handleSeekStart = (e: React.MouseEvent<HTMLDivElement>) => {
+        setIsDragging(true);
+        handleSeekMove(e);
+    };
+
+    const handleSeekMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!seekBarRef.current) return;
+        const rect = seekBarRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const percent = x / rect.width;
+        setHoverPosition(percent * duration);
+        
+        if (isDragging) {
+            seek(percent * duration);
+        }
+    };
+
+    const handleSeekEnd = () => {
+        setIsDragging(false);
+    };
+
+    const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!seekBarRef.current) return;
+        const rect = seekBarRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const width = rect.width;
-        const percent = x / width;
-        const newTime = percent * duration;
-        seek(newTime);
+        const percent = x / rect.width;
+        seek(percent * duration);
     };
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[800px]">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[860px]">
             {/* The Floating Capsule */}
-            <div className="glass-floating rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all hover:scale-[1.005]">
-
-                <div className="p-3 flex items-center justify-between h-[80px] relative z-10 transition-colors duration-500">
+            <div className="glass-floating rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
+                
+                {/* Main Controls Row */}
+                <div className="px-4 pt-3 pb-2 flex items-center justify-between relative z-10">
                     {/* Left: Album Art + Info */}
-                    <div className="flex items-center gap-4 w-1/3 min-w-[200px]">
-                        <div className="w-14 h-14 rounded-xl bg-zinc-800 shadow-md overflow-hidden relative group">
+                    <div className="flex items-center gap-3 w-[30%] min-w-[180px]">
+                        <div className="w-12 h-12 rounded-lg bg-zinc-800 shadow-lg overflow-hidden flex-shrink-0">
                             {currentTrack.cover_image ? (
-                                <img src={currentTrack.cover_image} className="w-full h-full object-cover animate-in fade-in duration-500" />
+                                <img 
+                                    src={currentTrack.cover_image} 
+                                    alt={currentTrack.title}
+                                    className="w-full h-full object-cover" 
+                                />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900" />
+                                <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-500">
+                                        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                                    </svg>
+                                </div>
                             )}
                         </div>
-                        <div className="flex flex-col overflow-hidden mr-4">
-                            <span className="text-sm font-bold text-white tracking-wide truncate">{currentTrack.title}</span>
-                            <span className="text-xs text-gray-400 truncate">{currentTrack.artist}</span>
+                        <div className="flex flex-col overflow-hidden min-w-0">
+                            <span className="text-sm font-semibold text-white truncate leading-tight">{currentTrack.title}</span>
+                            <span className="text-xs text-zinc-400 truncate">{currentTrack.artist}</span>
                         </div>
                     </div>
 
-                    {/* Center: Controls */}
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                        <div className="flex items-center gap-8">
-                            <button className="text-gray-400 hover:text-white transition-colors transform active:scale-95">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4v16h2V4H5z" /></svg>
-                            </button>
-                            <button
-                                onClick={togglePlay}
-                                className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-white/10"
-                            >
-                                {isPlaying ? (
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-                                ) : (
-                                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                                )}
-                            </button>
-                            <button className="text-gray-400 hover:text-white transition-colors transform active:scale-95">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zm14 0v16h-2V4h2z" /></svg>
-                            </button>
-                        </div>
+                    {/* Center: Playback Controls */}
+                    <div className="flex items-center gap-5">
+                        <button 
+                            onClick={prevTrack}
+                            className="text-zinc-400 hover:text-white transition-all transform hover:scale-110 active:scale-95"
+                        >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                            </svg>
+                        </button>
+                        
+                        <button
+                            onClick={togglePlay}
+                            className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/20"
+                        >
+                            {isPlaying ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="4" width="4" height="16" rx="1"/>
+                                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                                </svg>
+                            ) : (
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            )}
+                        </button>
+                        
+                        <button 
+                            onClick={nextTrack}
+                            className="text-zinc-400 hover:text-white transition-all transform hover:scale-110 active:scale-95"
+                        >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                            </svg>
+                        </button>
                     </div>
 
-                    {/* Right: Volume & Options */}
-                    <div className="flex items-center justify-end w-1/3 gap-4 pr-2">
-                        <div className="group flex items-center gap-2 cursor-pointer">
+                    {/* Right: Volume */}
+                    <div className="flex items-center justify-end w-[30%] gap-3 pr-1">
+                        <div className="group flex items-center gap-2">
                             <button 
                                 onClick={() => setVolume(volume > 0 ? 0 : 1)}
-                                className="text-gray-400 hover:text-white transition-colors"
+                                className="text-zinc-400 hover:text-white transition-colors"
                             >
                                 {volume === 0 ? (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                        <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                                    </svg>
                                 ) : volume < 0.5 ? (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                    </svg>
                                 ) : (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                    </svg>
                                 )}
                             </button>
                             <div 
-                                ref={volumeRef}
-                                className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden cursor-pointer hover:h-2 transition-all"
+                                className="w-20 h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer group-hover:h-1.5 transition-all"
                                 onClick={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     const x = e.clientX - rect.left;
-                                    const newVolume = Math.max(0, Math.min(1, x / rect.width));
-                                    setVolume(newVolume);
+                                    setVolume(Math.max(0, Math.min(1, x / rect.width)));
                                 }}
                             >
                                 <div 
-                                    className="h-full bg-white/70 group-hover:bg-white transition-colors rounded-full" 
+                                    className="h-full bg-white/60 group-hover:bg-white transition-colors rounded-full" 
                                     style={{ width: `${volume * 100}%` }}
                                 />
                             </div>
@@ -95,24 +162,61 @@ export const PlayerBar = () => {
                     </div>
                 </div>
 
-                {/* Seamless Bottom Seek Bar (Flowy, Functional, & Curves) */}
-                <div
-                    className="absolute bottom-0 left-0 w-full h-5 z-50 cursor-pointer group flex items-end"
-                    onClick={handleSeek}
-                >
-                    {/* Visual Bar - Animates Height on Hover to 'Fill' the curves */}
-                    <div className="w-full h-1 group-hover:h-2 transition-all duration-300 ease-out relative bg-white/10 group-hover:bg-white/20 backdrop-blur-md">
-                        {/* Progress Fill */}
-                        <div
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-transparent via-white/70 to-white shadow-[0_0_20px_rgba(255,255,255,0.5)]"
-                            style={{
-                                width: `${progress}%`,
-                                transition: 'width 0.15s cubic-bezier(0.4, 0, 0.2, 1)'
+                {/* Progress Bar Section */}
+                <div className="px-4 pb-3 pt-1">
+                    <div className="flex items-center gap-3">
+                        {/* Current Time */}
+                        <span className="text-[11px] font-mono text-zinc-400 w-12 text-right tabular-nums">
+                            {formatTime(currentTime)}
+                        </span>
+                        
+                        {/* Seek Bar */}
+                        <div 
+                            ref={seekBarRef}
+                            className="flex-1 h-6 flex items-center cursor-pointer group"
+                            onClick={handleSeekClick}
+                            onMouseDown={handleSeekStart}
+                            onMouseMove={handleSeekMove}
+                            onMouseUp={handleSeekEnd}
+                            onMouseLeave={() => {
+                                handleSeekEnd();
+                                setHoverPosition(null);
                             }}
-                        />
+                        >
+                            <div className="w-full h-1 bg-white/10 rounded-full relative group-hover:h-1.5 transition-all">
+                                {/* Buffered/Background */}
+                                <div className="absolute inset-0 rounded-full overflow-hidden">
+                                    {/* Progress Fill */}
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-white/60 to-white rounded-full transition-all duration-75"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                                
+                                {/* Hover Preview */}
+                                {hoverPosition !== null && (
+                                    <div 
+                                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-white/40 rounded-full"
+                                        style={{ left: `${(hoverPosition / duration) * 100}%` }}
+                                    />
+                                )}
+                                
+                                {/* Scrubber Dot */}
+                                <div 
+                                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    style={{ 
+                                        left: `calc(${progress}% - 6px)`,
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        
+                        {/* Duration */}
+                        <span className="text-[11px] font-mono text-zinc-400 w-12 tabular-nums">
+                            {formatTime(duration)}
+                        </span>
                     </div>
                 </div>
-
             </div>
         </div>
     );
