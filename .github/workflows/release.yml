@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.1.0-alpha.1)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Sonami v${{ steps.get_version.outputs.version }}
+          body: |
+            ## 🎵 Sonami v${{ steps.get_version.outputs.version }}
+            
+            ### Downloads
+            
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Windows | x64 | `.msi` / `.exe` |
+            | macOS | Intel (x64) | `.dmg` |
+            | macOS | Apple Silicon (arm64) | `.dmg` |
+            | Linux | x64 | `.deb` / `.AppImage` / `.rpm` |
+            
+            ### Installation
+            
+            #### Windows
+            Download and run the `.msi` installer or the portable `.exe`.
+            
+            #### macOS
+            Download the `.dmg` for your architecture, open it, and drag Sonami to Applications.
+            
+            #### Linux
+            - **Debian/Ubuntu**: `sudo dpkg -i sonami_*.deb`
+            - **Fedora/RHEL**: `sudo rpm -i sonami-*.rpm`
+            - **AppImage**: `chmod +x sonami_*.AppImage && ./sonami_*.AppImage`
+            
+            ---
+            
+            > ⚠️ **Alpha Release**: This is an early development version. Please report any issues you encounter.
+          draft: true
+          prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
+
+  build:
+    name: Build ${{ matrix.settings.os }} (${{ matrix.settings.target }})
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi,nsis
+          
+          # macOS Intel
+          - os: macos-13
+            target: x86_64-apple-darwin
+            bundles: dmg
+          
+          # macOS Apple Silicon
+          - os: macos-14
+            target: aarch64-apple-darwin
+            bundles: dmg
+          
+          # Linux x64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,rpm,appimage
+
+    runs-on: ${{ matrix.settings.os }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      # Setup Node.js (for frontend)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Setup Bun
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Linux dependencies
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: bun install
+
+      # Build the application
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
+
+  publish-release:
+    name: Publish Release
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.create-release.outputs.version }}
+          draft: false

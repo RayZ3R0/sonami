@@ -72,7 +72,7 @@ export const TitleBar = () => {
                         <div onClick={maximize} className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 cursor-pointer" />
                     </div>
                 )}
-                {!isMac && <div className="text-xs font-semibold tracking-wide opacity-50 ml-2">SPOTIST</div>}
+                {!isMac && <div className="text-xs font-semibold tracking-wide opacity-50 ml-2">SONAMI</div>}
             </div>
 
             {/* Right Section (Windows/Linux Controls) */}

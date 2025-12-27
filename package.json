@@ -1,13 +1,16 @@
 {
   "name": "spotist",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version:bump": "node scripts/version-bump.js",
+    "release:alpha": "node scripts/version-bump.js",
+    "release:tag": "git tag v$(node -p \"require('./package.json').version\") && git push --tags"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
