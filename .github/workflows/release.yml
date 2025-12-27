@@ -82,10 +82,10 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          # Windows x64
+          # Windows x64 (NSIS only - MSI doesn't support semver pre-release identifiers)
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundles: msi,nsis
+            bundles: nsis
           
           # macOS Intel
           - os: macos-15
