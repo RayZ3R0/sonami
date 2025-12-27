@@ -42,25 +42,27 @@ impl AudioBuffer {
         let _guard = self.lock.lock();
         let read_pos = self.read_pos.load(Ordering::Acquire);
         let write_pos = self.write_pos.load(Ordering::Acquire);
-        
+
         let available = if write_pos >= read_pos {
             self.capacity - (write_pos - read_pos) - 1
         } else {
             read_pos - write_pos - 1
         };
-        
+
         let to_write = (samples.len() as u32).min(available) as usize;
-        
+
         // SAFETY: We hold the lock so no concurrent access
         let data_ptr = self.data.as_ptr() as *mut f32;
         for i in 0..to_write {
             let pos = ((write_pos as usize) + i) % (self.capacity as usize);
-            unsafe { *data_ptr.add(pos) = samples[i]; }
+            unsafe {
+                *data_ptr.add(pos) = samples[i];
+            }
         }
-        
+
         let new_write = (write_pos + to_write as u32) % self.capacity;
         self.write_pos.store(new_write, Ordering::Release);
-        
+
         to_write
     }
 
@@ -68,38 +70,38 @@ impl AudioBuffer {
         let _guard = self.lock.lock();
         let read_pos = self.read_pos.load(Ordering::Acquire);
         let write_pos = self.write_pos.load(Ordering::Acquire);
-        
+
         let available = if write_pos >= read_pos {
             write_pos - read_pos
         } else {
             self.capacity - read_pos + write_pos
         };
-        
+
         let to_read = (out.len() as u32).min(available) as usize;
-        
+
         // SAFETY: We hold the lock so no concurrent access
         let data_ptr = self.data.as_ptr();
         for i in 0..to_read {
             let pos = ((read_pos as usize) + i) % (self.capacity as usize);
             out[i] = unsafe { *data_ptr.add(pos) };
         }
-        
+
         let new_read = (read_pos + to_read as u32) % self.capacity;
         self.read_pos.store(new_read, Ordering::Release);
-        
+
         to_read
     }
 
     pub fn available_space(&self) -> usize {
         let read_pos = self.read_pos.load(Ordering::Acquire);
         let write_pos = self.write_pos.load(Ordering::Acquire);
-        
+
         let available = if write_pos >= read_pos {
             self.capacity - (write_pos - read_pos) - 1
         } else {
             read_pos - write_pos - 1
         };
-        
+
         available as usize
     }
 
@@ -108,11 +110,11 @@ impl AudioBuffer {
         self.read_pos.store(0, Ordering::Release);
         self.write_pos.store(0, Ordering::Release);
     }
-    
+
     pub fn len(&self) -> usize {
         let read_pos = self.read_pos.load(Ordering::Acquire);
         let write_pos = self.write_pos.load(Ordering::Acquire);
-        
+
         if write_pos >= read_pos {
             (write_pos - read_pos) as usize
         } else {
@@ -161,7 +163,8 @@ impl PlaybackState {
     }
 
     pub fn set_volume(&self, vol: f32) {
-        self.volume.store(f32::to_bits(vol.clamp(0.0, 1.0)) as u64, Ordering::Relaxed);
+        self.volume
+            .store(f32::to_bits(vol.clamp(0.0, 1.0)) as u64, Ordering::Relaxed);
     }
 }
 
@@ -184,19 +187,24 @@ impl AudioManager {
     pub fn new() -> Self {
         let state = PlaybackState::new();
         let (command_tx, command_rx) = std::sync::mpsc::channel();
-        
+
         let audio_buffer = Arc::new(AudioBuffer::new(BUFFER_SIZE));
         let state_decoder = state.clone();
         let state_output = state.clone();
         let buffer_decoder = audio_buffer.clone();
         let buffer_output = audio_buffer.clone();
-        
+
         let next_track: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
         let next_track_decoder = next_track.clone();
 
         // Decoder thread
         thread::spawn(move || {
-            decoder_thread(command_rx, buffer_decoder, state_decoder, next_track_decoder);
+            decoder_thread(
+                command_rx,
+                buffer_decoder,
+                state_decoder,
+                next_track_decoder,
+            );
         });
 
         // Audio output thread
@@ -243,7 +251,7 @@ impl AudioManager {
     pub fn queue_next(&self, path: String) {
         let _ = self.command_tx.send(DecoderCommand::QueueNext(path));
     }
-    
+
     pub fn is_playing(&self) -> bool {
         self.state.is_playing.load(Ordering::Relaxed)
     }
@@ -252,45 +260,49 @@ impl AudioManager {
 fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState) {
     let host = cpal::default_host();
     let device = host.default_output_device().expect("No output device");
-    
+
     let config = StreamConfig {
         channels: 2,
         sample_rate: SampleRate(44100),
         buffer_size: cpal::BufferSize::Default,
     };
 
-    let stream = device.build_output_stream(
-        &config,
-        move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            let is_playing = state.is_playing.load(Ordering::Relaxed);
-            let volume = state.get_volume();
+    let stream = device
+        .build_output_stream(
+            &config,
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                let is_playing = state.is_playing.load(Ordering::Relaxed);
+                let volume = state.get_volume();
 
-            if !is_playing {
-                for sample in data.iter_mut() {
+                if !is_playing {
+                    for sample in data.iter_mut() {
+                        *sample = 0.0;
+                    }
+                    return;
+                }
+
+                let read = buffer.pop_samples(data);
+
+                for sample in data[..read].iter_mut() {
+                    *sample *= volume;
+                }
+                for sample in data[read..].iter_mut() {
                     *sample = 0.0;
                 }
-                return;
-            }
 
-            let read = buffer.pop_samples(data);
-            
-            for sample in data[..read].iter_mut() {
-                *sample *= volume;
-            }
-            for sample in data[read..].iter_mut() {
-                *sample = 0.0;
-            }
-
-            if read > 0 {
-                state.position_samples.fetch_add((read / 2) as u64, Ordering::Relaxed);
-            }
-        },
-        |err| eprintln!("Audio error: {}", err),
-        None,
-    ).expect("Failed to build output stream");
+                if read > 0 {
+                    state
+                        .position_samples
+                        .fetch_add((read / 2) as u64, Ordering::Relaxed);
+                }
+            },
+            |err| eprintln!("Audio error: {}", err),
+            None,
+        )
+        .expect("Failed to build output stream");
 
     stream.play().expect("Failed to start stream");
-    
+
     // Keep thread alive
     loop {
         thread::sleep(Duration::from_secs(1));
@@ -305,7 +317,7 @@ fn decoder_thread(
 ) {
     let mut current_decoder: Option<(Box<dyn FormatReader>, Box<dyn Decoder>, u32)> = None;
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
-    
+
     loop {
         let command = if current_decoder.is_some() && state.is_playing.load(Ordering::Relaxed) {
             command_rx.try_recv().ok()
@@ -315,30 +327,43 @@ fn decoder_thread(
 
         if let Some(cmd) = command {
             match cmd {
-                DecoderCommand::Load(path) => {
-                    match load_track(&path) {
-                        Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
-                            buffer.clear();
-                            state.position_samples.store(0, Ordering::Relaxed);
-                            state.duration_samples.store(duration_samples, Ordering::Relaxed);
-                            state.sample_rate.store(sample_rate as u64, Ordering::Relaxed);
-                            state.is_playing.store(true, Ordering::Relaxed);
-                            current_decoder = Some((reader, decoder, track_id));
-                            sample_buf = None;
-                            println!("Backend: Loaded {}", path);
-                        }
-                        Err(e) => eprintln!("Backend: Load failed: {}", e),
+                DecoderCommand::Load(path) => match load_track(&path) {
+                    Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
+                        buffer.clear();
+                        state.position_samples.store(0, Ordering::Relaxed);
+                        state
+                            .duration_samples
+                            .store(duration_samples, Ordering::Relaxed);
+                        state
+                            .sample_rate
+                            .store(sample_rate as u64, Ordering::Relaxed);
+                        state.is_playing.store(true, Ordering::Relaxed);
+                        current_decoder = Some((reader, decoder, track_id));
+                        sample_buf = None;
+                        println!("Backend: Loaded {}", path);
                     }
-                }
+                    Err(e) => eprintln!("Backend: Load failed: {}", e),
+                },
                 DecoderCommand::Seek(seconds) => {
                     if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
                         let sample_rate = state.sample_rate.load(Ordering::Relaxed) as u32;
                         let seek_time = Time::new(seconds as u64, seconds.fract());
-                        
-                        if reader.seek(SeekMode::Accurate, SeekTo::Time { time: seek_time, track_id: None }).is_ok() {
+
+                        if reader
+                            .seek(
+                                SeekMode::Accurate,
+                                SeekTo::Time {
+                                    time: seek_time,
+                                    track_id: None,
+                                },
+                            )
+                            .is_ok()
+                        {
                             decoder.reset();
                             buffer.clear();
-                            state.position_samples.store((seconds * sample_rate as f64) as u64, Ordering::Relaxed);
+                            state
+                                .position_samples
+                                .store((seconds * sample_rate as f64) as u64, Ordering::Relaxed);
                             println!("Backend: Seeked to {:.2}s", seconds);
                         }
                     }
@@ -368,20 +393,24 @@ fn decoder_thread(
 
             match reader.next_packet() {
                 Ok(packet) => {
-                    if packet.track_id() != track_id { continue; }
+                    if packet.track_id() != track_id {
+                        continue;
+                    }
 
                     if let Ok(decoded) = decoder.decode(&packet) {
                         let spec = *decoded.spec();
                         let duration = decoded.capacity() as u64;
 
-                        if sample_buf.is_none() || sample_buf.as_ref().unwrap().capacity() < duration as usize {
+                        if sample_buf.is_none()
+                            || sample_buf.as_ref().unwrap().capacity() < duration as usize
+                        {
                             sample_buf = Some(SampleBuffer::new(duration, spec));
                         }
 
                         if let Some(ref mut buf) = sample_buf {
                             buf.copy_interleaved_ref(decoded);
                             let samples = buf.samples();
-                            
+
                             let mut written = 0;
                             while written < samples.len() {
                                 let w = buffer.push_samples(&samples[written..]);
@@ -393,8 +422,8 @@ fn decoder_thread(
                         }
                     }
                 }
-                Err(symphonia::core::errors::Error::IoError(ref e)) 
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof => 
+                Err(symphonia::core::errors::Error::IoError(ref e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                 {
                     let next = next_track.write().take();
                     if let Some(next_path) = next {
@@ -422,7 +451,9 @@ fn decoder_thread(
     }
 }
 
-fn load_track(path: &str) -> Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String> {
+fn load_track(
+    path: &str,
+) -> Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String> {
     let path = Path::new(path);
     let file = File::open(path).map_err(|e| e.to_string())?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -432,13 +463,18 @@ fn load_track(path: &str) -> Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u3
         hint.with_extension(ext);
     }
 
-    let format_opts = FormatOptions { enable_gapless: true, ..Default::default() };
+    let format_opts = FormatOptions {
+        enable_gapless: true,
+        ..Default::default()
+    };
     let probed = symphonia::default::get_probe()
         .format(&hint, mss, &format_opts, &MetadataOptions::default())
         .map_err(|e| e.to_string())?;
 
     let reader = probed.format;
-    let track = reader.tracks().iter()
+    let track = reader
+        .tracks()
+        .iter()
         .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
         .ok_or("No audio track")?;
 
