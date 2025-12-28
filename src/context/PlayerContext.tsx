@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Track } from "../types";

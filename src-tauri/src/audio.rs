@@ -20,9 +20,24 @@ use symphonia::core::units::Time;
 use rubato::{
     Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
 };
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 const BUFFER_SIZE: usize = 65536;
+
+/// Error event payload for frontend notifications
+#[derive(Clone, Serialize)]
+pub struct AudioError {
+    pub code: String,
+    pub title: String,
+    pub message: String,
+}
+
+/// Device change event payload
+#[derive(Clone, Serialize)]
+pub struct DeviceChanged {
+    pub device_name: String,
+}
 
 type DecoderState = (Box<dyn FormatReader>, Box<dyn Decoder>, u32);
 type LoadTrackResult = Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String>;
@@ -193,7 +208,7 @@ pub const DEFAULT_CROSSFADE_MS: u32 = 5000;
 
 use crate::dsp::DspChain;
 use crate::media_controls::MediaControlsManager;
-use crate::queue::PlayQueue;
+use crate::queue::{PlayQueue, RepeatMode};
 
 pub struct AudioManager {
     pub state: PlaybackState,
@@ -201,7 +216,9 @@ pub struct AudioManager {
     pub dsp: Arc<RwLock<DspChain>>,
     pub media_controls: Arc<MediaControlsManager>,
     pub crossfade_duration_ms: Arc<AtomicU32>,
+    pub crossfade_active: Arc<AtomicBool>,
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
+    shutdown: Arc<AtomicBool>,
 }
 
 unsafe impl Send for AudioManager {}
@@ -211,6 +228,7 @@ impl AudioManager {
     pub fn new(app_handle: AppHandle) -> Self {
         let state = PlaybackState::new();
         let (command_tx, command_rx) = std::sync::mpsc::channel();
+        let shutdown = Arc::new(AtomicBool::new(false));
 
         // Primary and secondary buffers for crossfade
         let buffer_a = Arc::new(AudioBuffer::new(BUFFER_SIZE));
@@ -220,6 +238,7 @@ impl AudioManager {
         let dsp = Arc::new(RwLock::new(DspChain::new()));
         let media_controls = Arc::new(MediaControlsManager::new());
         let crossfade_duration_ms = Arc::new(AtomicU32::new(DEFAULT_CROSSFADE_MS));
+        let crossfade_active = Arc::new(AtomicBool::new(false));
 
         let state_decoder = state.clone();
         let state_output = state.clone();
@@ -229,10 +248,15 @@ impl AudioManager {
         let buffer_b_output = buffer_b.clone();
         let crossfade_ms_decoder = crossfade_duration_ms.clone();
         let crossfade_ms_output = crossfade_duration_ms.clone();
+        let crossfade_active_decoder = crossfade_active.clone();
+        let crossfade_active_output = crossfade_active.clone();
+        let shutdown_decoder = shutdown.clone();
+        let shutdown_output = shutdown.clone();
 
         // Clone for threads
         let queue_decoder = queue.clone();
         let dsp_output = dsp.clone();
+        let app_handle_output = app_handle.clone();
 
         thread::spawn(move || {
             decoder_thread(
@@ -242,7 +266,9 @@ impl AudioManager {
                 state_decoder,
                 queue_decoder,
                 crossfade_ms_decoder,
+                crossfade_active_decoder,
                 app_handle,
+                shutdown_decoder,
             );
         });
 
@@ -253,6 +279,9 @@ impl AudioManager {
                 state_output,
                 dsp_output,
                 crossfade_ms_output,
+                crossfade_active_output,
+                app_handle_output,
+                shutdown_output,
             );
         });
 
@@ -263,7 +292,14 @@ impl AudioManager {
             dsp,
             media_controls,
             crossfade_duration_ms,
+            crossfade_active,
+            shutdown,
         }
+    }
+
+    /// Signal all threads to shut down gracefully
+    pub fn shutdown(&self) {
+        self.shutdown.store(true, Ordering::Relaxed);
     }
 
     pub fn play(&self, path: String) {
@@ -312,20 +348,69 @@ fn run_audio_output(
     state: PlaybackState,
     dsp: Arc<RwLock<DspChain>>,
     crossfade_ms: Arc<AtomicU32>,
+    crossfade_active: Arc<AtomicBool>,
+    app_handle: AppHandle,
+    shutdown: Arc<AtomicBool>,
 ) {
     let host = cpal::default_host();
+    let mut current_device_name: Option<String> = None;
+    let mut no_device_notified = false;
+
     loop {
+        // Check for shutdown signal
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
+
         let device = match host.default_output_device() {
-            Some(d) => d,
+            Some(d) => {
+                no_device_notified = false;
+                d
+            }
             None => {
+                if !no_device_notified {
+                    let _ = app_handle.emit(
+                        "audio-error",
+                        AudioError {
+                            code: "NO_DEVICE".to_string(),
+                            title: "No Audio Device".to_string(),
+                            message: "No audio output device found. Please connect speakers or headphones.".to_string(),
+                        },
+                    );
+                    no_device_notified = true;
+                }
                 thread::sleep(Duration::from_secs(1));
                 continue;
             }
         };
 
+        let device_name = device.name().unwrap_or_default();
+
+        // Notify on device change
+        if current_device_name.as_ref() != Some(&device_name) {
+            if current_device_name.is_some() {
+                // Device changed (not first connection)
+                let _ = app_handle.emit(
+                    "device-changed",
+                    DeviceChanged {
+                        device_name: device_name.clone(),
+                    },
+                );
+            }
+            current_device_name = Some(device_name.clone());
+        }
+
         let config = match device.default_output_config() {
             Ok(c) => c,
-            Err(_) => {
+            Err(e) => {
+                let _ = app_handle.emit(
+                    "audio-error",
+                    AudioError {
+                        code: "CONFIG_ERROR".to_string(),
+                        title: "Audio Configuration Error".to_string(),
+                        message: format!("Failed to get audio config: {}", e),
+                    },
+                );
                 thread::sleep(Duration::from_secs(1));
                 continue;
             }
@@ -336,7 +421,19 @@ fn run_audio_output(
             .device_sample_rate
             .store(sample_rate, Ordering::Relaxed);
 
-        let err_fn = |err| eprintln!("Audio output error: {}", err);
+        let app_handle_err = app_handle.clone();
+        let err_fn = move |err| {
+            eprintln!("Audio output error: {}", err);
+            let _ = app_handle_err.emit(
+                "audio-error",
+                AudioError {
+                    code: "STREAM_ERROR".to_string(),
+                    title: "Audio Stream Error".to_string(),
+                    message: format!("{}", err),
+                },
+            );
+        };
+
         let stream_result = match config.sample_format() {
             cpal::SampleFormat::F32 => run_stream::<f32>(
                 &device,
@@ -346,6 +443,7 @@ fn run_audio_output(
                 state.clone(),
                 dsp.clone(),
                 crossfade_ms.clone(),
+                crossfade_active.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::I16 => run_stream::<i16>(
@@ -356,6 +454,7 @@ fn run_audio_output(
                 state.clone(),
                 dsp.clone(),
                 crossfade_ms.clone(),
+                crossfade_active.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::U16 => run_stream::<u16>(
@@ -366,6 +465,7 @@ fn run_audio_output(
                 state.clone(),
                 dsp.clone(),
                 crossfade_ms.clone(),
+                crossfade_active.clone(),
                 err_fn,
             ),
             _ => Err(cpal::BuildStreamError::StreamConfigNotSupported),
@@ -373,12 +473,35 @@ fn run_audio_output(
 
         if let Ok(stream) = stream_result {
             if stream.play().is_ok() {
+                // Monitor for device changes or shutdown
                 loop {
-                    thread::sleep(Duration::from_secs(1));
+                    if shutdown.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    // Check if default device has changed
+                    let new_device = host.default_output_device();
+                    let new_name = new_device.as_ref().and_then(|d| d.name().ok());
+
+                    if new_name.as_ref() != current_device_name.as_ref() {
+                        // Device changed - break to reconnect
+                        break;
+                    }
+
+                    thread::sleep(Duration::from_millis(500));
                 }
             }
+        } else {
+            let _ = app_handle.emit(
+                "audio-error",
+                AudioError {
+                    code: "STREAM_BUILD_ERROR".to_string(),
+                    title: "Failed to Start Audio".to_string(),
+                    message: "Could not create audio stream. Retrying...".to_string(),
+                },
+            );
         }
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_millis(500));
     }
 }
 
@@ -390,6 +513,7 @@ fn run_stream<T>(
     state: PlaybackState,
     dsp: Arc<RwLock<DspChain>>,
     crossfade_ms: Arc<AtomicU32>,
+    crossfade_active: Arc<AtomicBool>,
     err_fn: impl Fn(cpal::StreamError) + Send + 'static,
 ) -> Result<cpal::Stream, cpal::BuildStreamError>
 where
@@ -398,9 +522,8 @@ where
     let channels = config.channels as usize;
     let sample_rate = config.sample_rate.0;
 
-    // Crossfade state tracking within output callback
+    // Crossfade progress tracking within output callback
     let crossfade_progress = Arc::new(AtomicU64::new(0));
-    let crossfade_active = Arc::new(AtomicBool::new(false));
 
     device.build_output_stream(
         config,
@@ -503,7 +626,9 @@ fn decoder_thread(
     state: PlaybackState,
     queue: Arc<RwLock<PlayQueue>>,
     crossfade_ms: Arc<AtomicU32>,
+    crossfade_active: Arc<AtomicBool>,
     app_handle: AppHandle,
+    shutdown: Arc<AtomicBool>,
 ) {
     let mut current_decoder: Option<DecoderState> = None;
     let mut next_decoder: Option<DecoderState> = None;
@@ -516,24 +641,29 @@ fn decoder_thread(
     let mut input_accumulator: VecDeque<f32> = VecDeque::new();
     let mut next_input_accumulator: VecDeque<f32> = VecDeque::new();
     let mut crossfade_state = CrossfadeState::Idle;
-    let mut prebuffer_started = false;
-
-    // Use buffer_a as the primary buffer for now (for backward compatibility)
-    // buffer_b will be used for pre-buffering next track during crossfade
-    let buffer = buffer_a;
+    let mut next_track_info: Option<crate::queue::Track> = None;
 
     loop {
+        // Check for shutdown
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
+
         let command = if current_decoder.is_some() && state.is_playing.load(Ordering::Relaxed) {
             command_rx.try_recv().ok()
         } else {
-            command_rx.recv().ok()
+            // Use timeout to allow shutdown checks
+            match command_rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(cmd) => Some(cmd),
+                Err(_) => None,
+            }
         };
 
         if let Some(cmd) = command {
             match cmd {
                 DecoderCommand::Load(path) => match load_track(&path) {
                     Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
-                        buffer.clear();
+                        buffer_a.clear();
                         buffer_b.clear();
                         input_accumulator.clear();
                         next_input_accumulator.clear();
@@ -545,12 +675,13 @@ fn decoder_thread(
                             .sample_rate
                             .store(sample_rate as u64, Ordering::Relaxed);
                         state.is_playing.store(true, Ordering::Relaxed);
+                        crossfade_active.store(false, Ordering::Relaxed);
                         current_decoder = Some((reader, decoder, track_id));
                         next_decoder = None;
+                        next_track_info = None;
                         sample_buf = None;
                         next_sample_buf = None;
                         crossfade_state = CrossfadeState::Idle;
-                        prebuffer_started = false;
 
                         let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                         if device_rate != 0 && device_rate != sample_rate {
@@ -577,7 +708,20 @@ fn decoder_thread(
                             resampler = None;
                         }
                     }
-                    Err(_) => {}
+                    Err(e) => {
+                        let filename = Path::new(&path)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or(&path);
+                        let _ = app_handle.emit(
+                            "audio-error",
+                            AudioError {
+                                code: "DECODE_ERROR".to_string(),
+                                title: "Failed to Load Track".to_string(),
+                                message: format!("Could not play \"{}\": {}", filename, e),
+                            },
+                        );
+                    }
                 },
                 DecoderCommand::Seek(seconds) => {
                     if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
@@ -594,8 +738,13 @@ fn decoder_thread(
                             .is_ok()
                         {
                             decoder.reset();
-                            buffer.clear();
+                            buffer_a.clear();
                             input_accumulator.clear();
+                            // Cancel any pending crossfade on seek
+                            crossfade_active.store(false, Ordering::Relaxed);
+                            crossfade_state = CrossfadeState::Idle;
+                            next_decoder = None;
+                            buffer_b.clear();
                             state
                                 .position_samples
                                 .store((seconds * sample_rate as f64) as u64, Ordering::Relaxed);
@@ -605,12 +754,14 @@ fn decoder_thread(
                 DecoderCommand::Stop => {
                     state.is_playing.store(false, Ordering::Relaxed);
                     state.position_samples.store(0, Ordering::Relaxed);
-                    buffer.clear();
+                    crossfade_active.store(false, Ordering::Relaxed);
+                    buffer_a.clear();
                     buffer_b.clear();
                     input_accumulator.clear();
                     next_input_accumulator.clear();
                     current_decoder = None;
                     next_decoder = None;
+                    next_track_info = None;
                     crossfade_state = CrossfadeState::Idle;
                 }
                 DecoderCommand::QueueNext(_) => {
@@ -624,145 +775,389 @@ fn decoder_thread(
                 thread::sleep(Duration::from_millis(10));
                 continue;
             }
-            if buffer.available_space() < 4096 {
-                thread::sleep(Duration::from_micros(500));
-                continue;
-            }
 
-            match reader.next_packet() {
-                Ok(packet) => {
-                    if packet.track_id() != track_id {
-                        continue;
-                    }
-                    if let Ok(decoded) = decoder.decode(&packet) {
-                        let spec = *decoded.spec();
-                        let duration = decoded.capacity() as u64;
-                        if sample_buf.is_none()
-                            || sample_buf.as_ref().unwrap().capacity() < duration as usize
-                        {
-                            sample_buf = Some(SampleBuffer::new(duration, spec));
-                        }
+            // Get crossfade duration in samples
+            let cf_duration_ms = crossfade_ms.load(Ordering::Relaxed) as u64;
+            let sample_rate = state.sample_rate.load(Ordering::Relaxed);
+            let cf_duration_samples = (cf_duration_ms * sample_rate) / 1000;
+            let position = state.position_samples.load(Ordering::Relaxed);
+            let duration = state.duration_samples.load(Ordering::Relaxed);
 
-                        if let Some(ref mut buf) = sample_buf {
-                            buf.copy_interleaved_ref(decoded);
-                            let samples = buf.samples();
+            // Check if we should start pre-buffering (approaching end of track)
+            let should_prebuffer = cf_duration_ms > 0
+                && duration > cf_duration_samples
+                && position >= duration.saturating_sub(cf_duration_samples)
+                && crossfade_state == CrossfadeState::Idle
+                && next_decoder.is_none();
 
-                            if let Some(ref mut r) = resampler {
-                                input_accumulator.extend(samples.iter());
-                                let chunk_size = r.input_frames_max();
-                                let channels = 2;
-                                let chunk_len = chunk_size * channels;
+            if should_prebuffer {
+                // Get next track from queue
+                let next_track_opt = {
+                    let q = queue.read();
+                    q.peek_next_track()
+                };
 
-                                while input_accumulator.len() >= chunk_len {
-                                    for c in 0..channels {
-                                        for i in 0..chunk_size {
-                                            resampler_input_buffer[c][i] =
-                                                input_accumulator[(i * channels) + c];
-                                        }
-                                    }
-                                    input_accumulator.drain(0..chunk_len);
+                if let Some(track) = next_track_opt {
+                    if let Ok((r, d, tid, _dur, sr)) = load_track(&track.path) {
+                        next_decoder = Some((r, d, tid));
+                        next_track_info = Some(track);
+                        next_sample_buf = None;
+                        next_input_accumulator.clear();
+                        buffer_b.clear();
 
-                                    if let Ok(output_frames) =
-                                        r.process(&resampler_input_buffer, None)
-                                    {
-                                        let out_len = output_frames[0].len();
-                                        if out_len > 0 {
-                                            let mut interleaved =
-                                                Vec::with_capacity(out_len * channels);
-                                            for i in 0..out_len {
-                                                for c in 0..channels {
-                                                    interleaved.push(output_frames[c][i]);
-                                                }
-                                            }
-                                            let mut written = 0;
-                                            while written < interleaved.len() {
-                                                let w =
-                                                    buffer.push_samples(&interleaved[written..]);
-                                                if w == 0 {
-                                                    thread::sleep(Duration::from_micros(100));
-                                                }
-                                                written += w;
-                                            }
-                                        }
-                                    }
-                                }
+                        // Set up resampler for next track if needed
+                        let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                        if device_rate != 0 && device_rate != sr {
+                            let params = SincInterpolationParameters {
+                                sinc_len: 256,
+                                f_cutoff: 0.95,
+                                interpolation: SincInterpolationType::Linear,
+                                window: WindowFunction::BlackmanHarris2,
+                                oversampling_factor: 128,
+                            };
+                            if let Ok(r) = SincFixedIn::<f32>::new(
+                                device_rate as f64 / sr as f64,
+                                2.0,
+                                params,
+                                1024,
+                                2,
+                            ) {
+                                next_resampler = Some(r);
+                                next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
                             } else {
-                                let mut written = 0;
-                                while written < samples.len() {
-                                    let w = buffer.push_samples(&samples[written..]);
-                                    if w == 0 {
-                                        thread::sleep(Duration::from_micros(100));
-                                    }
-                                    written += w;
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(symphonia::core::errors::Error::IoError(ref e))
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
-                {
-                    let _ = app_handle.emit("track-ended", ());
-
-                    let next_track_opt = {
-                        let mut q = queue.write();
-                        q.get_next_track(false)
-                    };
-
-                    if let Some(next_track_info) = next_track_opt {
-                        let next_path = next_track_info.path.clone();
-                        *state.current_path.write() = Some(next_path.clone());
-
-                        // Emit event to tell frontend track changed
-                        let _ = app_handle.emit("track-changed", next_track_info);
-
-                        if let Ok((r, d, tid, dur, sr)) = load_track(&next_path) {
-                            state.position_samples.store(0, Ordering::Relaxed);
-                            state.duration_samples.store(dur, Ordering::Relaxed);
-                            state.sample_rate.store(sr as u64, Ordering::Relaxed);
-                            current_decoder = Some((r, d, tid));
-                            sample_buf = None;
-                            input_accumulator.clear();
-
-                            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-                            if device_rate != 0 && device_rate != sr as u32 {
-                                let params = SincInterpolationParameters {
-                                    sinc_len: 256,
-                                    f_cutoff: 0.95,
-                                    interpolation: SincInterpolationType::Linear,
-                                    window: WindowFunction::BlackmanHarris2,
-                                    oversampling_factor: 128,
-                                };
-                                if let Ok(r) = SincFixedIn::<f32>::new(
-                                    device_rate as f64 / sr as f64,
-                                    2.0,
-                                    params,
-                                    1024,
-                                    2,
-                                ) {
-                                    resampler = Some(r);
-                                    resampler_input_buffer = vec![vec![0.0; 1024]; 2];
-                                } else {
-                                    resampler = None;
-                                }
-                            } else {
-                                resampler = None;
+                                next_resampler = None;
                             }
                         } else {
-                            state.is_playing.store(false, Ordering::Relaxed);
-                            current_decoder = None;
+                            next_resampler = None;
                         }
-                    } else {
-                        state.is_playing.store(false, Ordering::Relaxed);
-                        current_decoder = None;
+
+                        crossfade_state = CrossfadeState::Prebuffering;
                     }
                 }
-                Err(_) => {}
+            }
+
+            // Decode primary track into buffer_a
+            if buffer_a.available_space() >= 4096 {
+                match reader.next_packet() {
+                    Ok(packet) => {
+                        if packet.track_id() == track_id {
+                            if let Ok(decoded) = decoder.decode(&packet) {
+                                let spec = *decoded.spec();
+                                let dur = decoded.capacity() as u64;
+                                if sample_buf.is_none()
+                                    || sample_buf.as_ref().unwrap().capacity() < dur as usize
+                                {
+                                    sample_buf = Some(SampleBuffer::new(dur, spec));
+                                }
+
+                                if let Some(ref mut buf) = sample_buf {
+                                    buf.copy_interleaved_ref(decoded);
+                                    let samples = buf.samples();
+                                    push_samples_to_buffer(
+                                        samples,
+                                        &buffer_a,
+                                        &mut resampler,
+                                        &mut resampler_input_buffer,
+                                        &mut input_accumulator,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(symphonia::core::errors::Error::IoError(ref e))
+                        if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    {
+                        // Primary track ended - handle transition
+                        handle_track_end(
+                            &mut current_decoder,
+                            &mut next_decoder,
+                            &mut sample_buf,
+                            &mut next_sample_buf,
+                            &mut resampler,
+                            &mut next_resampler,
+                            &mut resampler_input_buffer,
+                            &mut next_resampler_input_buffer,
+                            &mut input_accumulator,
+                            &mut next_input_accumulator,
+                            &mut crossfade_state,
+                            &mut next_track_info,
+                            &crossfade_active,
+                            &state,
+                            &queue,
+                            &buffer_a,
+                            &buffer_b,
+                            &app_handle,
+                        );
+                        continue;
+                    }
+                    Err(_) => {}
+                }
+            }
+
+            // Decode secondary track into buffer_b during prebuffering/crossfade
+            if matches!(
+                crossfade_state,
+                CrossfadeState::Prebuffering | CrossfadeState::Crossfading { .. }
+            ) {
+                if let Some((ref mut next_reader, ref mut next_dec, next_tid)) = next_decoder {
+                    if buffer_b.available_space() >= 4096 {
+                        match next_reader.next_packet() {
+                            Ok(packet) => {
+                                if packet.track_id() == next_tid {
+                                    if let Ok(decoded) = next_dec.decode(&packet) {
+                                        let spec = *decoded.spec();
+                                        let dur = decoded.capacity() as u64;
+                                        if next_sample_buf.is_none()
+                                            || next_sample_buf.as_ref().unwrap().capacity()
+                                                < dur as usize
+                                        {
+                                            next_sample_buf = Some(SampleBuffer::new(dur, spec));
+                                        }
+
+                                        if let Some(ref mut buf) = next_sample_buf {
+                                            buf.copy_interleaved_ref(decoded);
+                                            let samples = buf.samples();
+                                            push_samples_to_buffer(
+                                                samples,
+                                                &buffer_b,
+                                                &mut next_resampler,
+                                                &mut next_resampler_input_buffer,
+                                                &mut next_input_accumulator,
+                                            );
+                                        }
+                                    }
+                                }
+
+                                // Once we have enough in buffer_b, activate crossfade
+                                if crossfade_state == CrossfadeState::Prebuffering
+                                    && BUFFER_SIZE - buffer_b.available_space() >= 8192
+                                {
+                                    crossfade_state = CrossfadeState::Crossfading {
+                                        progress_samples: 0,
+                                        total_samples: cf_duration_samples,
+                                    };
+                                    crossfade_active.store(true, Ordering::Relaxed);
+                                }
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                }
+            }
+
+            // Brief sleep to avoid spinning
+            if buffer_a.available_space() < 4096 {
+                thread::sleep(Duration::from_micros(500));
             }
         } else {
             thread::sleep(Duration::from_millis(10));
         }
     }
+}
+
+/// Push samples to buffer with optional resampling
+fn push_samples_to_buffer(
+    samples: &[f32],
+    buffer: &Arc<AudioBuffer>,
+    resampler: &mut Option<SincFixedIn<f32>>,
+    resampler_input_buffer: &mut Vec<Vec<f32>>,
+    input_accumulator: &mut VecDeque<f32>,
+) {
+    if let Some(ref mut r) = resampler {
+        input_accumulator.extend(samples.iter());
+        let chunk_size = r.input_frames_max();
+        let channels = 2;
+        let chunk_len = chunk_size * channels;
+
+        while input_accumulator.len() >= chunk_len {
+            for c in 0..channels {
+                for i in 0..chunk_size {
+                    resampler_input_buffer[c][i] = input_accumulator[(i * channels) + c];
+                }
+            }
+            input_accumulator.drain(0..chunk_len);
+
+            if let Ok(output_frames) = r.process(resampler_input_buffer, None) {
+                let out_len = output_frames[0].len();
+                if out_len > 0 {
+                    let mut interleaved = Vec::with_capacity(out_len * channels);
+                    for i in 0..out_len {
+                        for c in 0..channels {
+                            interleaved.push(output_frames[c][i]);
+                        }
+                    }
+                    let mut written = 0;
+                    while written < interleaved.len() {
+                        let w = buffer.push_samples(&interleaved[written..]);
+                        if w == 0 {
+                            thread::sleep(Duration::from_micros(100));
+                        }
+                        written += w;
+                    }
+                }
+            }
+        }
+    } else {
+        let mut written = 0;
+        while written < samples.len() {
+            let w = buffer.push_samples(&samples[written..]);
+            if w == 0 {
+                thread::sleep(Duration::from_micros(100));
+            }
+            written += w;
+        }
+    }
+}
+
+/// Handle end of current track - transition to next or stop
+#[allow(clippy::too_many_arguments)]
+fn handle_track_end(
+    current_decoder: &mut Option<DecoderState>,
+    next_decoder: &mut Option<DecoderState>,
+    sample_buf: &mut Option<SampleBuffer<f32>>,
+    next_sample_buf: &mut Option<SampleBuffer<f32>>,
+    resampler: &mut Option<SincFixedIn<f32>>,
+    next_resampler: &mut Option<SincFixedIn<f32>>,
+    resampler_input_buffer: &mut Vec<Vec<f32>>,
+    next_resampler_input_buffer: &mut Vec<Vec<f32>>,
+    input_accumulator: &mut VecDeque<f32>,
+    next_input_accumulator: &mut VecDeque<f32>,
+    crossfade_state: &mut CrossfadeState,
+    next_track_info: &mut Option<crate::queue::Track>,
+    crossfade_active: &Arc<AtomicBool>,
+    state: &PlaybackState,
+    queue: &Arc<RwLock<PlayQueue>>,
+    buffer_a: &Arc<AudioBuffer>,
+    buffer_b: &Arc<AudioBuffer>,
+    app_handle: &AppHandle,
+) {
+    let _ = app_handle.emit("track-ended", ());
+
+    // Check if Repeat One is active - if so, seek to beginning instead of loading next
+    let repeat_mode = queue.read().repeat;
+    if repeat_mode == RepeatMode::One && current_decoder.is_some() {
+        // Seek to beginning of current track
+        if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
+            let seek_time = Time::new(0, 0.0);
+            if reader
+                .seek(
+                    SeekMode::Accurate,
+                    SeekTo::Time {
+                        time: seek_time,
+                        track_id: None,
+                    },
+                )
+                .is_ok()
+            {
+                decoder.reset();
+                buffer_a.clear();
+                buffer_b.clear();
+                input_accumulator.clear();
+                state.position_samples.store(0, Ordering::Relaxed);
+                *crossfade_state = CrossfadeState::Idle;
+                crossfade_active.store(false, Ordering::Relaxed);
+                *next_decoder = None;
+                *next_track_info = None;
+                return;
+            }
+        }
+        // If seek fails, fall through to reload
+    }
+
+    // If we were crossfading, the next decoder is already set up
+    if next_decoder.is_some() {
+        // Promote next decoder to current
+        *current_decoder = next_decoder.take();
+        *sample_buf = next_sample_buf.take();
+        *resampler = next_resampler.take();
+        std::mem::swap(resampler_input_buffer, next_resampler_input_buffer);
+        std::mem::swap(input_accumulator, next_input_accumulator);
+
+        // Swap buffers: buffer_b becomes the new buffer_a source
+        // Clear buffer_a and copy from buffer_b, or just let output drain buffer_b
+        buffer_a.clear();
+
+        if let Some(track) = next_track_info.take() {
+            *state.current_path.write() = Some(track.path.clone());
+            let _ = app_handle.emit("track-changed", track.clone());
+
+            // Update queue position
+            {
+                let mut q = queue.write();
+                q.get_next_track(false); // Advance queue
+            }
+
+            // Update state for new track
+            if let Some((ref reader, _, _)) = current_decoder {
+                if let Some(track) = reader.tracks().iter().find(|t| t.codec_params.codec != CODEC_TYPE_NULL) {
+                    state.position_samples.store(0, Ordering::Relaxed);
+                    state.duration_samples.store(track.codec_params.n_frames.unwrap_or(0), Ordering::Relaxed);
+                    state.sample_rate.store(track.codec_params.sample_rate.unwrap_or(44100) as u64, Ordering::Relaxed);
+                }
+            }
+        }
+
+        *crossfade_state = CrossfadeState::Idle;
+        crossfade_active.store(false, Ordering::Relaxed);
+        return;
+    }
+
+    // No crossfade - load next track directly
+    let next_track_opt = {
+        let mut q = queue.write();
+        q.get_next_track(false)
+    };
+
+    if let Some(track) = next_track_opt {
+        let next_path = track.path.clone();
+        *state.current_path.write() = Some(next_path.clone());
+        let _ = app_handle.emit("track-changed", track);
+
+        if let Ok((r, d, tid, dur, sr)) = load_track(&next_path) {
+            state.position_samples.store(0, Ordering::Relaxed);
+            state.duration_samples.store(dur, Ordering::Relaxed);
+            state.sample_rate.store(sr as u64, Ordering::Relaxed);
+            *current_decoder = Some((r, d, tid));
+            *sample_buf = None;
+            input_accumulator.clear();
+            buffer_a.clear();
+            buffer_b.clear();
+
+            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+            if device_rate != 0 && device_rate != sr {
+                let params = SincInterpolationParameters {
+                    sinc_len: 256,
+                    f_cutoff: 0.95,
+                    interpolation: SincInterpolationType::Linear,
+                    window: WindowFunction::BlackmanHarris2,
+                    oversampling_factor: 128,
+                };
+                if let Ok(r) = SincFixedIn::<f32>::new(
+                    device_rate as f64 / sr as f64,
+                    2.0,
+                    params,
+                    1024,
+                    2,
+                ) {
+                    *resampler = Some(r);
+                    *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                } else {
+                    *resampler = None;
+                }
+            } else {
+                *resampler = None;
+            }
+        } else {
+            state.is_playing.store(false, Ordering::Relaxed);
+            *current_decoder = None;
+        }
+    } else {
+        state.is_playing.store(false, Ordering::Relaxed);
+        *current_decoder = None;
+    }
+
+    *crossfade_state = CrossfadeState::Idle;
+    crossfade_active.store(false, Ordering::Relaxed);
 }
 
 fn load_track(path: &str) -> LoadTrackResult {

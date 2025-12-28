@@ -3,13 +3,16 @@ import "./styles.css";
 
 import { PlayerProvider } from "./context/PlayerContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./components/Toast";
 
 function App() {
   return (
     <ThemeProvider>
-      <PlayerProvider>
-        <AppLayout />
-      </PlayerProvider>
+      <ToastProvider>
+        <PlayerProvider>
+          <AppLayout />
+        </PlayerProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

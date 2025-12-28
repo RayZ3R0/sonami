@@ -168,6 +168,35 @@ impl PlayQueue {
         self.current_index.and_then(|idx| self.get_track_at(idx))
     }
 
+    /// Peek at the next track without advancing the queue index
+    pub fn peek_next_track(&self) -> Option<Track> {
+        // Check manual queue first
+        if let Some(track) = self.queue.front() {
+            return Some(track.clone());
+        }
+
+        // For Repeat One, return the current track
+        if self.repeat == RepeatMode::One {
+            return self.get_current_track();
+        }
+
+        // Calculate next index without modifying state
+        let next_idx = match self.current_index {
+            Some(idx) => idx + 1,
+            None => 0,
+        };
+
+        if next_idx >= self.tracks.len() {
+            if self.repeat == RepeatMode::All {
+                return self.get_track_at(0);
+            } else {
+                return None;
+            }
+        }
+
+        self.get_track_at(next_idx)
+    }
+
     pub fn play_track_by_path(&mut self, path: &str) {
         // Find index of track with this path
         if let Some(index) = self.tracks.iter().position(|t| t.path == path) {

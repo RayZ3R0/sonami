@@ -567,3 +567,42 @@ body {
     mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+@keyframes toast-enter {
+    0% {
+        opacity: 0;
+        transform: translateX(100%) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes toast-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-toast-enter {
+    animation: toast-enter 0.4s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+.animate-toast-shake {
+    animation: toast-shake 0.5s ease-in-out;
+}
+
+/* Toast glass effect enhancement */
+.toast-glass {
+    background: var(--theme-glass);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 
+        0 8px 32px var(--theme-shadow-color),
+        0 0 0 1px var(--theme-glass-border),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
