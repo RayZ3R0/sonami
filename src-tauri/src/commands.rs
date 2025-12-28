@@ -156,14 +156,18 @@ pub async fn play_track(
 ) -> Result<(), String> {
     state.play(path.clone());
 
-    // Find the track info to emit event
+    // Find the track info to emit event and update OS controls
     let track = {
         let q = state.queue.read();
         q.tracks.iter().find(|t| t.path == path).cloned()
     };
 
-    if let Some(t) = track {
-        let _ = app.emit("track-changed", t);
+    if let Some(ref t) = track {
+        let _ = app.emit("track-changed", t.clone());
+        state
+            .media_controls
+            .set_metadata(&t.title, &t.artist, &t.album);
+        state.media_controls.set_playback(true);
     }
 
     Ok(())
@@ -172,12 +176,14 @@ pub async fn play_track(
 #[tauri::command]
 pub async fn pause_track(state: State<'_, AudioManager>) -> Result<(), String> {
     state.pause();
+    state.media_controls.set_playback(false);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn resume_track(state: State<'_, AudioManager>) -> Result<(), String> {
     state.resume();
+    state.media_controls.set_playback(true);
     Ok(())
 }
 
@@ -251,9 +257,13 @@ pub async fn next_track(app: AppHandle, state: State<'_, AudioManager>) -> Resul
         q.get_next_track(true)
     };
 
-    if let Some(track) = next_track {
+    if let Some(ref track) = next_track {
         state.play(track.path.clone());
-        let _ = app.emit("track-changed", track);
+        let _ = app.emit("track-changed", track.clone());
+        state
+            .media_controls
+            .set_metadata(&track.title, &track.artist, &track.album);
+        state.media_controls.set_playback(true);
     }
     Ok(())
 }
@@ -265,9 +275,13 @@ pub async fn prev_track(app: AppHandle, state: State<'_, AudioManager>) -> Resul
         q.get_prev_track()
     };
 
-    if let Some(track) = prev_track {
+    if let Some(ref track) = prev_track {
         state.play(track.path.clone());
-        let _ = app.emit("track-changed", track);
+        let _ = app.emit("track-changed", track.clone());
+        state
+            .media_controls
+            .set_metadata(&track.title, &track.artist, &track.album);
+        state.media_controls.set_playback(true);
     }
     Ok(())
 }

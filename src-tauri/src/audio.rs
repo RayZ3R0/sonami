@@ -175,12 +175,14 @@ pub enum DecoderCommand {
 }
 
 use crate::dsp::DspChain;
+use crate::media_controls::MediaControlsManager;
 use crate::queue::PlayQueue;
 
 pub struct AudioManager {
     pub state: PlaybackState,
     pub queue: Arc<RwLock<PlayQueue>>,
     pub dsp: Arc<RwLock<DspChain>>,
+    pub media_controls: Arc<MediaControlsManager>,
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
 }
 
@@ -196,6 +198,7 @@ impl AudioManager {
 
         let queue = Arc::new(RwLock::new(PlayQueue::new()));
         let dsp = Arc::new(RwLock::new(DspChain::new()));
+        let media_controls = Arc::new(MediaControlsManager::new());
 
         let state_decoder = state.clone();
         let state_output = state.clone();
@@ -225,6 +228,7 @@ impl AudioManager {
             command_tx,
             queue,
             dsp,
+            media_controls,
         }
     }
 
@@ -261,6 +265,10 @@ impl AudioManager {
     }
     pub fn is_playing(&self) -> bool {
         self.state.is_playing.load(Ordering::Relaxed)
+    }
+
+    pub fn command_tx_clone(&self) -> std::sync::mpsc::Sender<DecoderCommand> {
+        self.command_tx.clone()
     }
 }
 

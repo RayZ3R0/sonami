@@ -84,7 +84,7 @@ impl DspProcessor for LoudnessNormalizer {
         for &s in samples.iter() {
             block_sum += (s as f64) * (s as f64);
         }
-        
+
         self.rms_sum += block_sum;
         self.rms_count += samples.len() as u64;
 
@@ -92,7 +92,7 @@ impl DspProcessor for LoudnessNormalizer {
         if self.rms_count > 0 {
             let rms = (self.rms_sum / self.rms_count as f64).sqrt() as f32;
             let current_db = Self::linear_to_db(rms);
-            
+
             // Calculate target gain
             let target_gain = if current_db > -60.0 {
                 Self::db_to_linear(self.target_db - current_db)
@@ -106,9 +106,9 @@ impl DspProcessor for LoudnessNormalizer {
             } else {
                 self.release_coeff
             };
-            
+
             self.current_gain += coeff * (target_gain - self.current_gain);
-            
+
             // Clamp gain to reasonable range
             self.current_gain = self.current_gain.clamp(0.1, 4.0);
         }
@@ -147,4 +147,3 @@ impl DspProcessor for VolumeNormalizer {
         }
     }
 }
-

@@ -1,39 +1,61 @@
+use parking_lot::RwLock;
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 
 pub struct MediaControlsManager {
-    controls: Option<MediaControls>,
+    controls: RwLock<Option<MediaControls>>,
 }
 
+unsafe impl Send for MediaControlsManager {}
+unsafe impl Sync for MediaControlsManager {}
+
 impl MediaControlsManager {
+    /// Create media controls. On Windows, pass the window handle; on other platforms, pass None.
+    #[cfg(not(target_os = "windows"))]
     pub fn new() -> Self {
-        #[cfg(not(target_os = "windows"))]
-        let hwnd = None;
-
-        #[cfg(target_os = "windows")]
-        let hwnd = None; // Will be set later with window handle
-
         let config = PlatformConfig {
             dbus_name: "sonami",
             display_name: "Sonami",
-            hwnd,
+            hwnd: None,
         };
 
         let controls = MediaControls::new(config).ok();
-
-        Self { controls }
+        Self {
+            controls: RwLock::new(controls),
+        }
     }
 
-    pub fn attach_handler<F>(&mut self, handler: F)
+    #[cfg(target_os = "windows")]
+    pub fn new() -> Self {
+        // On Windows, we need to defer initialization until we have a window handle
+        Self {
+            controls: RwLock::new(None),
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn init_with_hwnd(&self, hwnd: *mut std::ffi::c_void) {
+        let config = PlatformConfig {
+            dbus_name: "sonami",
+            display_name: "Sonami",
+            hwnd: Some(hwnd),
+        };
+
+        if let Ok(controls) = MediaControls::new(config) {
+            *self.controls.write() = Some(controls);
+        }
+    }
+
+    pub fn attach_handler<F>(&self, handler: F)
     where
         F: Fn(MediaControlEvent) + Send + 'static,
     {
-        if let Some(ref mut controls) = self.controls {
+        if let Some(ref mut controls) = *self.controls.write() {
             let _ = controls.attach(handler);
         }
     }
 
-    pub fn set_metadata(&mut self, title: &str, artist: &str, album: &str) {
-        if let Some(ref mut controls) = self.controls {
+    pub fn set_metadata(&self, title: &str, artist: &str, album: &str) {
+        if let Some(ref mut controls) = *self.controls.write() {
             let _ = controls.set_metadata(MediaMetadata {
                 title: Some(title),
                 artist: Some(artist),
@@ -43,14 +65,20 @@ impl MediaControlsManager {
         }
     }
 
-    pub fn set_playback(&mut self, playing: bool) {
-        if let Some(ref mut controls) = self.controls {
+    pub fn set_playback(&self, playing: bool) {
+        if let Some(ref mut controls) = *self.controls.write() {
             let playback = if playing {
                 MediaPlayback::Playing { progress: None }
             } else {
                 MediaPlayback::Paused { progress: None }
             };
             let _ = controls.set_playback(playback);
+        }
+    }
+
+    pub fn set_stopped(&self) {
+        if let Some(ref mut controls) = *self.controls.write() {
+            let _ = controls.set_playback(MediaPlayback::Stopped);
         }
     }
 }

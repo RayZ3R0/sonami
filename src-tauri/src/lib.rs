@@ -5,6 +5,7 @@ pub mod media_controls;
 pub mod queue;
 
 use audio::AudioManager;
+use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -15,7 +16,50 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle().clone();
-            let audio_manager = AudioManager::new(handle);
+            let audio_manager = AudioManager::new(handle.clone());
+
+            // Set up OS media control event handlers
+            let state_for_controls = audio_manager.state.clone();
+            let queue_for_controls = audio_manager.queue.clone();
+            let cmd_tx = audio_manager.command_tx_clone();
+
+            audio_manager
+                .media_controls
+                .attach_handler(move |event| match event {
+                    MediaControlEvent::Play => {
+                        state_for_controls
+                            .is_playing
+                            .store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    MediaControlEvent::Pause => {
+                        state_for_controls
+                            .is_playing
+                            .store(false, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    MediaControlEvent::Toggle => {
+                        let current = state_for_controls
+                            .is_playing
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        state_for_controls
+                            .is_playing
+                            .store(!current, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    MediaControlEvent::Next => {
+                        if let Some(track) = queue_for_controls.write().get_next_track(true) {
+                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path));
+                        }
+                    }
+                    MediaControlEvent::Previous => {
+                        if let Some(track) = queue_for_controls.write().get_prev_track() {
+                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path));
+                        }
+                    }
+                    MediaControlEvent::Stop => {
+                        let _ = cmd_tx.send(audio::DecoderCommand::Stop);
+                    }
+                    _ => {}
+                });
+
             app.manage(audio_manager);
             Ok(())
         })
