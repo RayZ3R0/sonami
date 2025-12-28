@@ -228,11 +228,23 @@ body {
     color: var(--theme-accent);
 }
 
+.hover\:text-theme-error:hover {
+    color: var(--theme-error);
+}
+
+.text-theme-error {
+    color: var(--theme-error);
+}
+
+.ring-theme-accent {
+    --tw-ring-color: var(--theme-accent);
+}
+
 /* ============================================
    NAVIGATION ITEM STYLES
    ============================================ */
 .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200;
+    @apply flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200;
 }
 
 .nav-item-default {
@@ -304,6 +316,21 @@ body {
 
 .player-control:active {
     transform: scale(0.95);
+}
+
+/* Small player controls (shuffle, repeat) */
+.player-control-sm {
+    color: var(--theme-text-muted);
+    @apply transition-all transform p-1 rounded-md;
+}
+
+.player-control-sm:hover {
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-hover);
+}
+
+.player-control-sm:active {
+    transform: scale(0.9);
 }
 
 /* ============================================
@@ -468,4 +495,52 @@ body {
 
 .animate-scale-in {
     animation: scale-in 0.2s ease-out forwards;
+}
+
+/* ============================================
+   EQUALIZER ANIMATION (Now Playing indicator)
+   ============================================ */
+@keyframes eq-bar {
+    0%, 100% { height: 4px; }
+    50% { height: 16px; }
+}
+
+.animate-eq-1 {
+    animation: eq-bar 0.8s ease-in-out infinite;
+    animation-delay: 0s;
+}
+
+.animate-eq-2 {
+    animation: eq-bar 0.8s ease-in-out infinite;
+    animation-delay: 0.2s;
+}
+
+.animate-eq-3 {
+    animation: eq-bar 0.8s ease-in-out infinite;
+    animation-delay: 0.4s;
+}
+
+/* ============================================
+   MARQUEE TEXT ANIMATION (Scrolling titles)
+   ============================================ */
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+    /* Pause at start */
+    10% {
+        transform: translateX(0);
+    }
+    /* Scroll to show second copy */
+    90% {
+        transform: translateX(-50%);
+    }
+    /* Pause at end */
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.animate-marquee {
+    animation: marquee 12s linear infinite;
 }

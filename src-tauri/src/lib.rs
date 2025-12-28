@@ -14,6 +14,7 @@ pub fn run() {
         .manage(audio_manager)
         .invoke_handler(tauri::generate_handler![
             commands::import_music,
+            commands::import_folder,
             commands::play_track,
             commands::pause_track,
             commands::resume_track,

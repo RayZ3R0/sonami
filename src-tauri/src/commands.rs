@@ -6,7 +6,13 @@ use lofty::picture::MimeType;
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::Path;
+
+// Supported audio extensions
+const AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "aiff", "ape", "opus", "webm",
+];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Track {
@@ -19,6 +25,92 @@ pub struct Track {
     pub path: String,
 }
 
+/// Parse a single audio file into a Track
+fn parse_audio_file(path_str: &str) -> Option<Track> {
+    let path = Path::new(path_str);
+    
+    let tagged_file = match Probe::open(path).and_then(|p| p.read()) {
+        Ok(f) => f,
+        Err(_) => return None,
+    };
+
+    let tag = tagged_file.primary_tag();
+
+    let title = tag
+        .as_ref()
+        .and_then(|t| t.title().map(|c| c.into_owned()))
+        .unwrap_or_else(|| {
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Unknown Title")
+                .to_string()
+        });
+    let artist = tag
+        .as_ref()
+        .and_then(|t| t.artist().map(|c| c.into_owned()))
+        .unwrap_or_else(|| "Unknown Artist".to_string());
+    let album = tag
+        .as_ref()
+        .and_then(|t| t.album().map(|c| c.into_owned()))
+        .unwrap_or_else(|| "Unknown Album".to_string());
+
+    let duration = tagged_file.properties().duration().as_secs();
+
+    let mut cover_image = None;
+    if let Some(t) = tag {
+        if let Some(picture) = t.pictures().first() {
+            let b64 = general_purpose::STANDARD.encode(picture.data());
+            let mime = picture.mime_type();
+            let mime_type = mime.unwrap_or(&MimeType::Jpeg);
+            let mime_str = match mime_type {
+                MimeType::Png => "image/png",
+                MimeType::Jpeg => "image/jpeg",
+                MimeType::Tiff => "image/tiff",
+                MimeType::Bmp => "image/bmp",
+                MimeType::Gif => "image/gif",
+                _ => "application/octet-stream",
+            };
+            cover_image = Some(format!("data:{};base64,{}", mime_str, b64));
+        }
+    }
+
+    Some(Track {
+        id: uuid::Uuid::new_v4().to_string(),
+        title,
+        artist,
+        album,
+        duration,
+        cover_image,
+        path: path_str.to_string(),
+    })
+}
+
+/// Check if a file has a supported audio extension
+fn is_audio_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+/// Recursively scan a directory for audio files
+fn scan_directory(dir: &Path, tracks: &mut Vec<Track>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                scan_directory(&path, tracks);
+            } else if is_audio_file(&path) {
+                if let Some(path_str) = path.to_str() {
+                    if let Some(track) = parse_audio_file(path_str) {
+                        tracks.push(track);
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn import_music(app: AppHandle) -> Result<Vec<Track>, String> {
     use tauri_plugin_dialog::DialogExt;
@@ -27,62 +119,39 @@ pub async fn import_music(app: AppHandle) -> Result<Vec<Track>, String> {
 
     if let Some(path_buf) = file_path {
         let path_str = path_buf.to_string();
-        let path = Path::new(&path_str);
-
-
-        let tagged_file = Probe::open(path)
-            .map_err(|e| e.to_string())?
-            .read()
-            .map_err(|e| e.to_string())?;
-
-        let tag = tagged_file.primary_tag();
-
-        let title = tag
-            .as_ref()
-            .and_then(|t| t.title().map(|c| c.into_owned()))
-            .unwrap_or_else(|| "Unknown Title".to_string());
-        let artist = tag
-            .as_ref()
-            .and_then(|t| t.artist().map(|c| c.into_owned()))
-            .unwrap_or_else(|| "Unknown Artist".to_string());
-        let album = tag
-            .as_ref()
-            .and_then(|t| t.album().map(|c| c.into_owned()))
-            .unwrap_or_else(|| "Unknown Album".to_string());
-
-
-        let duration = tagged_file.properties().duration().as_secs();
-
-
-        let mut cover_image = None;
-        if let Some(t) = tag {
-            if let Some(picture) = t.pictures().first() {
-                let b64 = general_purpose::STANDARD.encode(picture.data());
-                let mime = picture.mime_type();
-                let mime_type = mime.unwrap_or(&MimeType::Jpeg);
-                let mime_str = match mime_type {
-                    MimeType::Png => "image/png",
-                    MimeType::Jpeg => "image/jpeg",
-                    MimeType::Tiff => "image/tiff",
-                    MimeType::Bmp => "image/bmp",
-                    MimeType::Gif => "image/gif",
-                    _ => "application/octet-stream",
-                };
-                cover_image = Some(format!("data:{};base64,{}", mime_str, b64));
-            }
+        if let Some(track) = parse_audio_file(&path_str) {
+            Ok(vec![track])
+        } else {
+            Err("Failed to parse audio file".to_string())
         }
+    } else {
+        Ok(vec![])
+    }
+}
 
-        let track = Track {
-            id: uuid::Uuid::new_v4().to_string(),
-            title,
-            artist,
-            album,
-            duration,
-            cover_image,
-            path: path_str,
-        };
+/// Import an entire folder of music recursively
+#[tauri::command]
+pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
+    use tauri_plugin_dialog::DialogExt;
 
-        Ok(vec![track])
+    let folder_path = app.dialog().file().blocking_pick_folder();
+
+    if let Some(path_buf) = folder_path {
+        let path_str = path_buf.to_string();
+        let path = Path::new(&path_str);
+        
+        let mut tracks = Vec::new();
+        scan_directory(path, &mut tracks);
+        
+        // Sort by artist, then album, then title
+        tracks.sort_by(|a, b| {
+            a.artist
+                .cmp(&b.artist)
+                .then_with(|| a.album.cmp(&b.album))
+                .then_with(|| a.title.cmp(&b.title))
+        });
+        
+        Ok(tracks)
     } else {
         Ok(vec![])
     }
@@ -118,31 +187,26 @@ pub async fn set_volume(state: State<'_, AudioManager>, volume: f32) -> Result<(
     Ok(())
 }
 
-
 #[tauri::command]
 pub async fn get_position(state: State<'_, AudioManager>) -> Result<f64, String> {
     Ok(state.get_position())
 }
-
 
 #[tauri::command]
 pub async fn get_duration(state: State<'_, AudioManager>) -> Result<f64, String> {
     Ok(state.get_duration())
 }
 
-
 #[tauri::command]
 pub async fn get_is_playing(state: State<'_, AudioManager>) -> Result<bool, String> {
     Ok(state.is_playing())
 }
-
 
 #[tauri::command]
 pub async fn queue_next_track(state: State<'_, AudioManager>, path: String) -> Result<(), String> {
     state.queue_next(path);
     Ok(())
 }
-
 
 #[derive(Serialize)]
 pub struct PlaybackInfo {

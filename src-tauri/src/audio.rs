@@ -18,12 +18,9 @@ use symphonia::core::units::Time;
 
 const BUFFER_SIZE: usize = 65536; // Larger buffer for stability
 
-
 type DecoderState = (Box<dyn FormatReader>, Box<dyn Decoder>, u32);
 
-
 type LoadTrackResult = Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String>;
-
 
 pub struct AudioBuffer {
     data: Box<[f32]>,
@@ -57,7 +54,6 @@ impl AudioBuffer {
 
         let to_write = (samples.len() as u32).min(available) as usize;
 
-
         let data_ptr = self.data.as_ptr() as *mut f32;
         for (i, &sample) in samples.iter().enumerate().take(to_write) {
             let pos = ((write_pos as usize) + i) % (self.capacity as usize);
@@ -84,7 +80,6 @@ impl AudioBuffer {
         };
 
         let to_read = (out.len() as u32).min(available) as usize;
-
 
         let data_ptr = self.data.as_ptr();
         for (i, out_sample) in out.iter_mut().enumerate().take(to_read) {
@@ -132,7 +127,6 @@ impl AudioBuffer {
         self.len() == 0
     }
 }
-
 
 #[derive(Clone)]
 pub struct PlaybackState {
@@ -219,7 +213,6 @@ impl AudioManager {
         let next_track: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
         let next_track_decoder = next_track.clone();
 
-
         thread::spawn(move || {
             decoder_thread(
                 command_rx,
@@ -228,7 +221,6 @@ impl AudioManager {
                 next_track_decoder,
             );
         });
-
 
         thread::spawn(move || {
             run_audio_output(buffer_output, state_output);
@@ -324,7 +316,6 @@ fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState) {
         .expect("Failed to build output stream");
 
     stream.play().expect("Failed to start stream");
-
 
     loop {
         thread::sleep(Duration::from_secs(1));

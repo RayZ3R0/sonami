@@ -8,6 +8,8 @@ interface PlaybackInfo {
     is_playing: boolean;
 }
 
+export type RepeatMode = "off" | "all" | "one";
+
 interface PlayerContextType {
     tracks: Track[];
     currentTrack: Track | null;
@@ -15,30 +17,111 @@ interface PlayerContextType {
     currentTime: number;
     duration: number;
     volume: number;
+    shuffle: boolean;
+    repeatMode: RepeatMode;
+    queue: Track[];
+    isQueueOpen: boolean;
+    setIsQueueOpen: (open: boolean) => void;
     importMusic: () => Promise<void>;
+    importFolder: () => Promise<void>;
     playTrack: (track: Track) => Promise<void>;
     togglePlay: () => Promise<void>;
     seek: (time: number) => Promise<void>;
     setVolume: (vol: number) => Promise<void>;
     nextTrack: () => Promise<void>;
     prevTrack: () => Promise<void>;
+    toggleShuffle: () => void;
+    toggleRepeat: () => void;
     queueNextTrack: (track: Track) => Promise<void>;
+    addToQueue: (track: Track) => void;
+    removeFromQueue: (trackId: string) => void;
+    clearQueue: () => void;
+    clearLibrary: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
+// Storage keys for persistence
+const STORAGE_KEYS = {
+    TRACKS: "sonami-library-tracks",
+    VOLUME: "sonami-volume",
+    SHUFFLE: "sonami-shuffle",
+    REPEAT: "sonami-repeat",
+};
+
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const [tracks, setTracks] = useState<Track[]>(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.TRACKS);
+        return saved ? JSON.parse(saved) : [];
+    });
     const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [volume, setVolumeState] = useState(1.0);
-
+    const [volume, setVolumeState] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.VOLUME);
+        return saved ? parseFloat(saved) : 1.0;
+    });
+    const [shuffle, setShuffle] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.SHUFFLE);
+        return saved === "true";
+    });
+    const [repeatMode, setRepeatMode] = useState<RepeatMode>(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.REPEAT);
+        return (saved as RepeatMode) || "off";
+    });
+    const [queue, setQueue] = useState<Track[]>([]);
+    const [isQueueOpen, setIsQueueOpen] = useState(false);
 
     const isSeeking = useRef(false);
     const pendingTrackLoad = useRef<string | null>(null);
     const lastTrackId = useRef<string | null>(null);
+    const shuffledIndices = useRef<number[]>([]);
+
+    // Persist tracks to localStorage
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.TRACKS, JSON.stringify(tracks));
+    }, [tracks]);
+
+    // Persist settings
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
+    }, [volume]);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.SHUFFLE, shuffle.toString());
+        // Regenerate shuffle order when toggle changes
+        if (shuffle && tracks.length > 0) {
+            shuffledIndices.current = generateShuffleOrder(tracks.length);
+        }
+    }, [shuffle, tracks.length]);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.REPEAT, repeatMode);
+    }, [repeatMode]);
+
+    // Generate a shuffled order of indices
+    const generateShuffleOrder = (length: number): number[] => {
+        const indices = Array.from({ length }, (_, i) => i);
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        return indices;
+    };
+
+    // Get the next track index based on shuffle mode
+    const getNextTrackIndex = useCallback((currentIndex: number, direction: 1 | -1 = 1): number => {
+        if (tracks.length === 0) return -1;
+        
+        if (shuffle) {
+            const shufflePos = shuffledIndices.current.indexOf(currentIndex);
+            const nextShufflePos = (shufflePos + direction + shuffledIndices.current.length) % shuffledIndices.current.length;
+            return shuffledIndices.current[nextShufflePos];
+        }
+        
+        return (currentIndex + direction + tracks.length) % tracks.length;
+    }, [shuffle, tracks.length]);
 
     // Sync playback state
     useEffect(() => {
@@ -94,25 +177,66 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const handleTrackEnd = useCallback(async () => {
         if (!currentTrack || tracks.length === 0) return;
 
-        const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        if (currentIndex < tracks.length - 1) {
-            // There's a next track
-            const nextIndex = currentIndex + 1;
-            await playTrack(tracks[nextIndex]);
-        } else {
-            // End of playlist
-            setIsPlaying(false);
+        // Handle repeat one mode
+        if (repeatMode === "one") {
+            await seek(0);
+            await invoke("resume_track");
+            setIsPlaying(true);
+            return;
         }
-    }, [currentTrack, tracks]);
+
+        // Check if there are tracks in the manual queue
+        if (queue.length > 0) {
+            const nextTrack = queue[0];
+            setQueue(prev => prev.slice(1));
+            await playTrack(nextTrack);
+            return;
+        }
+
+        const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
+        const nextIndex = getNextTrackIndex(currentIndex, 1);
+
+        // Check if we've reached the end (in non-shuffle mode)
+        const isLastTrack = !shuffle && currentIndex >= tracks.length - 1;
+
+        if (isLastTrack && repeatMode === "off") {
+            // End of playlist, stop
+            setIsPlaying(false);
+        } else {
+            // Play next track (or loop back if repeat all)
+            await playTrack(tracks[nextIndex]);
+        }
+    }, [currentTrack, tracks, repeatMode, shuffle, queue, getNextTrackIndex]);
 
     const importMusic = async () => {
         try {
             const newTracks = await invoke<Track[]>("import_music");
             if (newTracks && newTracks.length > 0) {
-                setTracks(prev => [...prev, ...newTracks]);
+                // Deduplicate by path
+                setTracks(prev => {
+                    const existingPaths = new Set(prev.map(t => t.path));
+                    const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
+                    return [...prev, ...uniqueNew];
+                });
             }
         } catch (e) {
             console.error("Failed to import music:", e);
+        }
+    };
+
+    const importFolder = async () => {
+        try {
+            const newTracks = await invoke<Track[]>("import_folder");
+            if (newTracks && newTracks.length > 0) {
+                // Deduplicate by path
+                setTracks(prev => {
+                    const existingPaths = new Set(prev.map(t => t.path));
+                    const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
+                    return [...prev, ...uniqueNew];
+                });
+            }
+        } catch (e) {
+            console.error("Failed to import folder:", e);
         }
     };
 
@@ -182,8 +306,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const nextTrack = async () => {
         if (!currentTrack || tracks.length === 0) return;
+        
+        // Check queue first
+        if (queue.length > 0) {
+            const nextFromQueue = queue[0];
+            setQueue(prev => prev.slice(1));
+            await playTrack(nextFromQueue);
+            return;
+        }
+        
         const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        const nextIndex = (currentIndex + 1) % tracks.length;
+        const nextIndex = getNextTrackIndex(currentIndex, 1);
         await playTrack(tracks[nextIndex]);
     };
 
@@ -197,8 +330,39 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+        const prevIndex = getNextTrackIndex(currentIndex, -1);
         await playTrack(tracks[prevIndex]);
+    };
+
+    const toggleShuffle = () => {
+        setShuffle(prev => !prev);
+    };
+
+    const toggleRepeat = () => {
+        setRepeatMode(prev => {
+            if (prev === "off") return "all";
+            if (prev === "all") return "one";
+            return "off";
+        });
+    };
+
+    const addToQueue = (track: Track) => {
+        setQueue(prev => [...prev, track]);
+    };
+
+    const removeFromQueue = (trackId: string) => {
+        setQueue(prev => prev.filter(t => t.id !== trackId));
+    };
+
+    const clearQueue = () => {
+        setQueue([]);
+    };
+
+    const clearLibrary = () => {
+        setTracks([]);
+        setCurrentTrack(null);
+        setQueue([]);
+        localStorage.removeItem(STORAGE_KEYS.TRACKS);
     };
 
     const queueNextTrack = async (track: Track) => {
@@ -212,7 +376,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return (
         <PlayerContext.Provider value={{
             tracks, currentTrack, isPlaying, currentTime, duration, volume,
-            importMusic, playTrack, togglePlay, seek, setVolume, nextTrack, prevTrack, queueNextTrack
+            shuffle, repeatMode, queue, isQueueOpen, setIsQueueOpen,
+            importMusic, importFolder, playTrack, togglePlay, seek, setVolume, 
+            nextTrack, prevTrack, toggleShuffle, toggleRepeat,
+            queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary
         }}>
             {children}
         </PlayerContext.Provider>
