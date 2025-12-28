@@ -535,16 +535,16 @@ where
 
     // Crossfade progress tracking within output callback
     let crossfade_progress = Arc::new(AtomicU64::new(0));
-    
+
     // Track if we're draining buffer_b after crossfade transition
     // This ensures we play ALL of buffer_b before switching to buffer_a
     let draining_buffer_b = Arc::new(AtomicBool::new(false));
     let draining_buffer_b_clone = draining_buffer_b.clone();
-    
+
     // Debug: state tracking
     let debug_state = Arc::new(AtomicU32::new(0)); // 0=normal, 1=crossfade, 2=crossfade_complete, 3=draining, 4=drain_end
     let debug_callback_count = Arc::new(AtomicU64::new(0));
-    
+
     // Mini-crossfade state for the buffer_b to buffer_a transition
     const MICRO_FADE_SAMPLES: usize = 512; // ~10ms at 48kHz
     let micro_fade_active = Arc::new(AtomicBool::new(false));
@@ -556,7 +556,7 @@ where
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
             let callback_num = debug_callback_count.fetch_add(1, Ordering::Relaxed);
-            
+
             let is_playing = state.is_playing.load(Ordering::Relaxed);
             let volume = state.get_volume();
 
@@ -568,7 +568,7 @@ where
             // Check states FIRST before deciding which buffers to pop from
             let is_crossfading = crossfade_active.load(Ordering::Acquire);
             let is_draining = draining_buffer_b_clone.load(Ordering::Acquire);
-            
+
             let cf_duration_samples = {
                 let ms = crossfade_ms.load(Ordering::Relaxed) as u64;
                 (ms * sample_rate as u64) / 1000
@@ -576,10 +576,10 @@ where
 
             // Check buffer_b state BEFORE popping to determine if we need micro-fade
             let samples_in_b_before_pop = BUFFER_SIZE - buffer_b.available_space();
-            let need_micro_fade = is_draining && !is_crossfading && 
-                samples_in_b_before_pop > 0 && 
+            let need_micro_fade = is_draining && !is_crossfading &&
+                samples_in_b_before_pop > 0 &&
                 samples_in_b_before_pop <= MICRO_FADE_SAMPLES + data.len(); // Start micro-fade early enough
-            
+
             if need_micro_fade && !micro_fade_active_clone.load(Ordering::Relaxed) {
                 micro_fade_active_clone.store(true, Ordering::Release);
                 micro_fade_progress_clone.store(0, Ordering::Relaxed);
@@ -594,7 +594,7 @@ where
 
             // Only pop from the buffers we actually need based on current state
             let is_micro_fading = micro_fade_active_clone.load(Ordering::Relaxed);
-            
+
             if is_crossfading {
                 // Crossfade: need both buffers
                 read_a = buffer_a.pop_samples(&mut temp_buf_a);
@@ -614,18 +614,18 @@ where
             // Mix samples
             let mut output_buf = vec![0.0; data.len()];
             let read_samples = read_a.max(read_b);
-            
+
             // Debug: track state transitions (only log on state change or every 100 callbacks during crossfade)
             let prev_state = debug_state.load(Ordering::Relaxed);
 
             if is_crossfading {
                 // When crossfade starts, mark that we'll need to drain buffer_b
                 draining_buffer_b_clone.store(true, Ordering::Release);
-                
+
                 // Crossfade mode - mix both buffers
                 let progress = crossfade_progress.load(Ordering::Relaxed);
                 let crossfade_complete = progress >= cf_duration_samples;
-                
+
                 let new_state = if crossfade_complete { 2 } else { 1 };
                 if prev_state != new_state || callback_num % 50 == 0 {
                     debug_state.store(new_state, Ordering::Relaxed);
@@ -668,13 +668,13 @@ where
                 if !crossfade_complete {
                     crossfade_progress.fetch_add(read_samples as u64, Ordering::Relaxed);
                 }
-                
+
                 // Note: crossfade_active is now only set to false by handle_track_end
                 // when the track transition actually occurs
             } else if is_draining && read_b > 0 {
                 // Draining mode: play buffer_b until it's completely empty
                 // Micro-fade is already detected and activated above before popping
-                
+
                 if prev_state != 3 || callback_num % 50 == 0 {
                     debug_state.store(3, Ordering::Relaxed);
                     debug_cf!(
@@ -683,23 +683,23 @@ where
                         if read_b > 0 { temp_buf_b[0] } else { 0.0 }
                     );
                 }
-                
+
                 if is_micro_fading {
                     // During micro-fade: blend buffer_b with buffer_a
                     // We already popped from both buffers above
                     let progress = micro_fade_progress_clone.load(Ordering::Relaxed) as usize;
-                    
+
                     for i in 0..read_samples {
                         let sample_b = if i < read_b { temp_buf_b[i] } else { 0.0 };
                         let sample_a = if i < read_a { temp_buf_a[i] } else { 0.0 };
-                        
+
                         // Crossfade from buffer_b to buffer_a
                         let t = ((progress + i) as f32 / MICRO_FADE_SAMPLES as f32).min(1.0);
                         let gain_b = 1.0 - t;
                         let gain_a = t;
                         output_buf[i] = sample_b * gain_b + sample_a * gain_a;
                     }
-                    
+
                     micro_fade_progress_clone.fetch_add(read_samples as u64, Ordering::Relaxed);
                 } else {
                     // Normal draining - just play buffer_b
@@ -715,10 +715,10 @@ where
                     read_a = buffer_a.pop_samples(&mut temp_buf_a);
                 }
                 let read_samples_now = read_a;
-                
+
                 let was_micro_fading = micro_fade_active_clone.swap(false, Ordering::AcqRel);
                 let micro_progress = micro_fade_progress_clone.swap(0, Ordering::Relaxed);
-                
+
                 debug_state.store(4, Ordering::Relaxed);
                 debug_cf!(
                     "cb#{} STATE=DRAIN_END | read_a={} | was_micro_fade={} progress={} | sample_a[0]={:.4}",
@@ -727,17 +727,17 @@ where
                 );
                 draining_buffer_b_clone.store(false, Ordering::Release);
                 crossfade_progress.store(0, Ordering::Relaxed); // Reset for next crossfade
-                
+
                 // If we were micro-fading and didn't complete, continue the fade-in
                 let remaining_fade = if was_micro_fading && micro_progress < MICRO_FADE_SAMPLES as u64 {
                     (MICRO_FADE_SAMPLES as u64 - micro_progress) as usize
                 } else {
                     0
                 };
-                
+
                 for i in 0..read_samples_now {
                     let sample_a = if i < read_a { temp_buf_a[i] } else { 0.0 };
-                    
+
                     if i < remaining_fade {
                         // Continue fade-in from where we left off
                         let t = ((micro_progress as usize + i) as f32 / MICRO_FADE_SAMPLES as f32).min(1.0);
@@ -746,7 +746,7 @@ where
                         output_buf[i] = sample_a;
                     }
                 }
-                
+
                 // Update read_samples for position tracking below
                 // Note: we need to handle this specially since we changed read_a mid-callback
             } else {
@@ -1013,7 +1013,10 @@ fn decoder_thread(
                         }
 
                         crossfade_state = CrossfadeState::Prebuffering;
-                        debug_cf!("DECODER: Started prebuffering next track: {:?}", next_track_info.as_ref().map(|t| &t.path));
+                        debug_cf!(
+                            "DECODER: Started prebuffering next track: {:?}",
+                            next_track_info.as_ref().map(|t| &t.path)
+                        );
                     }
                 }
             }
@@ -1253,15 +1256,25 @@ fn handle_track_end(
     // If we were crossfading, the next decoder is already set up
     if next_decoder.is_some() {
         debug_cf!("HANDLE_TRACK_END: Crossfade complete, promoting next decoder");
-        debug_cf!("  buffer_a space={} buffer_b space={}", buffer_a.available_space(), buffer_b.available_space());
-        debug_cf!("  next_input_accumulator has {} samples", next_input_accumulator.len());
-        
+        debug_cf!(
+            "  buffer_a space={} buffer_b space={}",
+            buffer_a.available_space(),
+            buffer_b.available_space()
+        );
+        debug_cf!(
+            "  next_input_accumulator has {} samples",
+            next_input_accumulator.len()
+        );
+
         // IMPORTANT: Flush any remaining samples from next_input_accumulator to buffer_b
         // These samples are the continuation of what's already in buffer_b and should
         // play BEFORE we switch to buffer_a
         if !next_input_accumulator.is_empty() {
             let remaining: Vec<f32> = next_input_accumulator.drain(..).collect();
-            debug_cf!("  Flushing {} samples from accumulator to buffer_b", remaining.len());
+            debug_cf!(
+                "  Flushing {} samples from accumulator to buffer_b",
+                remaining.len()
+            );
             let mut written = 0;
             while written < remaining.len() {
                 let w = buffer_b.push_samples(&remaining[written..]);
@@ -1271,7 +1284,7 @@ fn handle_track_end(
                 written += w;
             }
         }
-        
+
         // Promote next decoder to current
         *current_decoder = next_decoder.take();
         *sample_buf = next_sample_buf.take();
@@ -1284,7 +1297,7 @@ fn handle_track_end(
         // Don't clear buffer_a yet - let the output drain buffer_b first
         // The decoder will start writing to buffer_a from where it left off
         // Note: buffer_b may still have Song 2 data that output is playing
-        
+
         if let Some(track) = next_track_info.take() {
             debug_cf!("  New track: {:?}", track.path);
             *state.current_path.write() = Some(track.path.clone());
@@ -1300,21 +1313,32 @@ fn handle_track_end(
             // Note: We set position to the crossfade duration since that's roughly
             // how far into Song 2 we already are
             if let Some((ref reader, _, _)) = current_decoder {
-                if let Some(audio_track) = reader.tracks().iter().find(|t| t.codec_params.codec != CODEC_TYPE_NULL) {
+                if let Some(audio_track) = reader
+                    .tracks()
+                    .iter()
+                    .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+                {
                     let sample_rate = audio_track.codec_params.sample_rate.unwrap_or(44100) as u64;
                     let cf_ms = crossfade_ms.load(Ordering::Relaxed);
                     let cf_samples = (cf_ms as u64 * sample_rate) / 1000;
                     // Position is approximately the crossfade duration into the song
-                    debug_cf!("  Setting position to {} samples ({}ms into song)", cf_samples, cf_ms);
+                    debug_cf!(
+                        "  Setting position to {} samples ({}ms into song)",
+                        cf_samples,
+                        cf_ms
+                    );
                     state.position_samples.store(cf_samples, Ordering::Relaxed);
-                    state.duration_samples.store(audio_track.codec_params.n_frames.unwrap_or(0), Ordering::Relaxed);
+                    state.duration_samples.store(
+                        audio_track.codec_params.n_frames.unwrap_or(0),
+                        Ordering::Relaxed,
+                    );
                     state.sample_rate.store(sample_rate, Ordering::Relaxed);
                 }
             }
         }
 
         *crossfade_state = CrossfadeState::Idle;
-        
+
         // IMPORTANT: Clear buffer_a FIRST before setting crossfade_active to false.
         // Otherwise output callback might read stale Song 1 data from buffer_a.
         // After clearing, output will use the special case to keep reading buffer_b.
@@ -1322,7 +1346,11 @@ fn handle_track_end(
         buffer_a.clear();
         std::sync::atomic::fence(Ordering::SeqCst); // Memory barrier to ensure clear is visible
         crossfade_active.store(false, Ordering::Release);
-        debug_cf!("  After clear: buffer_a space={} buffer_b space={}", buffer_a.available_space(), buffer_b.available_space());
+        debug_cf!(
+            "  After clear: buffer_a space={} buffer_b space={}",
+            buffer_a.available_space(),
+            buffer_b.available_space()
+        );
         return;
     }
 
@@ -1356,13 +1384,9 @@ fn handle_track_end(
                     window: WindowFunction::BlackmanHarris2,
                     oversampling_factor: 128,
                 };
-                if let Ok(r) = SincFixedIn::<f32>::new(
-                    device_rate as f64 / sr as f64,
-                    2.0,
-                    params,
-                    1024,
-                    2,
-                ) {
+                if let Ok(r) =
+                    SincFixedIn::<f32>::new(device_rate as f64 / sr as f64, 2.0, params, 1024, 2)
+                {
                     *resampler = Some(r);
                     *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
                 } else {
