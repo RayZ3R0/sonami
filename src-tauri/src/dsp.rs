@@ -1,5 +1,3 @@
-
-
 pub trait DspProcessor: Send + Sync {
     fn process(&mut self, samples: &mut [f32], channels: usize, sample_rate: u32);
 }
@@ -10,7 +8,9 @@ pub struct DspChain {
 
 impl DspChain {
     pub fn new() -> Self {
-        Self { processors: Vec::new() }
+        Self {
+            processors: Vec::new(),
+        }
     }
 
     pub fn add(&mut self, processor: Box<dyn DspProcessor>) {
