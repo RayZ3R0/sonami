@@ -9,14 +9,12 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
-// Supported audio extensions
 const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "aiff", "ape", "opus", "webm",
 ];
 
 use crate::queue::Track;
 
-/// Parse a single audio file into a Track
 fn parse_audio_file(path_str: &str) -> Option<Track> {
     let path = Path::new(path_str);
 
@@ -76,7 +74,6 @@ fn parse_audio_file(path_str: &str) -> Option<Track> {
     })
 }
 
-/// Check if a file has a supported audio extension
 fn is_audio_file(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -84,7 +81,6 @@ fn is_audio_file(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Recursively scan a directory for audio files
 fn scan_directory(dir: &Path, tracks: &mut Vec<Track>) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -120,7 +116,6 @@ pub async fn import_music(app: AppHandle) -> Result<Vec<Track>, String> {
     }
 }
 
-/// Import an entire folder of music recursively
 #[tauri::command]
 pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
     use tauri_plugin_dialog::DialogExt;
@@ -134,7 +129,6 @@ pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
         let mut tracks = Vec::new();
         scan_directory(path, &mut tracks);
 
-        // Sort by artist, then album, then title
         tracks.sort_by(|a, b| {
             a.artist
                 .cmp(&b.artist)
@@ -156,7 +150,6 @@ pub async fn play_track(
 ) -> Result<(), String> {
     state.play(path.clone());
 
-    // Find the track info to emit event and update OS controls
     let track = {
         let q = state.queue.read();
         q.tracks.iter().find(|t| t.path == path).cloned()
@@ -309,10 +302,6 @@ pub async fn get_current_track(state: State<'_, AudioManager>) -> Result<Option<
 
 #[tauri::command]
 pub async fn get_queue(state: State<'_, AudioManager>) -> Result<Vec<Track>, String> {
-    // Return visible tracks (should it be shuffled list or original logic? usually original + indication)
-    // For now return original list.
-    // TODO: Maybe return play queue vs library context?
-    // PlayQueue manages "tracks".
     Ok(state.queue.read().tracks.clone())
 }
 
@@ -338,7 +327,6 @@ pub async fn set_crossfade_duration(
     state: State<'_, AudioManager>,
     duration_ms: u32,
 ) -> Result<(), String> {
-    // Clamp between 0 (disabled) and 12 seconds (Spotify max)
     let clamped = duration_ms.min(12000);
     state
         .crossfade_duration_ms

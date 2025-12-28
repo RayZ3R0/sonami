@@ -2,11 +2,11 @@ pub mod audio;
 pub mod commands;
 pub mod dsp;
 pub mod media_controls;
-pub mod playlist; // [NEW]
+pub mod playlist; 
 pub mod queue;
 
 use audio::AudioManager;
-use playlist::PlaylistManager; // [NEW]
+use playlist::PlaylistManager; 
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -19,7 +19,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
-            let playlist_manager = PlaylistManager::new(&handle); // [NEW]
+            let playlist_manager = PlaylistManager::new(&handle);
 
             // Set up OS media control event handlers
             let state_for_controls = audio_manager.state.clone();
@@ -64,7 +64,7 @@ pub fn run() {
                 });
 
             app.manage(audio_manager);
-            app.manage(playlist_manager); // [NEW]
+            app.manage(playlist_manager);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

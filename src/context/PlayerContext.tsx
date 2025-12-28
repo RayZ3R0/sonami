@@ -21,7 +21,7 @@ interface PlayerContextType {
     shuffle: boolean;
     repeatMode: RepeatMode;
     queue: Track[];
-    playlists: Playlist[]; // [NEW]
+    playlists: Playlist[];
     isQueueOpen: boolean;
     setIsQueueOpen: (open: boolean) => void;
     importMusic: () => Promise<void>;
@@ -39,7 +39,6 @@ interface PlayerContextType {
     removeFromQueue: (trackId: string) => void;
     clearQueue: () => void;
     clearLibrary: () => void;
-    // Playlist methods [NEW]
     createPlaylist: (name: string) => Promise<void>;
     deletePlaylist: (id: string) => Promise<void>;
     renamePlaylist: (id: string, newName: string) => Promise<void>;
@@ -47,9 +46,8 @@ interface PlayerContextType {
     removeFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
     refreshPlaylists: () => Promise<void>;
 
-    // Settings
     crossfadeEnabled: boolean;
-    crossfadeDuration: number; // in ms
+    crossfadeDuration: number;
     setCrossfade: (enabled: boolean, duration: number) => Promise<void>;
 }
 
@@ -87,14 +85,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         return (saved as RepeatMode) || "off";
     });
     const [queue, setQueue] = useState<Track[]>([]);
-    const [playlists, setPlaylists] = useState<Playlist[]>([]); // [NEW]
+    const [playlists, setPlaylists] = useState<Playlist[]>([]);
     const [isQueueOpen, setIsQueueOpen] = useState(false);
     const [crossfadeEnabled, setCrossfadeEnabled] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_ENABLED);
-        return saved !== "false"; // Default true? or false? Let's say default true as strict boolean, or user pref.
-        // Actually, let's default to false for safety if not set? Or true to match backend default 5000ms?
-        // Backend default is 5000ms.
-        return saved === "true";
+        return saved !== "false";
     });
     const [crossfadeDuration, setCrossfadeDurationState] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_DURATION);
@@ -127,9 +122,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem(STORAGE_KEYS.CROSSFADE_DURATION, crossfadeDuration.toString());
     }, [crossfadeEnabled, crossfadeDuration]);
 
-
-
-    // Sync playback state
     useEffect(() => {
         let animationId: number;
         let lastPollTime = 0;
@@ -145,14 +137,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     setDuration(info.duration);
                     setIsPlaying(info.is_playing);
 
-                    // Sync current track if we don't have one or if backend changed without event (safety)
-                    // Actually event listener is better, but polling safety is good.
-                    // Let's rely on polling for position/status and event for track change.
-
-                    // Also sync shuffle/repeat occasionally?
-                    // For now, assume frontend state is truthy via user action, or sync on mount.
                 } catch (e) {
-                    // Ignore polling errors silently
                 }
             }
 
@@ -161,7 +146,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         animationId = requestAnimationFrame(pollPlaybackInfo);
 
-        // Listen for track changes from backend (auto-advance)
         const unlisten = listen<Track>("track-changed", (event) => {
             console.log("Track changed event:", event.payload);
             setCurrentTrack(event.payload);
@@ -183,12 +167,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 if (track) setCurrentTrack(track);
 
                 const q = await invoke<Track[]>("get_queue");
-                // We treat get_queue as the library tracks in this context?
-                // The backend Queue.tracks is the main list.
-                // The frontend 'tracks' is the Library.
-                // We should keep them in sync.
                 if (q.length > 0 && tracks.length === 0) {
-                    setTracks(q); // Sync from backend if empty
+                    setTracks(q);
                 }
 
                 const s = await invoke<boolean>("get_shuffle_mode");
@@ -197,16 +177,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 const r = await invoke<RepeatMode>("get_repeat_mode");
                 setRepeatMode(r);
 
-                // Sync crossfade
                 const cfDuration = await invoke<number>("get_crossfade_duration");
-                // If duration > 0, we can assume enabled? 
-                // Or we enforce our local state?
-                // Use local state truth source for "enabled" toggle, apply to backend.
-                // If enabled, ensure backend matches local duration.
-                // If disabled, ensure backend is 0.
                 if (crossfadeEnabled) {
                     if (cfDuration !== crossfadeDuration) {
-                        // Apply local preference
                         await invoke("set_crossfade_duration", { durationMs: crossfadeDuration });
                     }
                 } else {
@@ -215,7 +188,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
 
-                refreshPlaylists(); // [NEW] Fetch playlists
+                refreshPlaylists();
             } catch (e) {
                 console.error("Failed to sync state:", e);
             }

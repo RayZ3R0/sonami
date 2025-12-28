@@ -1,9 +1,9 @@
+use crate::queue::Track;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
-use crate::queue::Track;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Playlist {
@@ -20,8 +20,10 @@ pub struct PlaylistManager {
 
 impl PlaylistManager {
     pub fn new(app_handle: &AppHandle) -> Self {
-        let app_data_dir = app_handle.path().app_data_dir().expect("failed to get app data dir");
-        // Ensure directory exists
+        let app_data_dir = app_handle
+            .path()
+            .app_data_dir()
+            .expect("failed to get app data dir");
         if !app_data_dir.exists() {
             let _ = fs::create_dir_all(&app_data_dir);
         }
@@ -47,8 +49,6 @@ impl PlaylistManager {
     }
 }
 
-// Commands
-
 #[tauri::command]
 pub async fn get_playlists(state: State<'_, PlaylistManager>) -> Result<Vec<Playlist>, String> {
     let playlists = state.playlists.read().map_err(|e| e.to_string())?;
@@ -61,17 +61,17 @@ pub async fn create_playlist(
     name: String,
 ) -> Result<Playlist, String> {
     let mut playlists = state.playlists.write().map_err(|e| e.to_string())?;
-    
+
     let new_playlist = Playlist {
         id: uuid::Uuid::new_v4().to_string(),
         name,
         tracks: Vec::new(),
         created_at: chrono::Local::now().to_rfc3339(),
     };
-    
+
     playlists.push(new_playlist.clone());
     drop(playlists); // Unlock before saving to avoid deadlocks (though save doesn't lock write, it reads)
-    
+
     state.save()?;
     Ok(new_playlist)
 }
@@ -110,7 +110,6 @@ pub async fn add_to_playlist(
 ) -> Result<(), String> {
     let mut playlists = state.playlists.write().map_err(|e| e.to_string())?;
     if let Some(playlist) = playlists.iter_mut().find(|p| p.id == playlist_id) {
-        // Check for duplicates? For now allow.
         playlist.tracks.push(track);
     } else {
         return Err("Playlist not found".to_string());

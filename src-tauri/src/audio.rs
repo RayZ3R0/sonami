@@ -25,7 +25,6 @@ use tauri::{AppHandle, Emitter};
 
 const BUFFER_SIZE: usize = 65536;
 
-// Debug logging for crossfade troubleshooting - set to false for production
 const DEBUG_CROSSFADE: bool = false;
 
 macro_rules! debug_cf {
@@ -36,7 +35,6 @@ macro_rules! debug_cf {
     };
 }
 
-/// Error event payload for frontend notifications
 #[derive(Clone, Serialize)]
 pub struct AudioError {
     pub code: String,
@@ -44,7 +42,6 @@ pub struct AudioError {
     pub message: String,
 }
 
-/// Device change event payload
 #[derive(Clone, Serialize)]
 pub struct DeviceChanged {
     pub device_name: String,
@@ -200,21 +197,16 @@ pub enum DecoderCommand {
     QueueNext(String),
 }
 
-/// Crossfade state machine
 #[derive(Clone, Copy, PartialEq)]
 pub enum CrossfadeState {
-    /// Normal playback, no crossfade active
     Idle,
-    /// Pre-buffering next track, not yet mixing
     Prebuffering,
-    /// Actively crossfading between two tracks
     Crossfading {
         progress_samples: u64,
         total_samples: u64,
     },
 }
 
-/// Default crossfade duration in milliseconds (user configurable)
 pub const DEFAULT_CROSSFADE_MS: u32 = 5000;
 
 use crate::dsp::DspChain;
@@ -241,7 +233,6 @@ impl AudioManager {
         let (command_tx, command_rx) = std::sync::mpsc::channel();
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        // Primary and secondary buffers for crossfade
         let buffer_a = Arc::new(AudioBuffer::new(BUFFER_SIZE));
         let buffer_b = Arc::new(AudioBuffer::new(BUFFER_SIZE));
 
@@ -264,7 +255,6 @@ impl AudioManager {
         let shutdown_decoder = shutdown.clone();
         let shutdown_output = shutdown.clone();
 
-        // Clone for threads
         let queue_decoder = queue.clone();
         let dsp_output = dsp.clone();
         let app_handle_output = app_handle.clone();
@@ -308,13 +298,11 @@ impl AudioManager {
         }
     }
 
-    /// Signal all threads to shut down gracefully
     pub fn shutdown(&self) {
         self.shutdown.store(true, Ordering::Relaxed);
     }
 
     pub fn play(&self, path: String) {
-        // Sync queue index
         {
             let mut q = self.queue.write();
             q.play_track_by_path(&path);
@@ -533,19 +521,14 @@ where
     let channels = config.channels as usize;
     let sample_rate = config.sample_rate.0;
 
-    // Crossfade progress tracking within output callback
     let crossfade_progress = Arc::new(AtomicU64::new(0));
 
-    // Track if we're draining buffer_b after crossfade transition
-    // This ensures we play ALL of buffer_b before switching to buffer_a
     let draining_buffer_b = Arc::new(AtomicBool::new(false));
     let draining_buffer_b_clone = draining_buffer_b.clone();
 
-    // Debug: state tracking
     let debug_state = Arc::new(AtomicU32::new(0)); // 0=normal, 1=crossfade, 2=crossfade_complete, 3=draining, 4=drain_end
     let debug_callback_count = Arc::new(AtomicU64::new(0));
 
-    // Mini-crossfade state for the buffer_b to buffer_a transition
     const MICRO_FADE_SAMPLES: usize = 512; // ~10ms at 48kHz
     let micro_fade_active = Arc::new(AtomicBool::new(false));
     let micro_fade_active_clone = micro_fade_active.clone();
@@ -565,7 +548,6 @@ where
                 return;
             }
 
-            // Check states FIRST before deciding which buffers to pop from
             let is_crossfading = crossfade_active.load(Ordering::Acquire);
             let is_draining = draining_buffer_b_clone.load(Ordering::Acquire);
 
@@ -574,7 +556,6 @@ where
                 (ms * sample_rate as u64) / 1000
             };
 
-            // Check buffer_b state BEFORE popping to determine if we need micro-fade
             let samples_in_b_before_pop = BUFFER_SIZE - buffer_b.available_space();
             let need_micro_fade = is_draining && !is_crossfading &&
                 samples_in_b_before_pop > 0 &&
@@ -586,17 +567,14 @@ where
                 debug_cf!("cb#{} MICRO_FADE START | samples_in_b={}", callback_num, samples_in_b_before_pop);
             }
 
-            // Allocate temp buffers
             let mut temp_buf_a = vec![0.0; data.len()];
             let mut temp_buf_b = vec![0.0; data.len()];
             let mut read_a = 0;
             let mut read_b = 0;
 
-            // Only pop from the buffers we actually need based on current state
             let is_micro_fading = micro_fade_active_clone.load(Ordering::Relaxed);
 
             if is_crossfading {
-                // Crossfade: need both buffers
                 read_a = buffer_a.pop_samples(&mut temp_buf_a);
                 read_b = buffer_b.pop_samples(&mut temp_buf_b);
             } else if is_draining && is_micro_fading {

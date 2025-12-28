@@ -9,7 +9,6 @@ unsafe impl Send for MediaControlsManager {}
 unsafe impl Sync for MediaControlsManager {}
 
 impl MediaControlsManager {
-    /// Create media controls. On Windows, pass the window handle; on other platforms, pass None.
     #[cfg(not(target_os = "windows"))]
     pub fn new() -> Self {
         let config = PlatformConfig {
@@ -26,7 +25,6 @@ impl MediaControlsManager {
 
     #[cfg(target_os = "windows")]
     pub fn new() -> Self {
-        // On Windows, we need to defer initialization until we have a window handle
         Self {
             controls: RwLock::new(None),
         }

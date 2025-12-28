@@ -22,10 +22,10 @@ pub struct Track {
 }
 
 pub struct PlayQueue {
-    pub tracks: Vec<Track>, // Made public for commands access
+    pub tracks: Vec<Track>,
     shuffled_indices: Vec<usize>,
-    current_index: Option<usize>, // Index into `tracks` (or `shuffled_indices` if shuffled)
-    queue: VecDeque<Track>,       // Manual user queue
+    current_index: Option<usize>,
+    queue: VecDeque<Track>,
     pub shuffle: bool,
     pub repeat: RepeatMode,
 }
@@ -70,7 +70,6 @@ impl PlayQueue {
             self.reshuffle();
         }
 
-        // Restore current index to point to the currently playing track
         if let Some(track) = current_track {
             if let Some(idx) = self.tracks.iter().position(|t| t.path == track.path) {
                 if self.shuffle {
@@ -168,19 +167,15 @@ impl PlayQueue {
         self.current_index.and_then(|idx| self.get_track_at(idx))
     }
 
-    /// Peek at the next track without advancing the queue index
     pub fn peek_next_track(&self) -> Option<Track> {
-        // Check manual queue first
         if let Some(track) = self.queue.front() {
             return Some(track.clone());
         }
 
-        // For Repeat One, return the current track
         if self.repeat == RepeatMode::One {
             return self.get_current_track();
         }
 
-        // Calculate next index without modifying state
         let next_idx = match self.current_index {
             Some(idx) => idx + 1,
             None => 0,
@@ -198,9 +193,7 @@ impl PlayQueue {
     }
 
     pub fn play_track_by_path(&mut self, path: &str) {
-        // Find index of track with this path
         if let Some(index) = self.tracks.iter().position(|t| t.path == path) {
-            // Check if we are in shuffle mode
             if self.shuffle {
                 if let Some(shuffled_pos) = self
                     .shuffled_indices

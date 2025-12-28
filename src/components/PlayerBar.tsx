@@ -1,8 +1,6 @@
 import { usePlayer } from "../context/PlayerContext";
 import React, { useRef, useState, useEffect } from 'react';
 
-// Marquee text component for long titles
-// Marquee text component for long titles
 const MarqueeText = ({ text, className }: { text: string; className?: string }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);
@@ -11,19 +9,15 @@ const MarqueeText = ({ text, className }: { text: string; className?: string }) 
     useEffect(() => {
         const checkOverflow = () => {
             if (containerRef.current && textRef.current) {
-                // Add 1px tolerance to prevent subpixel jitter triggering scroll
                 const isScrolling = textRef.current.scrollWidth > containerRef.current.clientWidth + 1;
                 setIsOverflowing(isScrolling);
             }
         };
 
-        // Initial check
         checkOverflow();
 
-        // Check again after short delay for font loading/layout shifts
         const timeoutId = setTimeout(checkOverflow, 100);
 
-        // Robust resize observation
         const resizeObserver = new ResizeObserver(() => checkOverflow());
         if (containerRef.current) {
             resizeObserver.observe(containerRef.current);

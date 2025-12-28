@@ -47,7 +47,7 @@ impl LoudnessNormalizer {
     pub fn new() -> Self {
         Self {
             enabled: true,
-            target_db: -14.0, // Spotify target LUFS
+            target_db: -14.0,
             current_gain: 1.0,
             rms_sum: 0.0,
             rms_count: 0,
@@ -97,10 +97,9 @@ impl DspProcessor for LoudnessNormalizer {
             let target_gain = if current_db > -60.0 {
                 Self::db_to_linear(self.target_db - current_db)
             } else {
-                1.0 // Too quiet, don't amplify noise
+                1.0
             };
 
-            // Smooth gain changes
             let coeff = if target_gain < self.current_gain {
                 self.attack_coeff
             } else {
@@ -109,11 +108,9 @@ impl DspProcessor for LoudnessNormalizer {
 
             self.current_gain += coeff * (target_gain - self.current_gain);
 
-            // Clamp gain to reasonable range
             self.current_gain = self.current_gain.clamp(0.1, 4.0);
         }
 
-        // Apply gain
         for sample in samples.iter_mut() {
             *sample *= self.current_gain;
         }
