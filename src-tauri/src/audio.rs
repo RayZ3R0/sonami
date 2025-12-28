@@ -18,13 +18,13 @@ use symphonia::core::units::Time;
 
 const BUFFER_SIZE: usize = 65536; // Larger buffer for stability
 
-/// Type alias for the decoder tuple to reduce complexity
+
 type DecoderState = (Box<dyn FormatReader>, Box<dyn Decoder>, u32);
 
-/// Result type for load_track function
+
 type LoadTrackResult = Result<(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), String>;
 
-/// A simple thread-safe ring buffer for audio samples using a fixed-size array
+
 pub struct AudioBuffer {
     data: Box<[f32]>,
     read_pos: AtomicU32,
@@ -57,7 +57,7 @@ impl AudioBuffer {
 
         let to_write = (samples.len() as u32).min(available) as usize;
 
-        // SAFETY: We hold the lock so no concurrent access
+
         let data_ptr = self.data.as_ptr() as *mut f32;
         for (i, &sample) in samples.iter().enumerate().take(to_write) {
             let pos = ((write_pos as usize) + i) % (self.capacity as usize);
@@ -85,7 +85,7 @@ impl AudioBuffer {
 
         let to_read = (out.len() as u32).min(available) as usize;
 
-        // SAFETY: We hold the lock so no concurrent access
+
         let data_ptr = self.data.as_ptr();
         for (i, out_sample) in out.iter_mut().enumerate().take(to_read) {
             let pos = ((read_pos as usize) + i) % (self.capacity as usize);
@@ -133,7 +133,7 @@ impl AudioBuffer {
     }
 }
 
-/// Playback state shared between audio thread and main thread
+
 #[derive(Clone)]
 pub struct PlaybackState {
     pub position_samples: Arc<AtomicU64>,
@@ -219,7 +219,7 @@ impl AudioManager {
         let next_track: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
         let next_track_decoder = next_track.clone();
 
-        // Decoder thread
+
         thread::spawn(move || {
             decoder_thread(
                 command_rx,
@@ -229,7 +229,7 @@ impl AudioManager {
             );
         });
 
-        // Audio output thread
+
         thread::spawn(move || {
             run_audio_output(buffer_output, state_output);
         });
@@ -325,7 +325,7 @@ fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState) {
 
     stream.play().expect("Failed to start stream");
 
-    // Keep thread alive
+
     loop {
         thread::sleep(Duration::from_secs(1));
     }

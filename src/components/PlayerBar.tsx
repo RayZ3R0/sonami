@@ -1,14 +1,14 @@
 import { usePlayer } from "../context/PlayerContext";
 import React, { useRef, useState } from 'react';
 
-// Format seconds to mm:ss or h:mm:ss
+
 const formatTime = (seconds: number): string => {
     if (!isFinite(seconds) || seconds < 0) return "0:00";
-    
+
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hrs > 0) {
         return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
@@ -36,7 +36,7 @@ export const PlayerBar = () => {
         const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
         const percent = x / rect.width;
         setHoverPosition(percent * duration);
-        
+
         if (isDragging) {
             seek(percent * duration);
         }
@@ -56,19 +56,19 @@ export const PlayerBar = () => {
 
     return (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[860px]">
-            {/* The Floating Capsule */}
+
             <div className="glass-floating rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
-                
-                {/* Main Controls Row */}
+
+
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between relative z-10">
-                    {/* Left: Album Art + Info */}
+
                     <div className="flex items-center gap-3 w-[30%] min-w-[180px]">
                         <div className="w-12 h-12 rounded-lg bg-theme-secondary shadow-lg overflow-hidden flex-shrink-0">
                             {currentTrack.cover_image ? (
-                                <img 
-                                    src={currentTrack.cover_image} 
+                                <img
+                                    src={currentTrack.cover_image}
                                     alt={currentTrack.title}
-                                    className="w-full h-full object-cover" 
+                                    className="w-full h-full object-cover"
                                 />
                             ) : (
                                 <div className="album-art-placeholder">
@@ -84,68 +84,68 @@ export const PlayerBar = () => {
                         </div>
                     </div>
 
-                    {/* Center: Playback Controls */}
+
                     <div className="flex items-center gap-5">
-                        <button 
+                        <button
                             onClick={prevTrack}
                             className="player-control"
                         >
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
                             </svg>
                         </button>
-                        
+
                         <button
                             onClick={togglePlay}
                             className="btn-play shadow-black/20"
                         >
                             {isPlaying ? (
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <rect x="6" y="4" width="4" height="16" rx="1"/>
-                                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                                    <rect x="6" y="4" width="4" height="16" rx="1" />
+                                    <rect x="14" y="4" width="4" height="16" rx="1" />
                                 </svg>
                             ) : (
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
-                                    <path d="M8 5v14l11-7z"/>
+                                    <path d="M8 5v14l11-7z" />
                                 </svg>
                             )}
                         </button>
-                        
-                        <button 
+
+                        <button
                             onClick={nextTrack}
                             className="player-control"
                         >
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                             </svg>
                         </button>
                     </div>
 
-                    {/* Right: Volume */}
+
                     <div className="flex items-center justify-end w-[30%] gap-3 pr-1">
                         <div className="group flex items-center gap-2">
-                            <button 
+                            <button
                                 onClick={() => setVolume(volume > 0 ? 0 : 1)}
                                 className="text-theme-secondary hover:text-theme-primary transition-colors"
                             >
                                 {volume === 0 ? (
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                        <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
                                     </svg>
                                 ) : volume < 0.5 ? (
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                                     </svg>
                                 ) : (
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
                                     </svg>
                                 )}
                             </button>
-                            <div 
+                            <div
                                 className="w-20 h-1 progress-track overflow-hidden cursor-pointer group-hover:h-1.5 transition-all"
                                 onClick={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect();
@@ -153,8 +153,8 @@ export const PlayerBar = () => {
                                     setVolume(Math.max(0, Math.min(1, x / rect.width)));
                                 }}
                             >
-                                <div 
-                                    className="h-full progress-fill" 
+                                <div
+                                    className="h-full progress-fill"
                                     style={{ width: `${volume * 100}%` }}
                                 />
                             </div>
@@ -162,16 +162,16 @@ export const PlayerBar = () => {
                     </div>
                 </div>
 
-                {/* Progress Bar Section */}
+
                 <div className="px-4 pb-3 pt-1">
                     <div className="flex items-center gap-3">
-                        {/* Current Time */}
+
                         <span className="text-[11px] font-mono text-theme-secondary w-12 text-right tabular-nums">
                             {formatTime(currentTime)}
                         </span>
-                        
-                        {/* Seek Bar */}
-                        <div 
+
+
+                        <div
                             ref={seekBarRef}
                             className="flex-1 h-6 flex items-center cursor-pointer group"
                             onClick={handleSeekClick}
@@ -184,34 +184,34 @@ export const PlayerBar = () => {
                             }}
                         >
                             <div className="w-full h-1 progress-track relative group-hover:h-1.5 transition-all">
-                                {/* Buffered/Background */}
+
                                 <div className="absolute inset-0 rounded-full overflow-hidden">
-                                    {/* Progress Fill */}
-                                    <div 
+
+                                    <div
                                         className="h-full progress-fill"
                                         style={{ width: `${progress}%` }}
                                     />
                                 </div>
-                                
-                                {/* Hover Preview */}
+
+
                                 {hoverPosition !== null && (
-                                    <div 
+                                    <div
                                         className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-theme-surface-active rounded-full"
                                         style={{ left: `${(hoverPosition / duration) * 100}%` }}
                                     />
                                 )}
-                                
-                                {/* Scrubber Dot */}
-                                <div 
+
+
+                                <div
                                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-theme-primary rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ 
+                                    style={{
                                         left: `calc(${progress}% - 6px)`,
                                     }}
                                 />
                             </div>
                         </div>
-                        
-                        {/* Duration */}
+
+
                         <span className="text-[11px] font-mono text-theme-secondary w-12 tabular-nums">
                             {formatTime(duration)}
                         </span>

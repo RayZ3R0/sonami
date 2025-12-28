@@ -34,29 +34,29 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolumeState] = useState(1.0);
-    
-    // Track if we're seeking to avoid position jumps
+
+
     const isSeeking = useRef(false);
     const pendingTrackLoad = useRef<string | null>(null);
     const lastTrackId = useRef<string | null>(null);
 
-    // Poll playback info from backend (sample-accurate position)
+    // Sync playback state
     useEffect(() => {
         let animationId: number;
         let lastPollTime = 0;
-        const POLL_INTERVAL = 50; // Poll every 50ms for smooth updates
+        const POLL_INTERVAL = 50;
 
         const pollPlaybackInfo = async (timestamp: number) => {
             if (timestamp - lastPollTime >= POLL_INTERVAL) {
                 lastPollTime = timestamp;
-                
+
                 try {
                     const info = await invoke<PlaybackInfo>("get_playback_info");
-                    
-                    // Update playing state from backend
+
+
                     setIsPlaying(info.is_playing);
-                    
-                    // If we're waiting for a track to load, check if backend reset position
+
+                    // Handle track seek/reset sync
                     if (pendingTrackLoad.current !== null) {
                         // Backend has loaded the new track when position is near 0
                         if (info.position < 1.0) {
@@ -68,22 +68,21 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                         // Normal position update
                         setCurrentTime(info.position);
                     }
-                    
+
                     // Update duration if it changed (new track)
                     if (info.duration > 0) {
                         setDuration(info.duration);
                     }
-                    
+
                     // Check if track ended and we need to advance
                     if (!info.is_playing && currentTrack && info.position >= info.duration - 0.1 && info.duration > 0) {
-                        // Track finished, auto-advance
                         handleTrackEnd();
                     }
                 } catch (e) {
                     // Ignore polling errors silently
                 }
             }
-            
+
             animationId = requestAnimationFrame(pollPlaybackInfo);
         };
 
@@ -91,10 +90,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         return () => cancelAnimationFrame(animationId);
     }, [currentTrack]);
 
-    // Handle track ending - auto advance to next
+
     const handleTrackEnd = useCallback(async () => {
         if (!currentTrack || tracks.length === 0) return;
-        
+
         const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
         if (currentIndex < tracks.length - 1) {
             // There's a next track
@@ -119,18 +118,18 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const playTrack = async (track: Track) => {
         try {
-            // Mark that we're loading a new track - polling will show 0 until backend confirms
+            // Optimistic update until backend confirms
             pendingTrackLoad.current = track.id;
             setCurrentTime(0);
             setDuration(track.duration);
             setCurrentTrack(track);
-            
+
             await invoke("play_track", { path: track.path });
             await invoke("set_volume", { volume });
             setIsPlaying(true);
             lastTrackId.current = track.id;
-            
-            // Queue next track for gapless playback
+
+            // Gapless queue
             const currentIndex = tracks.findIndex(t => t.id === track.id);
             if (currentIndex >= 0 && currentIndex < tracks.length - 1) {
                 const nextTrack = tracks[currentIndex + 1];
@@ -190,13 +189,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const prevTrack = async () => {
         if (!currentTrack || tracks.length === 0) return;
-        
+
         // If we're more than 3 seconds in, restart current track
         if (currentTime > 3) {
             await seek(0);
             return;
         }
-        
+
         const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
         const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
         await playTrack(tracks[prevIndex]);

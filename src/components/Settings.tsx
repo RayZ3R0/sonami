@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme, Theme } from "../context/ThemeContext";
 
-// Icons
+
 const CloseIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 6L6 18M6 6l12 12" />
@@ -24,25 +24,25 @@ const PaletteIcon = () => (
     </svg>
 );
 
-// Theme preview card showing actual theme colors
-const ThemePreviewCard = ({ 
-    theme, 
-    isActive, 
-    onClick 
-}: { 
-    theme: Theme; 
-    isActive: boolean; 
+
+const ThemePreviewCard = ({
+    theme,
+    isActive,
+    onClick
+}: {
+    theme: Theme;
+    isActive: boolean;
     onClick: () => void;
 }) => {
     const colors = theme.colors;
-    
+
     return (
         <button
             onClick={onClick}
             className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${isActive 
-                    ? "ring-2 ring-offset-2 ring-offset-transparent" 
+                ${isActive
+                    ? "ring-2 ring-offset-2 ring-offset-transparent"
                     : "hover:scale-[1.02]"
                 }
             `}
@@ -55,10 +55,10 @@ const ThemePreviewCard = ({
                 "--tw-ring-color": colors.accent,
             }}
         >
-            {/* Mini UI Preview */}
+
             <div className="flex gap-2 mb-2">
-                {/* Mini sidebar */}
-                <div 
+
+                <div
                     className="w-8 h-16 rounded-md flex flex-col gap-1 p-1"
                     style={{ background: colors.surface }}
                 >
@@ -66,8 +66,8 @@ const ThemePreviewCard = ({
                     <div className="w-full h-1.5 rounded-full opacity-50" style={{ background: colors.textMuted }} />
                     <div className="w-full h-1.5 rounded-full opacity-50" style={{ background: colors.textMuted }} />
                 </div>
-                
-                {/* Mini main content */}
+
+
                 <div className="flex-1 flex flex-col gap-1.5">
                     <div className="w-3/4 h-2 rounded-full" style={{ background: colors.textPrimary }} />
                     <div className="flex gap-1">
@@ -77,9 +77,9 @@ const ThemePreviewCard = ({
                     </div>
                 </div>
             </div>
-            
-            {/* Mini player bar */}
-            <div 
+
+
+            <div
                 className="w-full h-6 rounded-lg flex items-center px-2 gap-2"
                 style={{ background: colors.glass }}
             >
@@ -87,25 +87,25 @@ const ThemePreviewCard = ({
                 <div className="flex-1 h-1 rounded-full" style={{ background: colors.progressTrack }}>
                     <div className="w-1/3 h-full rounded-full" style={{ background: colors.progressFillGradient }} />
                 </div>
-                <div 
+                <div
                     className="w-4 h-4 rounded-full flex items-center justify-center"
                     style={{ background: colors.accent }}
                 >
                     <div className="w-0 h-0 border-l-[4px] border-t-[2.5px] border-b-[2.5px] border-l-current border-t-transparent border-b-transparent ml-0.5" style={{ color: colors.textInverse }} />
                 </div>
             </div>
-            
-            {/* Theme name */}
+
+
             <div className="mt-2 flex items-center justify-between">
-                <span 
+                <span
                     className="text-xs font-medium"
                     style={{ color: colors.textPrimary }}
                 >
                     {theme.name}
                 </span>
-                
+
                 {isActive && (
-                    <div 
+                    <div
                         className="w-5 h-5 rounded-full flex items-center justify-center"
                         style={{ background: colors.accent, color: colors.textInverse }}
                     >
@@ -113,8 +113,8 @@ const ThemePreviewCard = ({
                     </div>
                 )}
             </div>
-            
-            {/* Color swatches */}
+
+
             <div className="mt-2 flex gap-1">
                 <div className="w-4 h-4 rounded-full border" style={{ background: colors.accent, borderColor: colors.border }} />
                 <div className="w-4 h-4 rounded-full border" style={{ background: colors.textPrimary, borderColor: colors.border }} />
@@ -133,13 +133,13 @@ interface SettingsProps {
 export const Settings = ({ isOpen, onClose }: SettingsProps) => {
     const { theme, themeId, availableThemes, setTheme } = useTheme();
     const [activeTab] = useState<"appearance">("appearance");
-    
+
     if (!isOpen) return null;
-    
+
     // Group themes by type (light/dark)
-    const lightThemes = availableThemes.filter(t => 
-        t.id.includes("latte") || 
-        t.id.includes("light") || 
+    const lightThemes = availableThemes.filter(t =>
+        t.id.includes("latte") ||
+        t.id.includes("light") ||
         t.id === "matcha" ||
         t.id === "cotton-candy-dreams"
     );
@@ -147,27 +147,27 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
 
     return (
         <>
-            {/* Backdrop */}
-            <div 
+
+            <div
                 className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-fade-in"
                 onClick={onClose}
             />
-            
-            {/* Settings Panel */}
-            <div 
+
+
+            <div
                 className="fixed inset-y-0 right-0 z-[101] w-full max-w-lg flex flex-col animate-slide-in-right"
-                style={{ 
+                style={{
                     background: `linear-gradient(135deg, ${theme.colors.background} 0%, ${theme.colors.backgroundSecondary} 100%)`,
                     borderLeft: `1px solid ${theme.colors.border}`,
                 }}
             >
-                {/* Header */}
-                <div 
+
+                <div
                     className="flex items-center justify-between px-6 py-4 border-b"
                     style={{ borderColor: theme.colors.border }}
                 >
                     <div className="flex items-center gap-3">
-                        <div 
+                        <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center"
                             style={{ background: theme.colors.surfaceHover }}
                         >
@@ -182,11 +182,11 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
                             </p>
                         </div>
                     </div>
-                    
+
                     <button
                         onClick={onClose}
                         className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ 
+                        style={{
                             color: theme.colors.textSecondary,
                             background: "transparent",
                         }}
@@ -196,23 +196,23 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
                         <CloseIcon />
                     </button>
                 </div>
-                
-                {/* Content */}
+
+
                 <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
                     {activeTab === "appearance" && (
                         <div>
-                            {/* Current Theme Banner */}
-                            <div 
+
+                            <div
                                 className="p-4 rounded-xl mb-6"
-                                style={{ 
+                                style={{
                                     background: `linear-gradient(135deg, ${theme.colors.accent}20 0%, ${theme.colors.accent}05 100%)`,
                                     border: `1px solid ${theme.colors.accent}30`,
                                 }}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div 
+                                    <div
                                         className="w-12 h-12 rounded-xl"
-                                        style={{ 
+                                        style={{
                                             background: `linear-gradient(135deg, ${theme.colors.accent} 0%, ${theme.colors.accentHover} 100%)`,
                                         }}
                                     />
@@ -226,10 +226,10 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
                                     </div>
                                 </div>
                             </div>
-                            
-                            {/* Dark Themes */}
+
+
                             <div className="mb-8">
-                                <h3 
+                                <h3
                                     className="text-xs font-semibold uppercase tracking-wider mb-4"
                                     style={{ color: theme.colors.textMuted }}
                                 >
@@ -246,11 +246,11 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
                                     ))}
                                 </div>
                             </div>
-                            
-                            {/* Light Themes */}
+
+
                             {lightThemes.length > 0 && (
                                 <div>
-                                    <h3 
+                                    <h3
                                         className="text-xs font-semibold uppercase tracking-wider mb-4"
                                         style={{ color: theme.colors.textMuted }}
                                     >
@@ -271,9 +271,9 @@ export const Settings = ({ isOpen, onClose }: SettingsProps) => {
                         </div>
                     )}
                 </div>
-                
-                {/* Footer */}
-                <div 
+
+
+                <div
                     className="px-6 py-4 border-t"
                     style={{ borderColor: theme.colors.border }}
                 >

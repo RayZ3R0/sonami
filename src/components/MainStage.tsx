@@ -5,7 +5,7 @@ export const MainStage = () => {
 
     return (
         <div className="flex-1 h-full overflow-y-auto relative no-scrollbar pb-40">
-            {/* Background Ambient Glow */}
+
             <div className="absolute top-0 left-0 w-full h-[500px] gradient-top pointer-events-none -z-10" />
 
             <div className="p-8 pt-6">
@@ -31,7 +31,7 @@ export const MainStage = () => {
                                             </div>
                                         )}
 
-                                        {/* Play Overlay */}
+
                                         <div className="card-track-overlay">
                                             <div className="w-12 h-12 bg-theme-primary rounded-full flex items-center justify-center text-theme-inverse shadow-xl transform translate-y-2 group-hover:translate-y-0 transition-all">
                                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
