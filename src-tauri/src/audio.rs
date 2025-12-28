@@ -575,7 +575,6 @@ fn decoder_thread(
                 Err(symphonia::core::errors::Error::IoError(ref e))
                     if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                 {
-                    println!("AudioDecoder: Track ended (UnexpectedEof). Fetching next track...");
                     let _ = app_handle.emit("track-ended", ());
 
                     let next_track_opt = {

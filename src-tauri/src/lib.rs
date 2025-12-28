@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod commands;
 pub mod dsp;
+pub mod media_controls;
 pub mod queue;
 
 use audio::AudioManager;
