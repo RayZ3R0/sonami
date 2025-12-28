@@ -171,8 +171,13 @@ pub enum DecoderCommand {
     QueueNext(String),
 }
 
+use crate::queue::PlayQueue;
+use crate::dsp::DspChain;
+
 pub struct AudioManager {
     pub state: PlaybackState,
+    pub queue: Arc<RwLock<PlayQueue>>,
+    pub dsp: Arc<RwLock<DspChain>>,
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
 }
 
@@ -185,32 +190,42 @@ impl AudioManager {
         let (command_tx, command_rx) = std::sync::mpsc::channel();
 
         let audio_buffer = Arc::new(AudioBuffer::new(BUFFER_SIZE));
+        
+        let queue = Arc::new(RwLock::new(PlayQueue::new()));
+        let dsp = Arc::new(RwLock::new(DspChain::new()));
+
         let state_decoder = state.clone();
         let state_output = state.clone();
         let buffer_decoder = audio_buffer.clone();
         let buffer_output = audio_buffer.clone();
-
-        let next_track: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
-        let next_track_decoder = next_track.clone();
+        
+        // Clone for threads
+        let queue_decoder = queue.clone();
+        let dsp_output = dsp.clone();
 
         thread::spawn(move || {
             decoder_thread(
                 command_rx,
                 buffer_decoder,
                 state_decoder,
-                next_track_decoder,
+                queue_decoder,
                 app_handle,
             );
         });
 
         thread::spawn(move || {
-            run_audio_output(buffer_output, state_output);
+            run_audio_output(buffer_output, state_output, dsp_output);
         });
 
-        Self { state, command_tx }
+        Self { state, command_tx, queue, dsp }
     }
 
     pub fn play(&self, path: String) {
+        // Sync queue index
+        {
+            let mut q = self.queue.write();
+            q.play_track_by_path(&path);
+        }
         *self.state.current_path.write() = Some(path.clone());
         let _ = self.command_tx.send(DecoderCommand::Load(path));
     }
@@ -222,11 +237,10 @@ impl AudioManager {
     pub fn set_volume(&self, vol: f32) { self.state.set_volume(vol); }
     pub fn get_position(&self) -> f64 { self.state.get_position_seconds() }
     pub fn get_duration(&self) -> f64 { self.state.get_duration_seconds() }
-    pub fn queue_next(&self, path: String) { let _ = self.command_tx.send(DecoderCommand::QueueNext(path)); }
     pub fn is_playing(&self) -> bool { self.state.is_playing.load(Ordering::Relaxed) }
 }
 
-fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState) {
+fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState, dsp: Arc<RwLock<DspChain>>) {
     let host = cpal::default_host();
     loop {
         let device = match host.default_output_device() {
@@ -250,9 +264,9 @@ fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState) {
         
         let err_fn = |err| eprintln!("Audio output error: {}", err);
         let stream_result = match config.sample_format() {
-            cpal::SampleFormat::F32 => run_stream::<f32>(&device, &config.into(), buffer.clone(), state.clone(), err_fn),
-            cpal::SampleFormat::I16 => run_stream::<i16>(&device, &config.into(), buffer.clone(), state.clone(), err_fn),
-            cpal::SampleFormat::U16 => run_stream::<u16>(&device, &config.into(), buffer.clone(), state.clone(), err_fn),
+            cpal::SampleFormat::F32 => run_stream::<f32>(&device, &config.into(), buffer.clone(), state.clone(), dsp.clone(), err_fn),
+            cpal::SampleFormat::I16 => run_stream::<i16>(&device, &config.into(), buffer.clone(), state.clone(), dsp.clone(), err_fn),
+            cpal::SampleFormat::U16 => run_stream::<u16>(&device, &config.into(), buffer.clone(), state.clone(), dsp.clone(), err_fn),
             _ => Err(cpal::BuildStreamError::StreamConfigNotSupported),
         };
 
@@ -272,12 +286,15 @@ fn run_stream<T>(
     config: &cpal::StreamConfig,
     buffer: Arc<AudioBuffer>,
     state: PlaybackState,
+    dsp: Arc<RwLock<DspChain>>,
     err_fn: impl Fn(cpal::StreamError) + Send + 'static,
 ) -> Result<cpal::Stream, cpal::BuildStreamError>
 where
     T: cpal::Sample + cpal::SizedSample + cpal::FromSample<f32>,
 {
     let channels = config.channels as usize;
+    let sample_rate = config.sample_rate.0;
+    
     device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
@@ -289,8 +306,15 @@ where
                 return;
             }
 
+            // Create a temporary buffer for f32 samples
             let mut temp_buf = vec![0.0; data.len()]; 
             let read_samples = buffer.pop_samples(&mut temp_buf);
+
+            // Apply DSP processing
+            if read_samples > 0 {
+                let mut dsp_lock = dsp.write();
+                dsp_lock.process(&mut temp_buf[0..read_samples], channels, sample_rate);
+            }
 
             for (i, sample) in data.iter_mut().enumerate() {
                 if i < read_samples {
@@ -318,7 +342,7 @@ fn decoder_thread(
     command_rx: std::sync::mpsc::Receiver<DecoderCommand>,
     buffer: Arc<AudioBuffer>,
     state: PlaybackState,
-    next_track: Arc<RwLock<Option<String>>>,
+    queue: Arc<RwLock<PlayQueue>>,
     app_handle: AppHandle,
 ) {
     let mut current_decoder: Option<DecoderState> = None;
@@ -360,8 +384,7 @@ fn decoder_thread(
                             if let Ok(r) = SincFixedIn::<f32>::new(device_rate as f64 / sample_rate as f64, 2.0, params, 1024, 2) {
                                 resampler = Some(r);
                                 resampler_input_buffer = vec![vec![0.0; 1024]; 2];
-                                resampler = None;
-                            }
+                            } else { resampler = None; }
                         } else {
                             resampler = None;
                         }
@@ -388,7 +411,9 @@ fn decoder_thread(
                     input_accumulator.clear();
                     current_decoder = None;
                 },
-                DecoderCommand::QueueNext(path) => { *next_track.write() = Some(path); },
+                DecoderCommand::QueueNext(_) => {
+                    // Deprecated command, queue is now managed internally
+                },
             }
         }
 
@@ -460,11 +485,21 @@ fn decoder_thread(
                     }
                 }
                 Err(symphonia::core::errors::Error::IoError(ref e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    println!("AudioDecoder: Track ended (UnexpectedEof). Fetching next track...");
                     let _ = app_handle.emit("track-ended", ());
                     
-                    let next = next_track.write().take();
-                    if let Some(next_path) = next {
+                    let next_track_opt = {
+                        let mut q = queue.write();
+                        q.get_next_track(false)
+                    };
+
+                    if let Some(next_track_info) = next_track_opt {
+                         let next_path = next_track_info.path.clone();
                          *state.current_path.write() = Some(next_path.clone());
+                         
+                         // Emit event to tell frontend track changed
+                         let _ = app_handle.emit("track-changed", next_track_info);
+
                          if let Ok((r, d, tid, dur, sr)) = load_track(&next_path) {
                              state.position_samples.store(0, Ordering::Relaxed);
                              state.duration_samples.store(dur, Ordering::Relaxed);
@@ -472,7 +507,7 @@ fn decoder_thread(
                              current_decoder = Some((r, d, tid));
                              sample_buf = None;
                              input_accumulator.clear();
-
+ 
                              let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                              if device_rate != 0 && device_rate != sr as u32 {
                                  let params = SincInterpolationParameters {

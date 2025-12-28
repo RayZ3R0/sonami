@@ -1,5 +1,7 @@
 pub mod audio;
 pub mod commands;
+pub mod dsp;
+pub mod queue;
 
 use audio::AudioManager;
 use tauri::Manager;
@@ -27,8 +29,18 @@ pub fn run() {
             commands::get_position,
             commands::get_duration,
             commands::get_is_playing,
-            commands::queue_next_track,
-            commands::get_playback_info
+            commands::set_queue,
+            commands::add_to_queue,
+            commands::clear_queue,
+            commands::toggle_shuffle,
+            commands::set_repeat_mode,
+            commands::next_track,
+            commands::prev_track,
+            commands::get_playback_info,
+            commands::get_current_track,
+            commands::get_queue,
+            commands::get_shuffle_mode,
+            commands::get_repeat_mode
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,11 +1,11 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, Emitter};
 
 use crate::audio::AudioManager;
 use base64::{engine::general_purpose, Engine as _};
 use lofty::picture::MimeType;
 use lofty::prelude::*;
 use lofty::probe::Probe;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
@@ -14,16 +14,7 @@ const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "aiff", "ape", "opus", "webm",
 ];
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Track {
-    pub id: String,
-    pub title: String,
-    pub artist: String,
-    pub album: String,
-    pub duration: u64,
-    pub cover_image: Option<String>,
-    pub path: String,
-}
+use crate::queue::Track;
 
 /// Parse a single audio file into a Track
 fn parse_audio_file(path_str: &str) -> Option<Track> {
@@ -158,8 +149,19 @@ pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
 }
 
 #[tauri::command]
-pub async fn play_track(state: State<'_, AudioManager>, path: String) -> Result<(), String> {
-    state.play(path);
+pub async fn play_track(app: AppHandle, state: State<'_, AudioManager>, path: String) -> Result<(), String> {
+    state.play(path.clone());
+    
+    // Find the track info to emit event
+    let track = {
+        let q = state.queue.read();
+        q.tracks.iter().find(|t| t.path == path).cloned()
+    };
+    
+    if let Some(t) = track {
+        let _ = app.emit("track-changed", t);
+    }
+    
     Ok(())
 }
 
@@ -202,9 +204,64 @@ pub async fn get_is_playing(state: State<'_, AudioManager>) -> Result<bool, Stri
     Ok(state.is_playing())
 }
 
+use crate::queue::RepeatMode;
+
 #[tauri::command]
-pub async fn queue_next_track(state: State<'_, AudioManager>, path: String) -> Result<(), String> {
-    state.queue_next(path);
+pub async fn set_queue(state: State<'_, AudioManager>, tracks: Vec<Track>) -> Result<(), String> {
+    state.queue.write().set_tracks(tracks);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn add_to_queue(state: State<'_, AudioManager>, track: Track) -> Result<(), String> {
+    state.queue.write().add_to_queue(track);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clear_queue(state: State<'_, AudioManager>) -> Result<(), String> {
+    state.queue.write().clear_queue();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_shuffle(state: State<'_, AudioManager>) -> Result<bool, String> {
+    let mut q = state.queue.write();
+    q.toggle_shuffle();
+    Ok(q.shuffle)
+}
+
+#[tauri::command]
+pub async fn set_repeat_mode(state: State<'_, AudioManager>, mode: RepeatMode) -> Result<(), String> {
+    state.queue.write().repeat = mode;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn next_track(app: AppHandle, state: State<'_, AudioManager>) -> Result<(), String> {
+    let next_track = {
+        let mut q = state.queue.write();
+        q.get_next_track(true)
+    };
+    
+    if let Some(track) = next_track {
+        state.play(track.path.clone());
+        let _ = app.emit("track-changed", track);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn prev_track(app: AppHandle, state: State<'_, AudioManager>) -> Result<(), String> {
+    let prev_track = {
+        let mut q = state.queue.write();
+        q.get_prev_track()
+    };
+    
+    if let Some(track) = prev_track {
+        state.play(track.path.clone());
+        let _ = app.emit("track-changed", track);
+    }
     Ok(())
 }
 
@@ -222,4 +279,28 @@ pub async fn get_playback_info(state: State<'_, AudioManager>) -> Result<Playbac
         duration: state.get_duration(),
         is_playing: state.is_playing(),
     })
+}
+
+#[tauri::command]
+pub async fn get_current_track(state: State<'_, AudioManager>) -> Result<Option<Track>, String> {
+    Ok(state.queue.read().get_current_track())
+}
+
+#[tauri::command]
+pub async fn get_queue(state: State<'_, AudioManager>) -> Result<Vec<Track>, String> {
+    // Return visible tracks (should it be shuffled list or original logic? usually original + indication)
+    // For now return original list. 
+    // TODO: Maybe return play queue vs library context?
+    // PlayQueue manages "tracks".
+    Ok(state.queue.read().tracks.clone())
+}
+
+#[tauri::command]
+pub async fn get_shuffle_mode(state: State<'_, AudioManager>) -> Result<bool, String> {
+    Ok(state.queue.read().shuffle)
+}
+
+#[tauri::command]
+pub async fn get_repeat_mode(state: State<'_, AudioManager>) -> Result<RepeatMode, String> {
+    Ok(state.queue.read().repeat)
 }

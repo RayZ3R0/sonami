@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Track } from "../types";
 
 interface PlaybackInfo {
@@ -74,37 +75,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [isQueueOpen, setIsQueueOpen] = useState(false);
 
     const isSeeking = useRef(false);
-    const pendingTrackLoad = useRef<string | null>(null);
-    const lastTrackId = useRef<string | null>(null);
-    const shuffledIndices = useRef<number[]>([]);
-    const trackEndHandled = useRef(false);  // Prevent duplicate track end handling
-    const lastPositionRef = useRef(0);  // Track last position for detecting position reset
-    const shufflePositionRef = useRef(0);   // Track position in shuffle order
-    const handleTrackEndRef = useRef<(() => Promise<void>) | null>(null);  // Ref to avoid stale closures
 
-    // Refs to track current state for handleTrackEnd (avoids stale closures)
-    const tracksRef = useRef(tracks);
-    const currentTrackRef = useRef(currentTrack);
-    const repeatModeRef = useRef(repeatMode);
-    const queueRef = useRef(queue);
-    const shuffleRef = useRef(shuffle);
 
-    // Keep refs in sync with state
-    useEffect(() => { tracksRef.current = tracks; }, [tracks]);
-    useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
-    useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
-    useEffect(() => { queueRef.current = queue; }, [queue]);
-    useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
-
-    // Persist tracks to localStorage and update shuffle if needed
+    // Persist tracks to localStorage
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.TRACKS, JSON.stringify(tracks));
-        // Regenerate shuffle order when tracks change and shuffle is on
-        if (shuffle && tracks.length > 0 && shuffledIndices.current.length !== tracks.length) {
-            shuffledIndices.current = generateShuffleOrder(tracks.length);
-            shufflePositionRef.current = 0;
-        }
-    }, [tracks, shuffle]);
+    }, [tracks]);
 
     // Persist settings
     useEffect(() => {
@@ -113,79 +89,19 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.SHUFFLE, shuffle.toString());
-        // Regenerate shuffle order when toggling shuffle ON
-        if (shuffle && tracks.length > 0) {
-            const newOrder = generateShuffleOrder(tracks.length);
-            shuffledIndices.current = newOrder;
-            // If we have a current track, put it at the start of shuffle order
-            if (currentTrack) {
-                const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-                if (currentIndex >= 0) {
-                    // Remove current index from its position and put at start
-                    const filtered = newOrder.filter(i => i !== currentIndex);
-                    shuffledIndices.current = [currentIndex, ...filtered];
-                    shufflePositionRef.current = 0;
-                }
-            }
-        }
     }, [shuffle]);
 
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.REPEAT, repeatMode);
     }, [repeatMode]);
 
-    // Generate a shuffled order of indices
-    const generateShuffleOrder = (length: number): number[] => {
-        const indices = Array.from({ length }, (_, i) => i);
-        for (let i = indices.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [indices[i], indices[j]] = [indices[j], indices[i]];
-        }
-        return indices;
-    };
 
-    // Get the next track index based on shuffle mode
-    // Returns: { index: number, isEndOfList: boolean }
-    const getNextTrackIndex = useCallback((currentIndex: number, direction: 1 | -1 = 1): { index: number; isEndOfList: boolean } => {
-        if (tracks.length === 0) return { index: -1, isEndOfList: true };
-
-        if (shuffle) {
-            // Find current position in shuffle order
-            let shufflePos = shuffledIndices.current.indexOf(currentIndex);
-            if (shufflePos === -1) shufflePos = shufflePositionRef.current;
-
-            const nextShufflePos = shufflePos + direction;
-
-            // Check if we've reached end/start of shuffle order
-            if (nextShufflePos >= shuffledIndices.current.length) {
-                // End of shuffle - wrap to start
-                shufflePositionRef.current = 0;
-                return { index: shuffledIndices.current[0], isEndOfList: true };
-            } else if (nextShufflePos < 0) {
-                // Start of shuffle - wrap to end
-                shufflePositionRef.current = shuffledIndices.current.length - 1;
-                return { index: shuffledIndices.current[shuffledIndices.current.length - 1], isEndOfList: false };
-            }
-
-            shufflePositionRef.current = nextShufflePos;
-            return { index: shuffledIndices.current[nextShufflePos], isEndOfList: false };
-        }
-
-        // Normal sequential mode
-        const nextIndex = currentIndex + direction;
-        if (nextIndex >= tracks.length) {
-            return { index: 0, isEndOfList: true };
-        } else if (nextIndex < 0) {
-            return { index: tracks.length - 1, isEndOfList: false };
-        }
-        return { index: nextIndex, isEndOfList: false };
-    }, [shuffle, tracks.length]);
 
     // Sync playback state
     useEffect(() => {
         let animationId: number;
         let lastPollTime = 0;
-        const POLL_INTERVAL = 50;
+        const POLL_INTERVAL = 100;
 
         const pollPlaybackInfo = async (timestamp: number) => {
             if (timestamp - lastPollTime >= POLL_INTERVAL) {
@@ -193,52 +109,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
                 try {
                     const info = await invoke<PlaybackInfo>("get_playback_info");
+                    setCurrentTime(info.position);
+                    setDuration(info.duration);
+                    setIsPlaying(info.is_playing);
 
-                    const prevPosition = lastPositionRef.current;
-                    lastPositionRef.current = info.position;
+                    // Sync current track if we don't have one or if backend changed without event (safety)
+                    // Actually event listener is better, but polling safety is good.
+                    // Let's rely on polling for position/status and event for track change.
 
-                    // Handle track load sync - when position resets to near 0, track is loaded
-                    if (pendingTrackLoad.current !== null) {
-                        if (info.position < 1.0) {
-                            pendingTrackLoad.current = null;
-                            trackEndHandled.current = false;  // Reset for new track
-                            setCurrentTime(info.position);
-                            setIsPlaying(info.is_playing);
-                        }
-                        // Otherwise keep showing 0 until backend catches up
-                    } else if (!isSeeking.current) {
-                        setCurrentTime(info.position);
-                        setIsPlaying(info.is_playing);
-                    }
-
-                    // Update duration if it changed (new track)
-                    if (info.duration > 0) {
-                        setDuration(info.duration);
-                    }
-
-                    // INDUSTRY STANDARD TRACK END DETECTION:
-                    // The backend sets is_playing=false when the decoder hits EOF.
-                    // We detect track-end when:
-                    // 1. Backend says not playing (!info.is_playing)
-                    // 2. Position was near the end (prevPosition was > 80% of duration)
-                    // 3. We haven't already handled this track end
-                    // 4. No pending track load (not in the middle of loading a new track)
-                    const wasNearEnd = prevPosition > 0 && info.duration > 0 && prevPosition >= info.duration * 0.8;
-                    const backendStopped = !info.is_playing;
-                    const shouldTriggerEnd = backendStopped && wasNearEnd && !trackEndHandled.current && pendingTrackLoad.current === null;
-
-                    if (currentTrack && shouldTriggerEnd) {
-                        console.log('[TrackEnd] Detected:', {
-                            prevPosition,
-                            duration: info.duration,
-                            repeatMode: repeatModeRef.current,
-                        });
-                        trackEndHandled.current = true;
-                        // Use setTimeout to break out of the poll cycle
-                        setTimeout(() => {
-                            handleTrackEndRef.current?.();
-                        }, 0);
-                    }
+                    // Also sync shuffle/repeat occasionally?
+                    // For now, assume frontend state is truthy via user action, or sync on mount.
                 } catch (e) {
                     // Ignore polling errors silently
                 }
@@ -248,137 +128,50 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         };
 
         animationId = requestAnimationFrame(pollPlaybackInfo);
-        return () => cancelAnimationFrame(animationId);
-    }, [currentTrack]);
 
-    // Helper to play a track (used by handleTrackEnd to avoid circular deps)
-    const playTrackById = async (trackId: string) => {
-        const track = tracksRef.current.find(t => t.id === trackId);
-        if (!track) return;
-
-        try {
-            pendingTrackLoad.current = track.id;
+        // Listen for track changes from backend (auto-advance)
+        const unlisten = listen<Track>("track-changed", (event) => {
+            console.log("Track changed event:", event.payload);
+            setCurrentTrack(event.payload);
+            setDuration(event.payload.duration);
             setCurrentTime(0);
-            setDuration(track.duration);
-            setCurrentTrack(track);
-
-            await invoke("play_track", { path: track.path });
-            await invoke("set_volume", { volume });
-            setIsPlaying(true);
-            lastTrackId.current = track.id;
-        } catch (e) {
-            console.error("Failed to play track:", e);
-        }
-    };
-
-    // Get next track index using refs (for handleTrackEnd)
-    const getNextTrackIndexFromRefs = (currentIndex: number, direction: 1 | -1 = 1): { index: number; isEndOfList: boolean } => {
-        const trackCount = tracksRef.current.length;
-        if (trackCount === 0) return { index: -1, isEndOfList: true };
-
-        if (shuffleRef.current) {
-            let shufflePos = shuffledIndices.current.indexOf(currentIndex);
-            if (shufflePos === -1) shufflePos = shufflePositionRef.current;
-
-            const nextShufflePos = shufflePos + direction;
-
-            if (nextShufflePos >= shuffledIndices.current.length) {
-                shufflePositionRef.current = 0;
-                return { index: shuffledIndices.current[0], isEndOfList: true };
-            } else if (nextShufflePos < 0) {
-                shufflePositionRef.current = shuffledIndices.current.length - 1;
-                return { index: shuffledIndices.current[shuffledIndices.current.length - 1], isEndOfList: false };
-            }
-
-            shufflePositionRef.current = nextShufflePos;
-            return { index: shuffledIndices.current[nextShufflePos], isEndOfList: false };
-        }
-
-        const nextIndex = currentIndex + direction;
-        if (nextIndex >= trackCount) {
-            return { index: 0, isEndOfList: true };
-        } else if (nextIndex < 0) {
-            return { index: trackCount - 1, isEndOfList: false };
-        }
-        return { index: nextIndex, isEndOfList: false };
-    };
-
-    const handleTrackEnd = async () => {
-        const tracks = tracksRef.current;
-        const currentTrack = currentTrackRef.current;
-        const repeatMode = repeatModeRef.current;
-        const queue = queueRef.current;
-
-        console.log('[handleTrackEnd] Called with:', {
-            repeatMode,
-            tracksCount: tracks.length,
-            hasCurrentTrack: !!currentTrack,
-            queueLength: queue.length,
         });
 
-        if (!currentTrack || tracks.length === 0) {
-            console.log('[handleTrackEnd] Early return - no track or empty tracks');
-            return;
-        }
+        return () => {
+            cancelAnimationFrame(animationId);
+            unlisten.then(f => f());
+        };
+    }, []);
 
-        // Handle repeat one mode - RELOAD the track from scratch
-        // IMPORTANT: At EOF, the backend decoder is destroyed, so seek won't work.
-        // Industry standard (Spotify, VLC, etc.) is to reload the track.
-        if (repeatMode === "one") {
-            console.log('[handleTrackEnd] Repeat ONE - reloading track:', currentTrack.title);
-            try {
-                pendingTrackLoad.current = currentTrack.id;
-                setCurrentTime(0);
-                await invoke("play_track", { path: currentTrack.path });
-                setIsPlaying(true);
-                console.log('[handleTrackEnd] Repeat ONE - track reloaded');
-            } catch (e) {
-                console.error("Failed to repeat track:", e);
-                trackEndHandled.current = false;
-            }
-            return;
-        }
-
-        // Check if there are tracks in the manual queue
-        if (queue.length > 0) {
-            console.log('[handleTrackEnd] Playing from queue');
-            const nextFromQueue = queue[0];
-            setQueue(prev => prev.slice(1));
-            await playTrackById(nextFromQueue.id);
-            return;
-        }
-
-        const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        const { index: nextIndex, isEndOfList } = getNextTrackIndexFromRefs(currentIndex, 1);
-
-        console.log('[handleTrackEnd] Navigation:', {
-            currentIndex,
-            nextIndex,
-            isEndOfList,
-            repeatMode,
-        });
-
-        // Handle end of playlist
-        if (isEndOfList && repeatMode === "off") {
-            // End of playlist with no repeat - stop playback
-            console.log('[handleTrackEnd] End of playlist, repeat OFF - stopping');
-            setIsPlaying(false);
-            return;
-        }
-
-        // Play next track (loops if repeat all, or continues shuffle order)
-        if (nextIndex >= 0 && nextIndex < tracks.length) {
-            console.log('[handleTrackEnd] Playing next track:', tracks[nextIndex].title);
-            await playTrackById(tracks[nextIndex].id);
-        } else {
-            console.log('[handleTrackEnd] Invalid next index:', nextIndex);
-        }
-    };
-
-    // Keep the ref updated with latest handleTrackEnd
+    // Initial sync
     useEffect(() => {
-        handleTrackEndRef.current = handleTrackEnd;
-    });
+        const syncState = async () => {
+            try {
+                const track = await invoke<Track | null>("get_current_track");
+                if (track) setCurrentTrack(track);
+
+                const q = await invoke<Track[]>("get_queue");
+                // We treat get_queue as the library tracks in this context?
+                // The backend Queue.tracks is the main list.
+                // The frontend 'tracks' is the Library.
+                // We should keep them in sync.
+                if (q.length > 0 && tracks.length === 0) {
+                    setTracks(q); // Sync from backend if empty
+                }
+
+                const s = await invoke<boolean>("get_shuffle_mode");
+                setShuffle(s);
+
+                const r = await invoke<RepeatMode>("get_repeat_mode");
+                setRepeatMode(r);
+            } catch (e) {
+                console.error("Failed to sync state:", e);
+            }
+        };
+        syncState();
+    }, []);
+
+
 
     const importMusic = async () => {
         try {
@@ -414,56 +207,30 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const playTrack = async (track: Track) => {
         try {
-            // Optimistic update until backend confirms
-            pendingTrackLoad.current = track.id;
-            setCurrentTime(0);
-            setDuration(track.duration);
+            // Optimistic update
             setCurrentTrack(track);
+            setCurrentTime(0);
+            setIsPlaying(true);
+
+            // Ensure backend queue has our library
+            // Note: In a real app we might not want to resend 10k tracks every time.
+            // But for now, we ensure consistency.
+            // Check if we need to update queue?
+            // Let's assume 'tracks' is the source of truth for the queue.
+            await invoke("set_queue", { tracks });
 
             await invoke("play_track", { path: track.path });
-            await invoke("set_volume", { volume });
-            setIsPlaying(true);
-            lastTrackId.current = track.id;
-
-            // Gapless queue
-            // Use existing queue or calculate next track based on shuffle/repeat
-            if (queue.length > 0) {
-                await invoke("queue_next_track", { path: queue[0].path });
-            } else {
-                const currentIndex = tracks.findIndex(t => t.id === track.id);
-                // Use getNextTrackIndex to respect shuffle/repeat logic
-                // Pass direction 1, and we don't care about isEndOfList here usually, 
-                // but we should check if valid index returned.
-                // NOTE: We need to access the LATEST shuffle state. 
-                // Since this is async/closure, 'shuffle' var might be stale if not careful, 
-                // but playTrack is recreated on render or we use refs.
-                // getNextTrackIndex uses refs internally so it should be fine? 
-                // Wait, getNextTrackIndex uses 'shuffle' from closure scope or 'shuffle.current'? 
-                // It uses [shuffle, tracks.length] dependency.
-
-                // Better to use the ref-based helper we created for handleTrackEnd to be safe?
-                // yes, getNextTrackIndexFromRefs
-
-                const { index: nextIndex } = getNextTrackIndexFromRefs(currentIndex, 1);
-
-                if (nextIndex >= 0 && nextIndex < tracks.length) {
-                    // Don't queue if it's the same track unless repeat is one?
-                    // Actually if repeat=one, we DO want to queue it for gapless loop.
-                    await invoke("queue_next_track", { path: tracks[nextIndex].path });
-                }
-            }
         } catch (e) {
             console.error("Failed to play track:", e);
         }
     };
 
     const togglePlay = async () => {
-        if (!currentTrack) return;
-
         try {
             if (isPlaying) {
                 await invoke("pause_track");
             } else {
+                // If no track loaded, verify?
                 await invoke("resume_track");
             }
             setIsPlaying(!isPlaying);
@@ -473,12 +240,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const seek = async (time: number) => {
-        if (!currentTrack) return;
         try {
             isSeeking.current = true;
-            setCurrentTime(time); // Optimistic update
+            setCurrentTime(time);
             await invoke("seek_track", { position: time });
-            // Small delay before allowing position updates again
             setTimeout(() => {
                 isSeeking.current = false;
             }, 100);
@@ -498,61 +263,63 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const nextTrack = async () => {
-        if (!currentTrack || tracks.length === 0) return;
-
-        // Check queue first
-        if (queue.length > 0) {
-            const nextFromQueue = queue[0];
-            setQueue(prev => prev.slice(1));
-            await playTrack(nextFromQueue);
-            return;
-        }
-
-        const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        const { index: nextIndex } = getNextTrackIndex(currentIndex, 1);
-        if (nextIndex >= 0 && nextIndex < tracks.length) {
-            await playTrack(tracks[nextIndex]);
+        try {
+            await invoke("next_track");
+            // The polling/event listener will update UI
+        } catch (e) {
+            console.error("Failed to skip next:", e);
         }
     };
 
     const prevTrack = async () => {
-        if (!currentTrack || tracks.length === 0) return;
-
-        // If we're more than 3 seconds in, restart current track (Spotify behavior)
-        if (currentTime > 3) {
-            await seek(0);
-            return;
-        }
-
-        const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
-        const { index: prevIndex } = getNextTrackIndex(currentIndex, -1);
-        if (prevIndex >= 0 && prevIndex < tracks.length) {
-            await playTrack(tracks[prevIndex]);
+        try {
+            await invoke("prev_track");
+        } catch (e) {
+            console.error("Failed to skip prev:", e);
         }
     };
 
-    const toggleShuffle = () => {
-        setShuffle(prev => !prev);
+    const toggleShuffle = async () => {
+        try {
+            const newState = await invoke<boolean>("toggle_shuffle");
+            setShuffle(newState);
+        } catch (e) {
+            console.error("Failed to toggle shuffle:", e);
+        }
     };
 
-    const toggleRepeat = () => {
-        setRepeatMode(prev => {
-            if (prev === "off") return "all";
-            if (prev === "all") return "one";
-            return "off";
-        });
+    const toggleRepeat = async () => {
+        const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+        setRepeatMode(nextMode); // Optimistic
+        try {
+            await invoke("set_repeat_mode", { mode: nextMode });
+        } catch (e) {
+            console.error("Failed to toggle repeat:", e);
+        }
     };
 
-    const addToQueue = (track: Track) => {
-        setQueue(prev => [...prev, track]);
+    const addToQueue = async (track: Track) => {
+        try {
+            await invoke("add_to_queue", { track });
+            setQueue(prev => [...prev, track]); // Optimistic
+        } catch (e) {
+            console.error("Failed to add to queue:", e);
+        }
     };
 
     const removeFromQueue = (trackId: string) => {
+        // Backend command missing for removing specific item?
+        // TODO: Implement remove_from_queue in backend
         setQueue(prev => prev.filter(t => t.id !== trackId));
     };
 
-    const clearQueue = () => {
-        setQueue([]);
+    const clearQueue = async () => {
+        try {
+            await invoke("clear_queue");
+            setQueue([]);
+        } catch (e) {
+            console.error("Failed to clear queue:", e);
+        }
     };
 
     const clearLibrary = () => {
@@ -560,14 +327,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentTrack(null);
         setQueue([]);
         localStorage.removeItem(STORAGE_KEYS.TRACKS);
+        // Also clear backend queue?
+        invoke("set_queue", { tracks: [] });
     };
 
     const queueNextTrack = async (track: Track) => {
-        try {
-            await invoke("queue_next_track", { path: track.path });
-        } catch (e) {
-            console.error("Failed to queue next track:", e);
-        }
+        // Deprecated or alias to addToQueue?
+        // Let's alias to addToQueue for now
+        addToQueue(track);
     };
 
     return (
