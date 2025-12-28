@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter};
 use crate::queue::{PlayQueue, RepeatMode};
 use super::buffer::AudioBuffer;
 use super::manager::BUFFER_SIZE;
-use super::types::{AudioError, CrossfadeState, DecoderCommand, DecoderState, LoadTrackResult, PlaybackState};
+use super::types::{AudioContext, AudioError, CrossfadeState, DecoderCommand, DecoderState, LoadTrackResult, PlaybackState};
 
 const DEBUG_CROSSFADE: bool = false;
 
@@ -36,15 +36,19 @@ macro_rules! debug_cf {
 
 pub fn decoder_thread(
     command_rx: std::sync::mpsc::Receiver<DecoderCommand>,
-    buffer_a: Arc<AudioBuffer>,
-    buffer_b: Arc<AudioBuffer>,
-    state: PlaybackState,
-    queue: Arc<RwLock<PlayQueue>>,
-    crossfade_ms: Arc<AtomicU32>,
-    crossfade_active: Arc<AtomicBool>,
-    app_handle: AppHandle,
-    shutdown: Arc<AtomicBool>,
+    context: AudioContext,
 ) {
+    let AudioContext {
+        buffer_a,
+        buffer_b,
+        state,
+        queue,
+        crossfade_duration_ms: crossfade_ms,
+        crossfade_active,
+        app_handle,
+        shutdown,
+        ..
+    } = context;
     let mut current_decoder: Option<DecoderState> = None;
     let mut next_decoder: Option<DecoderState> = None;
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
@@ -68,10 +72,7 @@ pub fn decoder_thread(
             command_rx.try_recv().ok()
         } else {
             // Use timeout to allow shutdown checks
-            match command_rx.recv_timeout(Duration::from_millis(100)) {
-                Ok(cmd) => Some(cmd),
-                Err(_) => None,
-            }
+            command_rx.recv_timeout(Duration::from_millis(100)).ok()
         };
 
         if let Some(cmd) = command {
@@ -321,47 +322,44 @@ pub fn decoder_thread(
             ) {
                 if let Some((ref mut next_reader, ref mut next_dec, next_tid)) = next_decoder {
                     if buffer_b.available_space() >= 4096 {
-                        match next_reader.next_packet() {
-                            Ok(packet) => {
-                                if packet.track_id() == next_tid {
-                                    if let Ok(decoded) = next_dec.decode(&packet) {
-                                        let spec = *decoded.spec();
-                                        let dur = decoded.capacity() as u64;
-                                        if next_sample_buf.is_none()
-                                            || next_sample_buf.as_ref().unwrap().capacity()
-                                                < dur as usize
-                                        {
-                                            next_sample_buf = Some(SampleBuffer::new(dur, spec));
-                                        }
+                        if let Ok(packet) = next_reader.next_packet() {
+                            if packet.track_id() == next_tid {
+                                if let Ok(decoded) = next_dec.decode(&packet) {
+                                    let spec = *decoded.spec();
+                                    let dur = decoded.capacity() as u64;
+                                    if next_sample_buf.is_none()
+                                        || next_sample_buf.as_ref().unwrap().capacity()
+                                            < dur as usize
+                                    {
+                                        next_sample_buf = Some(SampleBuffer::new(dur, spec));
+                                    }
 
-                                        if let Some(ref mut buf) = next_sample_buf {
-                                            buf.copy_interleaved_ref(decoded);
-                                            let samples = buf.samples();
-                                            push_samples_to_buffer(
-                                                samples,
-                                                &buffer_b,
-                                                &mut next_resampler,
-                                                &mut next_resampler_input_buffer,
-                                                &mut next_input_accumulator,
-                                            );
-                                        }
+                                    if let Some(ref mut buf) = next_sample_buf {
+                                        buf.copy_interleaved_ref(decoded);
+                                        let samples = buf.samples();
+                                        push_samples_to_buffer(
+                                            samples,
+                                            &buffer_b,
+                                            &mut next_resampler,
+                                            &mut next_resampler_input_buffer,
+                                            &mut next_input_accumulator,
+                                        );
                                     }
                                 }
-
-                                // Once we have enough in buffer_b, activate crossfade
-                                if crossfade_state == CrossfadeState::Prebuffering
-                                    && BUFFER_SIZE - buffer_b.available_space() >= 8192
-                                {
-                                    crossfade_state = CrossfadeState::Crossfading {
-                                        progress_samples: 0,
-                                        total_samples: cf_duration_samples,
-                                    };
-                                    crossfade_active.store(true, Ordering::Relaxed);
-                                    debug_cf!("DECODER: CROSSFADE ACTIVATED! buffer_b has {} samples, cf_duration={} samples", 
-                                        BUFFER_SIZE - buffer_b.available_space(), cf_duration_samples);
-                                }
                             }
-                            Err(_) => {}
+
+                            // Once we have enough in buffer_b, activate crossfade
+                            if crossfade_state == CrossfadeState::Prebuffering
+                                && BUFFER_SIZE - buffer_b.available_space() >= 8192
+                            {
+                                crossfade_state = CrossfadeState::Crossfading {
+                                    progress_samples: 0,
+                                    total_samples: cf_duration_samples,
+                                };
+                                crossfade_active.store(true, Ordering::Relaxed);
+                                debug_cf!("DECODER: CROSSFADE ACTIVATED! buffer_b has {} samples, cf_duration={} samples", 
+                                    BUFFER_SIZE - buffer_b.available_space(), cf_duration_samples);
+                            }
                         }
                     }
                 }
@@ -378,11 +376,12 @@ pub fn decoder_thread(
 }
 
 /// Push samples to buffer with optional resampling
+#[allow(clippy::needless_range_loop)]
 fn push_samples_to_buffer(
     samples: &[f32],
     buffer: &Arc<AudioBuffer>,
     resampler: &mut Option<SincFixedIn<f32>>,
-    resampler_input_buffer: &mut Vec<Vec<f32>>,
+    resampler_input_buffer: &mut [Vec<f32>],
     input_accumulator: &mut VecDeque<f32>,
 ) {
     if let Some(ref mut r) = resampler {

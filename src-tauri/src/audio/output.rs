@@ -3,13 +3,10 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use parking_lot::RwLock;
-use tauri::{AppHandle, Emitter};
+use tauri::Emitter;
 
-use crate::dsp::DspChain;
-use super::buffer::AudioBuffer;
-use super::types::{AudioError, DeviceChanged, PlaybackState};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use super::types::{AudioContext, AudioError, DeviceChanged};
 use super::manager::BUFFER_SIZE;
 
 const DEBUG_CROSSFADE: bool = false;
@@ -23,14 +20,7 @@ macro_rules! debug_cf {
 }
 
 pub fn run_audio_output(
-    buffer_a: Arc<AudioBuffer>,
-    buffer_b: Arc<AudioBuffer>,
-    state: PlaybackState,
-    dsp: Arc<RwLock<DspChain>>,
-    crossfade_ms: Arc<AtomicU32>,
-    crossfade_active: Arc<AtomicBool>,
-    app_handle: AppHandle,
-    shutdown: Arc<AtomicBool>,
+    context: AudioContext,
 ) {
     let host = cpal::default_host();
     let mut current_device_name: Option<String> = None;
@@ -38,7 +28,7 @@ pub fn run_audio_output(
 
     loop {
         // Check for shutdown signal
-        if shutdown.load(Ordering::Relaxed) {
+        if context.shutdown.load(Ordering::Relaxed) {
             break;
         }
 
@@ -49,7 +39,7 @@ pub fn run_audio_output(
             }
             None => {
                 if !no_device_notified {
-                    let _ = app_handle.emit(
+                    let _ = context.app_handle.emit(
                         "audio-error",
                         AudioError {
                             code: "NO_DEVICE".to_string(),
@@ -70,7 +60,7 @@ pub fn run_audio_output(
         if current_device_name.as_ref() != Some(&device_name) {
             if current_device_name.is_some() {
                 // Device changed (not first connection)
-                let _ = app_handle.emit(
+                let _ = context.app_handle.emit(
                     "device-changed",
                     DeviceChanged {
                         device_name: device_name.clone(),
@@ -83,7 +73,7 @@ pub fn run_audio_output(
         let config = match device.default_output_config() {
             Ok(c) => c,
             Err(e) => {
-                let _ = app_handle.emit(
+                let _ = context.app_handle.emit(
                     "audio-error",
                     AudioError {
                         code: "CONFIG_ERROR".to_string(),
@@ -97,11 +87,11 @@ pub fn run_audio_output(
         };
 
         let sample_rate = config.sample_rate().0;
-        state
+        context.state
             .device_sample_rate
             .store(sample_rate, Ordering::Relaxed);
 
-        let app_handle_err = app_handle.clone();
+        let app_handle_err = context.app_handle.clone();
         let err_fn = move |err| {
             eprintln!("Audio output error: {}", err);
             let _ = app_handle_err.emit(
@@ -118,34 +108,19 @@ pub fn run_audio_output(
             cpal::SampleFormat::F32 => run_stream::<f32>(
                 &device,
                 &config.into(),
-                buffer_a.clone(),
-                buffer_b.clone(),
-                state.clone(),
-                dsp.clone(),
-                crossfade_ms.clone(),
-                crossfade_active.clone(),
+                context.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::I16 => run_stream::<i16>(
                 &device,
                 &config.into(),
-                buffer_a.clone(),
-                buffer_b.clone(),
-                state.clone(),
-                dsp.clone(),
-                crossfade_ms.clone(),
-                crossfade_active.clone(),
+                context.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::U16 => run_stream::<u16>(
                 &device,
                 &config.into(),
-                buffer_a.clone(),
-                buffer_b.clone(),
-                state.clone(),
-                dsp.clone(),
-                crossfade_ms.clone(),
-                crossfade_active.clone(),
+                context.clone(),
                 err_fn,
             ),
             _ => Err(cpal::BuildStreamError::StreamConfigNotSupported),
@@ -155,7 +130,7 @@ pub fn run_audio_output(
             if stream.play().is_ok() {
                 // Monitor for device changes or shutdown
                 loop {
-                    if shutdown.load(Ordering::Relaxed) {
+                    if context.shutdown.load(Ordering::Relaxed) {
                         break;
                     }
 
@@ -172,7 +147,7 @@ pub fn run_audio_output(
                 }
             }
         } else {
-            let _ = app_handle.emit(
+            let _ = context.app_handle.emit(
                 "audio-error",
                 AudioError {
                     code: "STREAM_BUILD_ERROR".to_string(),
@@ -188,17 +163,22 @@ pub fn run_audio_output(
 pub fn run_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    buffer_a: Arc<AudioBuffer>,
-    buffer_b: Arc<AudioBuffer>,
-    state: PlaybackState,
-    dsp: Arc<RwLock<DspChain>>,
-    crossfade_ms: Arc<AtomicU32>,
-    crossfade_active: Arc<AtomicBool>,
+    context: AudioContext,
     err_fn: impl Fn(cpal::StreamError) + Send + 'static,
 ) -> Result<cpal::Stream, cpal::BuildStreamError>
 where
     T: cpal::Sample + cpal::SizedSample + cpal::FromSample<f32>,
 {
+    let AudioContext {
+        buffer_a,
+        buffer_b,
+        state,
+        dsp,
+        crossfade_duration_ms: crossfade_ms,
+        crossfade_active,
+        ..
+    } = context;
+
     let channels = config.channels as usize;
     let sample_rate = config.sample_rate.0;
 
@@ -286,7 +266,7 @@ where
                 let crossfade_complete = progress >= cf_duration_samples;
 
                 let new_state = if crossfade_complete { 2 } else { 1 };
-                if prev_state != new_state || callback_num % 50 == 0 {
+                if prev_state != new_state || callback_num.is_multiple_of(50) {
                     debug_state.store(new_state, Ordering::Relaxed);
                     let t = progress as f64 / cf_duration_samples as f64;
                     let gain_a = (t * std::f64::consts::FRAC_PI_2).cos() as f32;
@@ -334,7 +314,7 @@ where
                 // Draining mode: play buffer_b until it's completely empty
                 // Micro-fade is already detected and activated above before popping
 
-                if prev_state != 3 || callback_num % 50 == 0 {
+                if prev_state != 3 || callback_num.is_multiple_of(50) {
                     debug_state.store(3, Ordering::Relaxed);
                     debug_cf!(
                         "cb#{} STATE=DRAINING | read_a={} read_b={} | micro_fade={} | sample_b[0]={:.4}",

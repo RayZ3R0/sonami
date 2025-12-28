@@ -1,7 +1,29 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
+use tauri::AppHandle;
 use parking_lot::RwLock;
+
+use crate::dsp::DspChain;
+use crate::media_controls::MediaControlsManager;
+use crate::queue::PlayQueue;
+use super::buffer::AudioBuffer;
+
+#[derive(Clone)]
+pub struct AudioContext {
+    pub buffer_a: Arc<AudioBuffer>,
+    pub buffer_b: Arc<AudioBuffer>,
+    pub state: PlaybackState,
+    pub queue: Arc<RwLock<PlayQueue>>,
+    pub dsp: Arc<RwLock<DspChain>>,
+    pub media_controls: Arc<MediaControlsManager>,
+    pub crossfade_duration_ms: Arc<AtomicU32>,
+    pub crossfade_active: Arc<AtomicBool>,
+    pub app_handle: AppHandle,
+    pub shutdown: Arc<AtomicBool>,
+}
+
+
 use serde::Serialize;
 use symphonia::core::codecs::Decoder;
 use symphonia::core::formats::FormatReader;

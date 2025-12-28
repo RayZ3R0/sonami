@@ -8,6 +8,12 @@ pub struct MediaControlsManager {
 unsafe impl Send for MediaControlsManager {}
 unsafe impl Sync for MediaControlsManager {}
 
+impl Default for MediaControlsManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MediaControlsManager {
     #[cfg(not(target_os = "windows"))]
     pub fn new() -> Self {

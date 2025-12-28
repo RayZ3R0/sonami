@@ -7,6 +7,12 @@ pub struct DspChain {
     processors: Vec<Box<dyn DspProcessor>>,
 }
 
+impl Default for DspChain {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DspChain {
     pub fn new() -> Self {
         Self {
@@ -41,6 +47,12 @@ pub struct LoudnessNormalizer {
     rms_count: u64,
     attack_coeff: f32,
     release_coeff: f32,
+}
+
+impl Default for LoudnessNormalizer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LoudnessNormalizer {

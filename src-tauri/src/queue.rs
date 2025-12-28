@@ -30,6 +30,12 @@ pub struct PlayQueue {
     pub repeat: RepeatMode,
 }
 
+impl Default for PlayQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PlayQueue {
     pub fn new() -> Self {
         Self {

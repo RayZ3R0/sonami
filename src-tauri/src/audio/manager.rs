@@ -9,7 +9,7 @@ use crate::media_controls::MediaControlsManager;
 use crate::queue::PlayQueue;
 
 use super::buffer::AudioBuffer;
-use super::types::{DecoderCommand, PlaybackState, DEFAULT_CROSSFADE_MS};
+use super::types::{AudioContext, DecoderCommand, PlaybackState, DEFAULT_CROSSFADE_MS};
 use super::decoder::decoder_thread;
 use super::output::run_audio_output;
 
@@ -44,48 +44,28 @@ impl AudioManager {
         let crossfade_duration_ms = Arc::new(AtomicU32::new(DEFAULT_CROSSFADE_MS));
         let crossfade_active = Arc::new(AtomicBool::new(false));
 
-        let state_decoder = state.clone();
-        let state_output = state.clone();
-        let buffer_a_decoder = buffer_a.clone();
-        let buffer_b_decoder = buffer_b.clone();
-        let buffer_a_output = buffer_a.clone();
-        let buffer_b_output = buffer_b.clone();
-        let crossfade_ms_decoder = crossfade_duration_ms.clone();
-        let crossfade_ms_output = crossfade_duration_ms.clone();
-        let crossfade_active_decoder = crossfade_active.clone();
-        let crossfade_active_output = crossfade_active.clone();
-        let shutdown_decoder = shutdown.clone();
-        let shutdown_output = shutdown.clone();
+        let context = AudioContext {
+            buffer_a: buffer_a.clone(),
+            buffer_b: buffer_b.clone(),
+            state: state.clone(),
+            queue: queue.clone(),
+            dsp: dsp.clone(),
+            media_controls: media_controls.clone(),
+            crossfade_duration_ms: crossfade_duration_ms.clone(),
+            crossfade_active: crossfade_active.clone(),
+            app_handle: app_handle.clone(),
+            shutdown: shutdown.clone(),
+        };
 
-        let queue_decoder = queue.clone();
-        let dsp_output = dsp.clone();
-        let app_handle_output = app_handle.clone();
+        let context_decoder = context.clone();
+        let context_output = context.clone();
 
         thread::spawn(move || {
-            decoder_thread(
-                command_rx,
-                buffer_a_decoder,
-                buffer_b_decoder,
-                state_decoder,
-                queue_decoder,
-                crossfade_ms_decoder,
-                crossfade_active_decoder,
-                app_handle,
-                shutdown_decoder,
-            );
+            decoder_thread(command_rx, context_decoder);
         });
 
         thread::spawn(move || {
-            run_audio_output(
-                buffer_a_output,
-                buffer_b_output,
-                state_output,
-                dsp_output,
-                crossfade_ms_output,
-                crossfade_active_output,
-                app_handle_output,
-                shutdown_output,
-            );
+            run_audio_output(context_output);
         });
 
         Self {
