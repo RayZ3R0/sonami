@@ -3,6 +3,12 @@ import { usePlayer } from "../context/PlayerContext";
 import { Settings, SettingsButton, ThemeButton } from "./Settings";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
+// Manual offsets for vertical alignment
+const TOP_NAV_TEXT_OFFSET = "mt-[5px]";
+const PLAYLIST_TEXT_OFFSET = "mt-[5px]";
+const PLUS_ICON_OFFSET = "mt-[-8px]";
+const IMPORT_BUTTON_TEXT_OFFSET = "mt-[4.6px]";
+
 // Unified icon wrapper - guarantees consistent sizing and alignment
 const Icon = ({ children }: { children: React.ReactNode }) => (
     <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -81,13 +87,6 @@ export const Sidebar = ({
     const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
     const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
-    // ====== MANUAL TEXT OFFSET ======
-    const textOffsetY = '2.1px';  // positive = down, negative = up
-    const playlistPlusOffsetY = '-4.6px';  // offset for playlist + icon
-    const playlistTextOffsetY = '2px';  // offset for playlist names
-    const buttonTextOffsetY = '1.6px';  // offset for File/Folder button texts
-    // ==============================================================================
-
     const NavButton = ({
         id,
         icon,
@@ -107,7 +106,7 @@ export const Sidebar = ({
                     }`}
             >
                 <Icon>{icon}</Icon>
-                <span className="text-[13px] font-medium" style={{ transform: `translateY(${textOffsetY})` }}>{label}</span>
+                <span className={`text-[13px] font-medium ${TOP_NAV_TEXT_OFFSET}`}>{label}</span>
             </button>
         );
     };
@@ -131,7 +130,7 @@ export const Sidebar = ({
                     }`}
             >
                 <Icon>{icon}</Icon>
-                <span className="text-[13px]" style={{ transform: `translateY(${textOffsetY})` }}>{label}</span>
+                <span className={`text-[13px] ${TOP_NAV_TEXT_OFFSET}`}>{label}</span>
             </button>
         );
     };
@@ -170,8 +169,7 @@ export const Sidebar = ({
                     <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
                         <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Playlists</span>
                         <button
-                            className="w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
-                            style={{ transform: `translateY(${playlistPlusOffsetY})` }}
+                            className={`w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors ${PLUS_ICON_OFFSET}`}
                             onClick={() => setIsCreatePlaylistOpen(true)}
                         >
                             {icons.plusSmall}
@@ -190,7 +188,7 @@ export const Sidebar = ({
                                 <span className={`w-8 h-8 rounded-md bg-theme-surface flex items-center justify-center flex-shrink-0 shadow-sm text-theme-muted`}>
                                     {icons.music}
                                 </span>
-                                <span className="text-[13px] truncate" style={{ transform: `translateY(${playlistTextOffsetY})` }}>{pl.name}</span>
+                                <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.name}</span>
                             </button>
                         ))}
                         {playlists.length === 0 && (
@@ -217,7 +215,7 @@ export const Sidebar = ({
                             title="Add single file"
                         >
                             {icons.plus}
-                            <span className="leading-none" style={{ transform: `translateY(${buttonTextOffsetY})` }}>File</span>
+                            <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>File</span>
                         </button>
                         <button
                             onClick={importFolder}
@@ -225,7 +223,7 @@ export const Sidebar = ({
                             title="Add folder"
                         >
                             {icons.folder}
-                            <span className="leading-none" style={{ transform: `translateY(${buttonTextOffsetY})` }}>Folder</span>
+                            <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>Folder</span>
                         </button>
                     </div>
 

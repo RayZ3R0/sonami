@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Track, Playlist } from "../types";
@@ -11,12 +11,20 @@ interface PlaybackInfo {
 
 export type RepeatMode = "off" | "all" | "one";
 
+// New Context for high-frequency updates
+interface PlaybackProgressContextType {
+    currentTime: number;
+    duration: number;
+}
+export const PlaybackProgressContext = createContext<PlaybackProgressContextType>({ currentTime: 0, duration: 0 });
+
+
 interface PlayerContextType {
     tracks: Track[];
     currentTrack: Track | null;
     isPlaying: boolean;
-    currentTime: number;
-    duration: number;
+    // currentTime: removed (usePlaybackProgress)
+    // duration: removed (usePlaybackProgress)
     volume: number;
     shuffle: boolean;
     repeatMode: RepeatMode;
@@ -435,18 +443,33 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    return (
-        <PlayerContext.Provider value={{
-            tracks, currentTrack, isPlaying, currentTime, duration, volume,
-            shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
-            importMusic, importFolder, playTrack, togglePlay, seek, setVolume,
-            nextTrack, prevTrack, toggleShuffle, toggleRepeat,
-            queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
 
-            createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
-            crossfadeEnabled, crossfadeDuration, setCrossfade
-        }}>
-            {children}
+    // Memoize the main player context value to prevent re-renders when only currentTime changes
+    const playerValue = useMemo(() => ({
+        tracks, currentTrack, isPlaying, volume,
+        shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
+        importMusic, importFolder, playTrack, togglePlay, seek, setVolume,
+        nextTrack, prevTrack, toggleShuffle, toggleRepeat,
+        queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
+        createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
+        crossfadeEnabled, crossfadeDuration, setCrossfade
+    }), [
+        tracks, currentTrack, isPlaying, volume,
+        shuffle, repeatMode, queue, playlists, isQueueOpen,
+        crossfadeEnabled, crossfadeDuration
+    ]);
+
+    // Memoize playback progress
+    const playbackValue = useMemo(() => ({
+        currentTime,
+        duration
+    }), [currentTime, duration]);
+
+    return (
+        <PlayerContext.Provider value={playerValue}>
+            <PlaybackProgressContext.Provider value={playbackValue}>
+                {children}
+            </PlaybackProgressContext.Provider>
         </PlayerContext.Provider>
     );
 };
@@ -455,5 +478,9 @@ export const usePlayer = () => {
     const context = useContext(PlayerContext);
     if (!context) throw new Error("usePlayer must be used within PlayerProvider");
     return context;
+};
+
+export const usePlaybackProgress = () => {
+    return useContext(PlaybackProgressContext);
 };
 

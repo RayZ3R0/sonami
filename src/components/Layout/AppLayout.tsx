@@ -3,14 +3,10 @@ import { PlayerBar } from "../PlayerBar";
 import { TitleBar } from "../TitleBar";
 import { MainStage } from "../MainStage";
 import { QueueSidebar } from "../QueueSidebar";
-import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useAudioEvents } from "../../hooks/useAudioEvents";
 import { useState } from "react";
 
 export const AppLayout = () => {
-    // Enable keyboard shortcuts
-    useKeyboardShortcuts();
-
     // Listen for audio events (errors, device changes) and show toasts
     useAudioEvents();
 

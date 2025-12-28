@@ -1,22 +1,22 @@
 import { useEffect } from "react";
-import { usePlayer } from "../context/PlayerContext";
+import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
 
 export const useKeyboardShortcuts = () => {
-    const { 
-        togglePlay, 
-        nextTrack, 
-        prevTrack, 
-        volume, 
-        setVolume, 
-        seek, 
-        currentTime, 
-        duration,
+    const {
+        togglePlay,
+        nextTrack,
+        prevTrack,
+        volume,
+        setVolume,
+        seek,
         toggleShuffle,
         toggleRepeat,
         currentTrack,
         isQueueOpen,
         setIsQueueOpen
     } = usePlayer();
+
+    const { currentTime, duration } = usePlaybackProgress();
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,7 +34,7 @@ export const useKeyboardShortcuts = () => {
                     e.preventDefault();
                     togglePlay();
                     break;
-                
+
                 case "ArrowRight":
                     if (e.shiftKey) {
                         // Skip to next track
@@ -46,7 +46,7 @@ export const useKeyboardShortcuts = () => {
                         seek(newTime);
                     }
                     break;
-                
+
                 case "ArrowLeft":
                     if (e.shiftKey) {
                         // Skip to previous track
@@ -58,50 +58,50 @@ export const useKeyboardShortcuts = () => {
                         seek(newTime);
                     }
                     break;
-                
+
                 case "ArrowUp":
                     e.preventDefault();
                     setVolume(Math.min(volume + 0.1, 1));
                     break;
-                
+
                 case "ArrowDown":
                     e.preventDefault();
                     setVolume(Math.max(volume - 0.1, 0));
                     break;
-                
+
                 case "KeyM":
                     // Mute/unmute
                     setVolume(volume > 0 ? 0 : 1);
                     break;
-                
+
                 case "KeyS":
                     // Toggle shuffle
                     if (!e.ctrlKey && !e.metaKey) {
                         toggleShuffle();
                     }
                     break;
-                
+
                 case "KeyR":
                     // Toggle repeat
                     if (!e.ctrlKey && !e.metaKey) {
                         toggleRepeat();
                     }
                     break;
-                
+
                 case "KeyQ":
                     // Toggle queue sidebar
                     if (!e.ctrlKey && !e.metaKey) {
                         setIsQueueOpen(!isQueueOpen);
                     }
                     break;
-                
+
                 case "Digit0":
                 case "Numpad0":
                     if (currentTrack) {
                         seek(0);
                     }
                     break;
-                
+
                 // Number keys 1-9 for percentage seeking
                 case "Digit1":
                 case "Digit2":

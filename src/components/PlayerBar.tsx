@@ -1,4 +1,4 @@
-import { usePlayer } from "../context/PlayerContext";
+import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
 import React, { useRef, useState, useEffect } from 'react';
 
 const MarqueeText = ({ text, className }: { text: string; className?: string }) => {
@@ -95,7 +95,8 @@ const formatTime = (seconds: number): string => {
 };
 
 export const PlayerBar = () => {
-    const { currentTrack, isPlaying, togglePlay, currentTime, duration, seek, volume, setVolume, nextTrack, prevTrack, shuffle, repeatMode, toggleShuffle, toggleRepeat, isQueueOpen, setIsQueueOpen } = usePlayer();
+    const { currentTrack, isPlaying, togglePlay, seek, volume, setVolume, nextTrack, prevTrack, shuffle, repeatMode, toggleShuffle, toggleRepeat, isQueueOpen, setIsQueueOpen } = usePlayer();
+    const { currentTime, duration } = usePlaybackProgress();
     const seekBarRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
