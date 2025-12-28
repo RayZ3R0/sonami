@@ -2,11 +2,11 @@ pub mod audio;
 pub mod commands;
 pub mod dsp;
 pub mod media_controls;
-pub mod playlist; 
+pub mod playlist;
 pub mod queue;
 
 use audio::AudioManager;
-use playlist::PlaylistManager; 
+use playlist::PlaylistManager;
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -75,7 +75,6 @@ pub fn run() {
             playlist::rename_playlist,
             playlist::add_to_playlist,
             playlist::remove_from_playlist,
-            
             // Existing Commands
             commands::import_music,
             commands::import_folder,
@@ -105,4 +104,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
