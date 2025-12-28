@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
-import { Settings, SettingsButton } from "./Settings";
+import { Settings, SettingsButton, ThemeButton } from "./Settings";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Unified icon wrapper - guarantees consistent sizing and alignment
@@ -76,8 +76,9 @@ export const Sidebar = ({
     activeTab: string;
     setActiveTab: (tab: string) => void;
 }) => {
-    const { importMusic, importFolder, tracks, clearLibrary, playlists } = usePlayer();
+    const { importMusic, importFolder, playlists } = usePlayer();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
     const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
     // ====== MANUAL TEXT OFFSET ======
@@ -101,8 +102,8 @@ export const Sidebar = ({
             <button
                 onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
-                        ? 'bg-theme-accent text-theme-inverse'
-                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                    ? 'bg-theme-accent text-theme-inverse'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                     }`}
             >
                 <Icon>{icon}</Icon>
@@ -125,14 +126,19 @@ export const Sidebar = ({
             <button
                 onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 ${isActive
-                        ? 'bg-theme-surface-active text-theme-primary'
-                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                    ? 'bg-theme-surface-active text-theme-primary'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                     }`}
             >
                 <Icon>{icon}</Icon>
                 <span className="text-[13px]" style={{ transform: `translateY(${textOffsetY})` }}>{label}</span>
             </button>
         );
+    };
+
+    const openSettings = (tab: "appearance" | "playback") => {
+        setSettingsTab(tab);
+        setIsSettingsOpen(true);
     };
 
     return (
@@ -177,8 +183,8 @@ export const Sidebar = ({
                                 key={pl.id}
                                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
                                 className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
-                                        ? 'bg-theme-surface-active text-theme-primary'
-                                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                    ? 'bg-theme-surface-active text-theme-primary'
+                                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                                     }`}
                             >
                                 <span className={`w-8 h-8 rounded-md bg-theme-surface flex items-center justify-center flex-shrink-0 shadow-sm text-theme-muted`}>
@@ -224,26 +230,15 @@ export const Sidebar = ({
                     </div>
 
                     {/* Settings Row */}
-                    <div className="flex items-center justify-between px-1">
-                        <span className="text-xs text-theme-muted">Preferences</span>
-                        <div className="flex items-center gap-2">
-                            {tracks.length > 0 && (
-                                <button
-                                    onClick={clearLibrary}
-                                    className="p-1.5 rounded-md text-theme-muted hover:text-theme-error hover:bg-theme-surface-hover transition-colors"
-                                    title="Clear library"
-                                >
-                                    {icons.trash}
-                                </button>
-                            )}
-                            <SettingsButton onClick={() => setIsSettingsOpen(true)} />
-                        </div>
+                    <div className="flex items-center justify-end px-1 gap-1">
+                        <ThemeButton onClick={() => openSettings("appearance")} />
+                        <SettingsButton onClick={() => openSettings("playback")} />
                     </div>
                 </div>
             </div>
 
             {/* Settings Panel */}
-            <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} defaultTab={settingsTab} />
 
             {/* Create Playlist Modal */}
             <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />

@@ -46,6 +46,11 @@ interface PlayerContextType {
     addToPlaylist: (playlistId: string, track: Track) => Promise<void>;
     removeFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
     refreshPlaylists: () => Promise<void>;
+
+    // Settings
+    crossfadeEnabled: boolean;
+    crossfadeDuration: number; // in ms
+    setCrossfade: (enabled: boolean, duration: number) => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -56,6 +61,8 @@ const STORAGE_KEYS = {
     VOLUME: "sonami-volume",
     SHUFFLE: "sonami-shuffle",
     REPEAT: "sonami-repeat",
+    CROSSFADE_ENABLED: "sonami-crossfade-enabled",
+    CROSSFADE_DURATION: "sonami-crossfade-duration",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -82,6 +89,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [queue, setQueue] = useState<Track[]>([]);
     const [playlists, setPlaylists] = useState<Playlist[]>([]); // [NEW]
     const [isQueueOpen, setIsQueueOpen] = useState(false);
+    const [crossfadeEnabled, setCrossfadeEnabled] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_ENABLED);
+        return saved !== "false"; // Default true? or false? Let's say default true as strict boolean, or user pref.
+        // Actually, let's default to false for safety if not set? Or true to match backend default 5000ms?
+        // Backend default is 5000ms.
+        return saved === "true";
+    });
+    const [crossfadeDuration, setCrossfadeDurationState] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_DURATION);
+        return saved ? parseInt(saved) : 5000;
+    });
 
     const isSeeking = useRef(false);
 
@@ -103,6 +121,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.REPEAT, repeatMode);
     }, [repeatMode]);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.CROSSFADE_ENABLED, crossfadeEnabled.toString());
+        localStorage.setItem(STORAGE_KEYS.CROSSFADE_DURATION, crossfadeDuration.toString());
+    }, [crossfadeEnabled, crossfadeDuration]);
 
 
 
@@ -173,6 +196,24 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
                 const r = await invoke<RepeatMode>("get_repeat_mode");
                 setRepeatMode(r);
+
+                // Sync crossfade
+                const cfDuration = await invoke<number>("get_crossfade_duration");
+                // If duration > 0, we can assume enabled? 
+                // Or we enforce our local state?
+                // Use local state truth source for "enabled" toggle, apply to backend.
+                // If enabled, ensure backend matches local duration.
+                // If disabled, ensure backend is 0.
+                if (crossfadeEnabled) {
+                    if (cfDuration !== crossfadeDuration) {
+                        // Apply local preference
+                        await invoke("set_crossfade_duration", { durationMs: crossfadeDuration });
+                    }
+                } else {
+                    if (cfDuration !== 0) {
+                        await invoke("set_crossfade_duration", { durationMs: 0 });
+                    }
+                }
 
                 refreshPlaylists(); // [NEW] Fetch playlists
             } catch (e) {
@@ -409,6 +450,18 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         addToQueue(track);
     };
 
+    const setCrossfade = async (enabled: boolean, duration: number) => {
+        setCrossfadeEnabled(enabled);
+        setCrossfadeDurationState(duration);
+
+        try {
+            const targetDuration = enabled ? duration : 0;
+            await invoke("set_crossfade_duration", { durationMs: targetDuration });
+        } catch (e) {
+            console.error("Failed to set crossfade:", e);
+        }
+    };
+
     return (
         <PlayerContext.Provider value={{
             tracks, currentTrack, isPlaying, currentTime, duration, volume,
@@ -416,7 +469,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             importMusic, importFolder, playTrack, togglePlay, seek, setVolume,
             nextTrack, prevTrack, toggleShuffle, toggleRepeat,
             queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
-            createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists
+
+            createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
+            crossfadeEnabled, crossfadeDuration, setCrossfade
         }}>
             {children}
         </PlayerContext.Provider>
