@@ -174,6 +174,23 @@ pub enum DecoderCommand {
     QueueNext(String),
 }
 
+/// Crossfade state machine
+#[derive(Clone, Copy, PartialEq)]
+pub enum CrossfadeState {
+    /// Normal playback, no crossfade active
+    Idle,
+    /// Pre-buffering next track, not yet mixing
+    Prebuffering,
+    /// Actively crossfading between two tracks
+    Crossfading {
+        progress_samples: u64,
+        total_samples: u64,
+    },
+}
+
+/// Default crossfade duration in milliseconds (user configurable)
+pub const DEFAULT_CROSSFADE_MS: u32 = 5000;
+
 use crate::dsp::DspChain;
 use crate::media_controls::MediaControlsManager;
 use crate::queue::PlayQueue;
@@ -183,6 +200,7 @@ pub struct AudioManager {
     pub queue: Arc<RwLock<PlayQueue>>,
     pub dsp: Arc<RwLock<DspChain>>,
     pub media_controls: Arc<MediaControlsManager>,
+    pub crossfade_duration_ms: Arc<AtomicU32>,
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
 }
 
@@ -194,16 +212,23 @@ impl AudioManager {
         let state = PlaybackState::new();
         let (command_tx, command_rx) = std::sync::mpsc::channel();
 
-        let audio_buffer = Arc::new(AudioBuffer::new(BUFFER_SIZE));
+        // Primary and secondary buffers for crossfade
+        let buffer_a = Arc::new(AudioBuffer::new(BUFFER_SIZE));
+        let buffer_b = Arc::new(AudioBuffer::new(BUFFER_SIZE));
 
         let queue = Arc::new(RwLock::new(PlayQueue::new()));
         let dsp = Arc::new(RwLock::new(DspChain::new()));
         let media_controls = Arc::new(MediaControlsManager::new());
+        let crossfade_duration_ms = Arc::new(AtomicU32::new(DEFAULT_CROSSFADE_MS));
 
         let state_decoder = state.clone();
         let state_output = state.clone();
-        let buffer_decoder = audio_buffer.clone();
-        let buffer_output = audio_buffer.clone();
+        let buffer_a_decoder = buffer_a.clone();
+        let buffer_b_decoder = buffer_b.clone();
+        let buffer_a_output = buffer_a.clone();
+        let buffer_b_output = buffer_b.clone();
+        let crossfade_ms_decoder = crossfade_duration_ms.clone();
+        let crossfade_ms_output = crossfade_duration_ms.clone();
 
         // Clone for threads
         let queue_decoder = queue.clone();
@@ -212,15 +237,23 @@ impl AudioManager {
         thread::spawn(move || {
             decoder_thread(
                 command_rx,
-                buffer_decoder,
+                buffer_a_decoder,
+                buffer_b_decoder,
                 state_decoder,
                 queue_decoder,
+                crossfade_ms_decoder,
                 app_handle,
             );
         });
 
         thread::spawn(move || {
-            run_audio_output(buffer_output, state_output, dsp_output);
+            run_audio_output(
+                buffer_a_output,
+                buffer_b_output,
+                state_output,
+                dsp_output,
+                crossfade_ms_output,
+            );
         });
 
         Self {
@@ -229,6 +262,7 @@ impl AudioManager {
             queue,
             dsp,
             media_controls,
+            crossfade_duration_ms,
         }
     }
 
@@ -272,7 +306,13 @@ impl AudioManager {
     }
 }
 
-fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState, dsp: Arc<RwLock<DspChain>>) {
+fn run_audio_output(
+    buffer_a: Arc<AudioBuffer>,
+    buffer_b: Arc<AudioBuffer>,
+    state: PlaybackState,
+    dsp: Arc<RwLock<DspChain>>,
+    crossfade_ms: Arc<AtomicU32>,
+) {
     let host = cpal::default_host();
     loop {
         let device = match host.default_output_device() {
@@ -301,25 +341,31 @@ fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState, dsp: Arc<RwL
             cpal::SampleFormat::F32 => run_stream::<f32>(
                 &device,
                 &config.into(),
-                buffer.clone(),
+                buffer_a.clone(),
+                buffer_b.clone(),
                 state.clone(),
                 dsp.clone(),
+                crossfade_ms.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::I16 => run_stream::<i16>(
                 &device,
                 &config.into(),
-                buffer.clone(),
+                buffer_a.clone(),
+                buffer_b.clone(),
                 state.clone(),
                 dsp.clone(),
+                crossfade_ms.clone(),
                 err_fn,
             ),
             cpal::SampleFormat::U16 => run_stream::<u16>(
                 &device,
                 &config.into(),
-                buffer.clone(),
+                buffer_a.clone(),
+                buffer_b.clone(),
                 state.clone(),
                 dsp.clone(),
+                crossfade_ms.clone(),
                 err_fn,
             ),
             _ => Err(cpal::BuildStreamError::StreamConfigNotSupported),
@@ -339,9 +385,11 @@ fn run_audio_output(buffer: Arc<AudioBuffer>, state: PlaybackState, dsp: Arc<RwL
 fn run_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    buffer: Arc<AudioBuffer>,
+    buffer_a: Arc<AudioBuffer>,
+    buffer_b: Arc<AudioBuffer>,
     state: PlaybackState,
     dsp: Arc<RwLock<DspChain>>,
+    crossfade_ms: Arc<AtomicU32>,
     err_fn: impl Fn(cpal::StreamError) + Send + 'static,
 ) -> Result<cpal::Stream, cpal::BuildStreamError>
 where
@@ -349,6 +397,10 @@ where
 {
     let channels = config.channels as usize;
     let sample_rate = config.sample_rate.0;
+
+    // Crossfade state tracking within output callback
+    let crossfade_progress = Arc::new(AtomicU64::new(0));
+    let crossfade_active = Arc::new(AtomicBool::new(false));
 
     device.build_output_stream(
         config,
@@ -361,19 +413,64 @@ where
                 return;
             }
 
-            // Create a temporary buffer for f32 samples
-            let mut temp_buf = vec![0.0; data.len()];
-            let read_samples = buffer.pop_samples(&mut temp_buf);
+            // Read from primary buffer
+            let mut temp_buf_a = vec![0.0; data.len()];
+            let read_a = buffer_a.pop_samples(&mut temp_buf_a);
+
+            // Read from secondary buffer (for crossfade)
+            let mut temp_buf_b = vec![0.0; data.len()];
+            let read_b = buffer_b.pop_samples(&mut temp_buf_b);
+
+            // Check if both buffers have data (crossfade in progress)
+            let is_crossfading = crossfade_active.load(Ordering::Relaxed);
+            let cf_duration_samples = {
+                let ms = crossfade_ms.load(Ordering::Relaxed) as u64;
+                (ms * sample_rate as u64) / 1000
+            };
+
+            // Mix samples
+            let mut output_buf = vec![0.0; data.len()];
+            let read_samples = read_a.max(read_b);
+
+            if is_crossfading && read_a > 0 && read_b > 0 {
+                // Both buffers have data - perform crossfade mix
+                let progress = crossfade_progress.load(Ordering::Relaxed);
+
+                for i in 0..read_samples {
+                    let t = ((progress + i as u64) as f64 / cf_duration_samples as f64).min(1.0);
+                    // Equal power crossfade: gain_a = cos(t * π/2), gain_b = sin(t * π/2)
+                    let gain_a = (t * std::f64::consts::FRAC_PI_2).cos() as f32;
+                    let gain_b = (t * std::f64::consts::FRAC_PI_2).sin() as f32;
+
+                    let sample_a = if i < read_a { temp_buf_a[i] } else { 0.0 };
+                    let sample_b = if i < read_b { temp_buf_b[i] } else { 0.0 };
+
+                    output_buf[i] = sample_a * gain_a + sample_b * gain_b;
+                }
+
+                crossfade_progress.fetch_add(read_samples as u64, Ordering::Relaxed);
+
+                // Check if crossfade complete
+                if crossfade_progress.load(Ordering::Relaxed) >= cf_duration_samples {
+                    crossfade_active.store(false, Ordering::Relaxed);
+                    crossfade_progress.store(0, Ordering::Relaxed);
+                }
+            } else {
+                // Normal playback from primary buffer
+                for i in 0..read_samples {
+                    output_buf[i] = if i < read_a { temp_buf_a[i] } else { 0.0 };
+                }
+            }
 
             // Apply DSP processing
             if read_samples > 0 {
                 let mut dsp_lock = dsp.write();
-                dsp_lock.process(&mut temp_buf[0..read_samples], channels, sample_rate);
+                dsp_lock.process(&mut output_buf[0..read_samples], channels, sample_rate);
             }
 
             for (i, sample) in data.iter_mut().enumerate() {
                 if i < read_samples {
-                    *sample = T::from_sample(temp_buf[i] * volume);
+                    *sample = T::from_sample(output_buf[i] * volume);
                 } else {
                     *sample = T::from_sample(0.0);
                 }
@@ -401,16 +498,29 @@ where
 
 fn decoder_thread(
     command_rx: std::sync::mpsc::Receiver<DecoderCommand>,
-    buffer: Arc<AudioBuffer>,
+    buffer_a: Arc<AudioBuffer>,
+    buffer_b: Arc<AudioBuffer>,
     state: PlaybackState,
     queue: Arc<RwLock<PlayQueue>>,
+    crossfade_ms: Arc<AtomicU32>,
     app_handle: AppHandle,
 ) {
     let mut current_decoder: Option<DecoderState> = None;
+    let mut next_decoder: Option<DecoderState> = None;
     let mut sample_buf: Option<SampleBuffer<f32>> = None;
+    let mut next_sample_buf: Option<SampleBuffer<f32>> = None;
     let mut resampler: Option<SincFixedIn<f32>> = None;
+    let mut next_resampler: Option<SincFixedIn<f32>> = None;
     let mut resampler_input_buffer: Vec<Vec<f32>> = Vec::new();
+    let mut next_resampler_input_buffer: Vec<Vec<f32>> = Vec::new();
     let mut input_accumulator: VecDeque<f32> = VecDeque::new();
+    let mut next_input_accumulator: VecDeque<f32> = VecDeque::new();
+    let mut crossfade_state = CrossfadeState::Idle;
+    let mut prebuffer_started = false;
+
+    // Use buffer_a as the primary buffer for now (for backward compatibility)
+    // buffer_b will be used for pre-buffering next track during crossfade
+    let buffer = buffer_a;
 
     loop {
         let command = if current_decoder.is_some() && state.is_playing.load(Ordering::Relaxed) {
@@ -424,7 +534,9 @@ fn decoder_thread(
                 DecoderCommand::Load(path) => match load_track(&path) {
                     Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
                         buffer.clear();
+                        buffer_b.clear();
                         input_accumulator.clear();
+                        next_input_accumulator.clear();
                         state.position_samples.store(0, Ordering::Relaxed);
                         state
                             .duration_samples
@@ -434,11 +546,14 @@ fn decoder_thread(
                             .store(sample_rate as u64, Ordering::Relaxed);
                         state.is_playing.store(true, Ordering::Relaxed);
                         current_decoder = Some((reader, decoder, track_id));
+                        next_decoder = None;
                         sample_buf = None;
+                        next_sample_buf = None;
+                        crossfade_state = CrossfadeState::Idle;
+                        prebuffer_started = false;
 
                         let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                         if device_rate != 0 && device_rate != sample_rate {
-                            println!("Audio: Resampling {} -> {}", sample_rate, device_rate);
                             let params = SincInterpolationParameters {
                                 sinc_len: 256,
                                 f_cutoff: 0.95,
@@ -491,8 +606,12 @@ fn decoder_thread(
                     state.is_playing.store(false, Ordering::Relaxed);
                     state.position_samples.store(0, Ordering::Relaxed);
                     buffer.clear();
+                    buffer_b.clear();
                     input_accumulator.clear();
+                    next_input_accumulator.clear();
                     current_decoder = None;
+                    next_decoder = None;
+                    crossfade_state = CrossfadeState::Idle;
                 }
                 DecoderCommand::QueueNext(_) => {
                     // Deprecated command, queue is now managed internally

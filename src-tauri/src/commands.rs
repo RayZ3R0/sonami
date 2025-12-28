@@ -325,3 +325,23 @@ pub async fn get_shuffle_mode(state: State<'_, AudioManager>) -> Result<bool, St
 pub async fn get_repeat_mode(state: State<'_, AudioManager>) -> Result<RepeatMode, String> {
     Ok(state.queue.read().repeat)
 }
+
+#[tauri::command]
+pub async fn get_crossfade_duration(state: State<'_, AudioManager>) -> Result<u32, String> {
+    Ok(state
+        .crossfade_duration_ms
+        .load(std::sync::atomic::Ordering::Relaxed))
+}
+
+#[tauri::command]
+pub async fn set_crossfade_duration(
+    state: State<'_, AudioManager>,
+    duration_ms: u32,
+) -> Result<(), String> {
+    // Clamp between 0 (disabled) and 12 seconds (Spotify max)
+    let clamped = duration_ms.min(12000);
+    state
+        .crossfade_duration_ms
+        .store(clamped, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}

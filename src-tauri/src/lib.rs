@@ -85,7 +85,9 @@ pub fn run() {
             commands::get_current_track,
             commands::get_queue,
             commands::get_shuffle_mode,
-            commands::get_repeat_mode
+            commands::get_repeat_mode,
+            commands::get_crossfade_duration,
+            commands::set_crossfade_duration
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
