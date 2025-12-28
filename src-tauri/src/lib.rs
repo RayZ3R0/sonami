@@ -2,9 +2,11 @@ pub mod audio;
 pub mod commands;
 pub mod dsp;
 pub mod media_controls;
+pub mod playlist; // [NEW]
 pub mod queue;
 
 use audio::AudioManager;
+use playlist::PlaylistManager; // [NEW]
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -17,6 +19,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
+            let playlist_manager = PlaylistManager::new(&handle); // [NEW]
 
             // Set up OS media control event handlers
             let state_for_controls = audio_manager.state.clone();
@@ -61,9 +64,19 @@ pub fn run() {
                 });
 
             app.manage(audio_manager);
+            app.manage(playlist_manager); // [NEW]
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Playlist Commands [NEW]
+            playlist::get_playlists,
+            playlist::create_playlist,
+            playlist::delete_playlist,
+            playlist::rename_playlist,
+            playlist::add_to_playlist,
+            playlist::remove_from_playlist,
+            
+            // Existing Commands
             commands::import_music,
             commands::import_folder,
             commands::play_track,
@@ -92,3 +105,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

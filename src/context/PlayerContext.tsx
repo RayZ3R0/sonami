@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Track } from "../types";
+import { Track, Playlist } from "../types";
 
 interface PlaybackInfo {
     position: number;
@@ -21,11 +21,12 @@ interface PlayerContextType {
     shuffle: boolean;
     repeatMode: RepeatMode;
     queue: Track[];
+    playlists: Playlist[]; // [NEW]
     isQueueOpen: boolean;
     setIsQueueOpen: (open: boolean) => void;
     importMusic: () => Promise<void>;
     importFolder: () => Promise<void>;
-    playTrack: (track: Track) => Promise<void>;
+    playTrack: (track: Track, contextQueue?: Track[]) => Promise<void>;
     togglePlay: () => Promise<void>;
     seek: (time: number) => Promise<void>;
     setVolume: (vol: number) => Promise<void>;
@@ -38,6 +39,13 @@ interface PlayerContextType {
     removeFromQueue: (trackId: string) => void;
     clearQueue: () => void;
     clearLibrary: () => void;
+    // Playlist methods [NEW]
+    createPlaylist: (name: string) => Promise<void>;
+    deletePlaylist: (id: string) => Promise<void>;
+    renamePlaylist: (id: string, newName: string) => Promise<void>;
+    addToPlaylist: (playlistId: string, track: Track) => Promise<void>;
+    removeFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
+    refreshPlaylists: () => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -72,6 +80,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         return (saved as RepeatMode) || "off";
     });
     const [queue, setQueue] = useState<Track[]>([]);
+    const [playlists, setPlaylists] = useState<Playlist[]>([]); // [NEW]
     const [isQueueOpen, setIsQueueOpen] = useState(false);
 
     const isSeeking = useRef(false);
@@ -164,6 +173,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
                 const r = await invoke<RepeatMode>("get_repeat_mode");
                 setRepeatMode(r);
+
+                refreshPlaylists(); // [NEW] Fetch playlists
             } catch (e) {
                 console.error("Failed to sync state:", e);
             }
@@ -171,6 +182,64 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         syncState();
     }, []);
 
+
+    // Playlist Methods [NEW]
+    const refreshPlaylists = async () => {
+        try {
+            const list = await invoke<Playlist[]>("get_playlists");
+            setPlaylists(list);
+        } catch (e) {
+            console.error("Failed to fetch playlists:", e);
+        }
+    };
+
+    const createPlaylist = async (name: string) => {
+        try {
+            // Optimistic update done in refresh? Or just wait.
+            // Wait for backend to return the new playlist
+            const newPlaylist = await invoke<Playlist>("create_playlist", { name });
+            setPlaylists(prev => [...prev, newPlaylist]);
+        } catch (e) {
+            console.error("Failed to create playlist:", e);
+        }
+    };
+
+    const deletePlaylist = async (id: string) => {
+        try {
+            await invoke("delete_playlist", { id });
+            setPlaylists(prev => prev.filter(p => p.id !== id));
+        } catch (e) {
+            console.error("Failed to delete playlist:", e);
+        }
+    };
+
+    const renamePlaylist = async (id: string, newName: string) => {
+        try {
+            await invoke("rename_playlist", { id, newName });
+            refreshPlaylists();
+        } catch (e) {
+            console.error("Failed to rename playlist:", e);
+        }
+    };
+
+    const addToPlaylist = async (playlistId: string, track: Track) => {
+        try {
+            await invoke("add_to_playlist", { playlistId, track });
+            // Ideally backend returns updated playlist, or we re-fetch
+            refreshPlaylists();
+        } catch (e) {
+            console.error("Failed to add to playlist:", e);
+        }
+    };
+
+    const removeFromPlaylist = async (playlistId: string, trackId: string) => {
+        try {
+            await invoke("remove_from_playlist", { playlistId, trackId });
+            refreshPlaylists();
+        } catch (e) {
+            console.error("Failed to remove from playlist:", e);
+        }
+    };
 
 
     const importMusic = async () => {
@@ -205,19 +274,22 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const playTrack = async (track: Track) => {
+    const playTrack = async (track: Track, contextQueue?: Track[]) => {
         try {
             // Optimistic update
             setCurrentTrack(track);
             setCurrentTime(0);
             setIsPlaying(true);
 
-            // Ensure backend queue has our library
-            // Note: In a real app we might not want to resend 10k tracks every time.
-            // But for now, we ensure consistency.
-            // Check if we need to update queue?
-            // Let's assume 'tracks' is the source of truth for the queue.
-            await invoke("set_queue", { tracks });
+            // If a specific context queue is provided (e.g. from playlist), use it.
+            // Otherwise, default to the full library 'tracks'.
+            const queueToSet = contextQueue && contextQueue.length > 0 ? contextQueue : tracks;
+
+            // Update backend queue
+            await invoke("set_queue", { tracks: queueToSet });
+
+            // Also update frontend queue state to match
+            setQueue(queueToSet);
 
             await invoke("play_track", { path: track.path });
         } catch (e) {
@@ -340,10 +412,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return (
         <PlayerContext.Provider value={{
             tracks, currentTrack, isPlaying, currentTime, duration, volume,
-            shuffle, repeatMode, queue, isQueueOpen, setIsQueueOpen,
+            shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
             importMusic, importFolder, playTrack, togglePlay, seek, setVolume,
             nextTrack, prevTrack, toggleShuffle, toggleRepeat,
-            queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary
+            queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
+            createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists
         }}>
             {children}
         </PlayerContext.Provider>
@@ -355,3 +428,4 @@ export const usePlayer = () => {
     if (!context) throw new Error("usePlayer must be used within PlayerProvider");
     return context;
 };
+

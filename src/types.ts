@@ -1,3 +1,4 @@
+
 export interface Track {
     id: string;
     title: string;
@@ -12,4 +13,11 @@ export interface PlayerState {
     currentTrack: Track | null;
     isPlaying: boolean;
     queue: Track[];
+}
+
+export interface Playlist {
+    id: string;
+    name: string;
+    tracks: Track[];
+    created_at: string;
 }

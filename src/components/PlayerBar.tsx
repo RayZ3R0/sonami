@@ -101,7 +101,7 @@ const formatTime = (seconds: number): string => {
 };
 
 export const PlayerBar = () => {
-    const { currentTrack, isPlaying, togglePlay, currentTime, duration, seek, volume, setVolume, nextTrack, prevTrack, shuffle, repeatMode, toggleShuffle, toggleRepeat, queue, isQueueOpen, setIsQueueOpen } = usePlayer();
+    const { currentTrack, isPlaying, togglePlay, currentTime, duration, seek, volume, setVolume, nextTrack, prevTrack, shuffle, repeatMode, toggleShuffle, toggleRepeat, isQueueOpen, setIsQueueOpen } = usePlayer();
     const seekBarRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -249,11 +249,6 @@ export const PlayerBar = () => {
                             title="Queue"
                         >
                             <QueueIcon />
-                            {queue.length > 0 && (
-                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-theme-accent text-[10px] font-bold rounded-full flex items-center justify-center text-theme-inverse">
-                                    {queue.length}
-                                </span>
-                            )}
                         </button>
                     </div>
                 </div>

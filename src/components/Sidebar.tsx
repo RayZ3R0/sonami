@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
 import { Settings, SettingsButton } from "./Settings";
+import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Unified icon wrapper - guarantees consistent sizing and alignment
 const Icon = ({ children }: { children: React.ReactNode }) => (
@@ -68,10 +69,16 @@ const icons = {
     ),
 };
 
-export const Sidebar = () => {
-    const { importMusic, importFolder, tracks, clearLibrary } = usePlayer();
+export const Sidebar = ({
+    activeTab,
+    setActiveTab
+}: {
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
+}) => {
+    const { importMusic, importFolder, tracks, clearLibrary, playlists } = usePlayer();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('home');
+    const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
     // ====== MANUAL TEXT OFFSET ======
     const textOffsetY = '2.1px';  // positive = down, negative = up
@@ -80,24 +87,23 @@ export const Sidebar = () => {
     const buttonTextOffsetY = '1.6px';  // offset for File/Folder button texts
     // ==============================================================================
 
-    const NavButton = ({ 
-        id, 
-        icon, 
-        label 
-    }: { 
-        id: string; 
-        icon: React.ReactNode; 
+    const NavButton = ({
+        id,
+        icon,
+        label
+    }: {
+        id: string;
+        icon: React.ReactNode;
         label: string;
     }) => {
         const isActive = activeTab === id;
         return (
             <button
                 onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive 
-                        ? 'bg-theme-accent text-theme-inverse' 
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                        ? 'bg-theme-accent text-theme-inverse'
                         : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
-                }`}
+                    }`}
             >
                 <Icon>{icon}</Icon>
                 <span className="text-[13px] font-medium" style={{ transform: `translateY(${textOffsetY})` }}>{label}</span>
@@ -118,11 +124,10 @@ export const Sidebar = () => {
         return (
             <button
                 onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 ${
-                    isActive
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 ${isActive
                         ? 'bg-theme-surface-active text-theme-primary'
                         : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
-                }`}
+                    }`}
             >
                 <Icon>{icon}</Icon>
                 <span className="text-[13px]" style={{ transform: `translateY(${textOffsetY})` }}>{label}</span>
@@ -133,7 +138,7 @@ export const Sidebar = () => {
     return (
         <>
             <div
-                className="flex flex-col h-full z-20 relative py-4 px-3"
+                className="flex flex-col h-full z-20 relative py-4 px-3 flex-shrink-0"
                 style={{ width: "var(--sidebar-w)", background: "transparent" }}
             >
                 {/* Main Navigation */}
@@ -158,31 +163,41 @@ export const Sidebar = () => {
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
                     <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
                         <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Playlists</span>
-                        <button 
+                        <button
                             className="w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
                             style={{ transform: `translateY(${playlistPlusOffsetY})` }}
+                            onClick={() => setIsCreatePlaylistOpen(true)}
                         >
                             {icons.plusSmall}
                         </button>
                     </div>
                     <div className="flex flex-col gap-0.5 overflow-y-auto no-scrollbar flex-1 pr-1">
-                        {[
-                            { name: "Late Night Jazz", color: "from-indigo-500 to-purple-600" },
-                            { name: "Gym Phonk", color: "from-red-500 to-orange-500" },
-                            { name: "Deep Focus", color: "from-cyan-500 to-blue-500" },
-                            { name: "Rust Ace", color: "from-amber-500 to-red-500" },
-                            { name: "Dreamscapes", color: "from-pink-500 to-violet-500" },
-                        ].map((pl) => (
+                        {playlists.map((pl) => (
                             <button
-                                key={pl.name}
-                                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-200 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                                key={pl.id}
+                                onClick={() => setActiveTab(`playlist:${pl.id}`)}
+                                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
+                                        ? 'bg-theme-surface-active text-theme-primary'
+                                        : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                    }`}
                             >
-                                <span className={`w-8 h-8 rounded-md bg-gradient-to-br ${pl.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                <span className={`w-8 h-8 rounded-md bg-theme-surface flex items-center justify-center flex-shrink-0 shadow-sm text-theme-muted`}>
                                     {icons.music}
                                 </span>
                                 <span className="text-[13px] truncate" style={{ transform: `translateY(${playlistTextOffsetY})` }}>{pl.name}</span>
                             </button>
                         ))}
+                        {playlists.length === 0 && (
+                            <div className="px-3 py-4 text-center">
+                                <p className="text-xs text-theme-muted mb-2">No playlists yet</p>
+                                <button
+                                    onClick={() => setIsCreatePlaylistOpen(true)}
+                                    className="text-xs text-theme-accent hover:underline"
+                                >
+                                    Create one
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -207,7 +222,7 @@ export const Sidebar = () => {
                             <span className="leading-none" style={{ transform: `translateY(${buttonTextOffsetY})` }}>Folder</span>
                         </button>
                     </div>
-                    
+
                     {/* Settings Row */}
                     <div className="flex items-center justify-between px-1">
                         <span className="text-xs text-theme-muted">Preferences</span>
@@ -226,9 +241,12 @@ export const Sidebar = () => {
                     </div>
                 </div>
             </div>
-            
+
             {/* Settings Panel */}
             <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+            {/* Create Playlist Modal */}
+            <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />
         </>
     );
 };
