@@ -81,14 +81,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const lastPositionRef = useRef(0);  // Track last position for detecting position reset
     const shufflePositionRef = useRef(0);   // Track position in shuffle order
     const handleTrackEndRef = useRef<(() => Promise<void>) | null>(null);  // Ref to avoid stale closures
-    
+
     // Refs to track current state for handleTrackEnd (avoids stale closures)
     const tracksRef = useRef(tracks);
     const currentTrackRef = useRef(currentTrack);
     const repeatModeRef = useRef(repeatMode);
     const queueRef = useRef(queue);
     const shuffleRef = useRef(shuffle);
-    
+
     // Keep refs in sync with state
     useEffect(() => { tracksRef.current = tracks; }, [tracks]);
     useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
@@ -148,14 +148,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     // Returns: { index: number, isEndOfList: boolean }
     const getNextTrackIndex = useCallback((currentIndex: number, direction: 1 | -1 = 1): { index: number; isEndOfList: boolean } => {
         if (tracks.length === 0) return { index: -1, isEndOfList: true };
-        
+
         if (shuffle) {
             // Find current position in shuffle order
             let shufflePos = shuffledIndices.current.indexOf(currentIndex);
             if (shufflePos === -1) shufflePos = shufflePositionRef.current;
-            
+
             const nextShufflePos = shufflePos + direction;
-            
+
             // Check if we've reached end/start of shuffle order
             if (nextShufflePos >= shuffledIndices.current.length) {
                 // End of shuffle - wrap to start
@@ -166,11 +166,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 shufflePositionRef.current = shuffledIndices.current.length - 1;
                 return { index: shuffledIndices.current[shuffledIndices.current.length - 1], isEndOfList: false };
             }
-            
+
             shufflePositionRef.current = nextShufflePos;
             return { index: shuffledIndices.current[nextShufflePos], isEndOfList: false };
         }
-        
+
         // Normal sequential mode
         const nextIndex = currentIndex + direction;
         if (nextIndex >= tracks.length) {
@@ -226,7 +226,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     const wasNearEnd = prevPosition > 0 && info.duration > 0 && prevPosition >= info.duration * 0.8;
                     const backendStopped = !info.is_playing;
                     const shouldTriggerEnd = backendStopped && wasNearEnd && !trackEndHandled.current && pendingTrackLoad.current === null;
-                    
+
                     if (currentTrack && shouldTriggerEnd) {
                         console.log('[TrackEnd] Detected:', {
                             prevPosition,
@@ -255,7 +255,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const playTrackById = async (trackId: string) => {
         const track = tracksRef.current.find(t => t.id === trackId);
         if (!track) return;
-        
+
         try {
             pendingTrackLoad.current = track.id;
             setCurrentTime(0);
@@ -275,13 +275,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const getNextTrackIndexFromRefs = (currentIndex: number, direction: 1 | -1 = 1): { index: number; isEndOfList: boolean } => {
         const trackCount = tracksRef.current.length;
         if (trackCount === 0) return { index: -1, isEndOfList: true };
-        
+
         if (shuffleRef.current) {
             let shufflePos = shuffledIndices.current.indexOf(currentIndex);
             if (shufflePos === -1) shufflePos = shufflePositionRef.current;
-            
+
             const nextShufflePos = shufflePos + direction;
-            
+
             if (nextShufflePos >= shuffledIndices.current.length) {
                 shufflePositionRef.current = 0;
                 return { index: shuffledIndices.current[0], isEndOfList: true };
@@ -289,11 +289,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 shufflePositionRef.current = shuffledIndices.current.length - 1;
                 return { index: shuffledIndices.current[shuffledIndices.current.length - 1], isEndOfList: false };
             }
-            
+
             shufflePositionRef.current = nextShufflePos;
             return { index: shuffledIndices.current[nextShufflePos], isEndOfList: false };
         }
-        
+
         const nextIndex = currentIndex + direction;
         if (nextIndex >= trackCount) {
             return { index: 0, isEndOfList: true };
@@ -308,14 +308,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         const currentTrack = currentTrackRef.current;
         const repeatMode = repeatModeRef.current;
         const queue = queueRef.current;
-        
+
         console.log('[handleTrackEnd] Called with:', {
             repeatMode,
             tracksCount: tracks.length,
             hasCurrentTrack: !!currentTrack,
             queueLength: queue.length,
         });
-        
+
         if (!currentTrack || tracks.length === 0) {
             console.log('[handleTrackEnd] Early return - no track or empty tracks');
             return;
@@ -426,10 +426,31 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             lastTrackId.current = track.id;
 
             // Gapless queue
-            const currentIndex = tracks.findIndex(t => t.id === track.id);
-            if (currentIndex >= 0 && currentIndex < tracks.length - 1) {
-                const nextTrack = tracks[currentIndex + 1];
-                await invoke("queue_next_track", { path: nextTrack.path });
+            // Use existing queue or calculate next track based on shuffle/repeat
+            if (queue.length > 0) {
+                await invoke("queue_next_track", { path: queue[0].path });
+            } else {
+                const currentIndex = tracks.findIndex(t => t.id === track.id);
+                // Use getNextTrackIndex to respect shuffle/repeat logic
+                // Pass direction 1, and we don't care about isEndOfList here usually, 
+                // but we should check if valid index returned.
+                // NOTE: We need to access the LATEST shuffle state. 
+                // Since this is async/closure, 'shuffle' var might be stale if not careful, 
+                // but playTrack is recreated on render or we use refs.
+                // getNextTrackIndex uses refs internally so it should be fine? 
+                // Wait, getNextTrackIndex uses 'shuffle' from closure scope or 'shuffle.current'? 
+                // It uses [shuffle, tracks.length] dependency.
+
+                // Better to use the ref-based helper we created for handleTrackEnd to be safe?
+                // yes, getNextTrackIndexFromRefs
+
+                const { index: nextIndex } = getNextTrackIndexFromRefs(currentIndex, 1);
+
+                if (nextIndex >= 0 && nextIndex < tracks.length) {
+                    // Don't queue if it's the same track unless repeat is one?
+                    // Actually if repeat=one, we DO want to queue it for gapless loop.
+                    await invoke("queue_next_track", { path: tracks[nextIndex].path });
+                }
             }
         } catch (e) {
             console.error("Failed to play track:", e);
@@ -478,7 +499,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const nextTrack = async () => {
         if (!currentTrack || tracks.length === 0) return;
-        
+
         // Check queue first
         if (queue.length > 0) {
             const nextFromQueue = queue[0];
@@ -486,7 +507,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             await playTrack(nextFromQueue);
             return;
         }
-        
+
         const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
         const { index: nextIndex } = getNextTrackIndex(currentIndex, 1);
         if (nextIndex >= 0 && nextIndex < tracks.length) {
@@ -553,7 +574,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         <PlayerContext.Provider value={{
             tracks, currentTrack, isPlaying, currentTime, duration, volume,
             shuffle, repeatMode, queue, isQueueOpen, setIsQueueOpen,
-            importMusic, importFolder, playTrack, togglePlay, seek, setVolume, 
+            importMusic, importFolder, playTrack, togglePlay, seek, setVolume,
             nextTrack, prevTrack, toggleShuffle, toggleRepeat,
             queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary
         }}>

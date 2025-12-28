@@ -17,7 +17,7 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 
-use tauri::{AppHandle, Emitter}; // safe to remove Manager if unused, but AppHandle uses it? No, AppHandle is struct.
+use tauri::{AppHandle, Emitter};
 use rubato::{Resampler, SincFixedIn, SincInterpolationType, SincInterpolationParameters, WindowFunction};
 
 const BUFFER_SIZE: usize = 65536;
@@ -360,7 +360,6 @@ fn decoder_thread(
                             if let Ok(r) = SincFixedIn::<f32>::new(device_rate as f64 / sample_rate as f64, 2.0, params, 1024, 2) {
                                 resampler = Some(r);
                                 resampler_input_buffer = vec![vec![0.0; 1024]; 2];
-                            } else {
                                 resampler = None;
                             }
                         } else {
@@ -378,6 +377,7 @@ fn decoder_thread(
                             buffer.clear();
                             input_accumulator.clear();
                             state.position_samples.store((seconds * sample_rate as f64) as u64, Ordering::Relaxed);
+
                         }
                     }
                 },
