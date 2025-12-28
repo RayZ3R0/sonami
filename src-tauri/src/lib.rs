@@ -2,16 +2,20 @@ pub mod audio;
 pub mod commands;
 
 use audio::AudioManager;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let audio_manager = AudioManager::new();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(audio_manager)
+        .setup(|app| {
+            let handle = app.handle().clone();
+            let audio_manager = AudioManager::new(handle);
+            app.manage(audio_manager);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::import_music,
             commands::import_folder,

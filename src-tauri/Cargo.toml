@@ -35,4 +35,6 @@ uuid = { version = "1.19.0", features = ["v4"] }
 symphonia = { version = "0.5", features = ["all"] }
 cpal = "0.15"
 parking_lot = "0.12"  # Better mutexes
+rubato = "0.16"       # High-quality sample rate conversion
+crossbeam-channel = "0.5"  # Better channels for audio threads
 
