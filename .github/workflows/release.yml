@@ -45,7 +45,7 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Sonami v${{ steps.get_version.outputs.version }}
           body: |
-            ## 🎵 Sonami v${{ steps.get_version.outputs.version }}
+            ## Sonami v${{ steps.get_version.outputs.version }}
             
             ### Downloads
             
@@ -71,7 +71,7 @@ jobs:
             
             ---
             
-            > ⚠️ **Alpha Release**: This is an early development version. Please report any issues you encounter.
+            > **Alpha Release**: This is an early development version. Please report any issues you encounter.
           draft: true
           prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
 
