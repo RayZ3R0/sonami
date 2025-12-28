@@ -63,7 +63,7 @@ export const PlayerBar = () => {
                 <div className="px-4 pt-3 pb-2 flex items-center justify-between relative z-10">
                     {/* Left: Album Art + Info */}
                     <div className="flex items-center gap-3 w-[30%] min-w-[180px]">
-                        <div className="w-12 h-12 rounded-lg bg-zinc-800 shadow-lg overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 rounded-lg bg-theme-secondary shadow-lg overflow-hidden flex-shrink-0">
                             {currentTrack.cover_image ? (
                                 <img 
                                     src={currentTrack.cover_image} 
@@ -71,16 +71,16 @@ export const PlayerBar = () => {
                                     className="w-full h-full object-cover" 
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-500">
+                                <div className="album-art-placeholder">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-theme-muted">
                                         <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
                                     </svg>
                                 </div>
                             )}
                         </div>
                         <div className="flex flex-col overflow-hidden min-w-0">
-                            <span className="text-sm font-semibold text-white truncate leading-tight">{currentTrack.title}</span>
-                            <span className="text-xs text-zinc-400 truncate">{currentTrack.artist}</span>
+                            <span className="text-sm font-semibold text-theme-primary truncate leading-tight">{currentTrack.title}</span>
+                            <span className="text-xs text-theme-secondary truncate">{currentTrack.artist}</span>
                         </div>
                     </div>
 
@@ -88,7 +88,7 @@ export const PlayerBar = () => {
                     <div className="flex items-center gap-5">
                         <button 
                             onClick={prevTrack}
-                            className="text-zinc-400 hover:text-white transition-all transform hover:scale-110 active:scale-95"
+                            className="player-control"
                         >
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
@@ -97,7 +97,7 @@ export const PlayerBar = () => {
                         
                         <button
                             onClick={togglePlay}
-                            className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/20"
+                            className="btn-play shadow-black/20"
                         >
                             {isPlaying ? (
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -113,7 +113,7 @@ export const PlayerBar = () => {
                         
                         <button 
                             onClick={nextTrack}
-                            className="text-zinc-400 hover:text-white transition-all transform hover:scale-110 active:scale-95"
+                            className="player-control"
                         >
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
@@ -126,7 +126,7 @@ export const PlayerBar = () => {
                         <div className="group flex items-center gap-2">
                             <button 
                                 onClick={() => setVolume(volume > 0 ? 0 : 1)}
-                                className="text-zinc-400 hover:text-white transition-colors"
+                                className="text-theme-secondary hover:text-theme-primary transition-colors"
                             >
                                 {volume === 0 ? (
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -146,7 +146,7 @@ export const PlayerBar = () => {
                                 )}
                             </button>
                             <div 
-                                className="w-20 h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer group-hover:h-1.5 transition-all"
+                                className="w-20 h-1 progress-track overflow-hidden cursor-pointer group-hover:h-1.5 transition-all"
                                 onClick={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     const x = e.clientX - rect.left;
@@ -154,7 +154,7 @@ export const PlayerBar = () => {
                                 }}
                             >
                                 <div 
-                                    className="h-full bg-white/60 group-hover:bg-white transition-colors rounded-full" 
+                                    className="h-full progress-fill" 
                                     style={{ width: `${volume * 100}%` }}
                                 />
                             </div>
@@ -166,7 +166,7 @@ export const PlayerBar = () => {
                 <div className="px-4 pb-3 pt-1">
                     <div className="flex items-center gap-3">
                         {/* Current Time */}
-                        <span className="text-[11px] font-mono text-zinc-400 w-12 text-right tabular-nums">
+                        <span className="text-[11px] font-mono text-theme-secondary w-12 text-right tabular-nums">
                             {formatTime(currentTime)}
                         </span>
                         
@@ -183,12 +183,12 @@ export const PlayerBar = () => {
                                 setHoverPosition(null);
                             }}
                         >
-                            <div className="w-full h-1 bg-white/10 rounded-full relative group-hover:h-1.5 transition-all">
+                            <div className="w-full h-1 progress-track relative group-hover:h-1.5 transition-all">
                                 {/* Buffered/Background */}
                                 <div className="absolute inset-0 rounded-full overflow-hidden">
                                     {/* Progress Fill */}
                                     <div 
-                                        className="h-full bg-gradient-to-r from-white/60 to-white rounded-full transition-all duration-75"
+                                        className="h-full progress-fill"
                                         style={{ width: `${progress}%` }}
                                     />
                                 </div>
@@ -196,14 +196,14 @@ export const PlayerBar = () => {
                                 {/* Hover Preview */}
                                 {hoverPosition !== null && (
                                     <div 
-                                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-white/40 rounded-full"
+                                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-theme-surface-active rounded-full"
                                         style={{ left: `${(hoverPosition / duration) * 100}%` }}
                                     />
                                 )}
                                 
                                 {/* Scrubber Dot */}
                                 <div 
-                                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-theme-primary rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                                     style={{ 
                                         left: `calc(${progress}% - 6px)`,
                                     }}
@@ -212,7 +212,7 @@ export const PlayerBar = () => {
                         </div>
                         
                         {/* Duration */}
-                        <span className="text-[11px] font-mono text-zinc-400 w-12 tabular-nums">
+                        <span className="text-[11px] font-mono text-theme-secondary w-12 tabular-nums">
                             {formatTime(duration)}
                         </span>
                     </div>

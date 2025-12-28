@@ -2,12 +2,15 @@ import { AppLayout } from "./components/Layout/AppLayout";
 import "./styles.css";
 
 import { PlayerProvider } from "./context/PlayerContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   return (
-    <PlayerProvider>
-      <AppLayout />
-    </PlayerProvider>
+    <ThemeProvider>
+      <PlayerProvider>
+        <AppLayout />
+      </PlayerProvider>
+    </ThemeProvider>
   );
 }
 

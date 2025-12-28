@@ -57,7 +57,7 @@ export const TitleBar = () => {
             className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between select-none"
             style={{
                 height: "var(--titlebar-h)",
-                backgroundColor: "rgba(0,0,0,0.1)", // subtle tint
+                backgroundColor: "var(--theme-overlay-light)",
                 backdropFilter: "blur(0px)"
             }}
             data-tauri-drag-region
@@ -66,13 +66,13 @@ export const TitleBar = () => {
             <div className="flex items-center pl-4 h-full pointer-events-none">
                 {isMac && (
                     <div className="flex gap-2 pointer-events-auto no-drag">
-                        {/* Fake Traffic Lights for now if using custom, or handle native */}
-                        <div onClick={close} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 cursor-pointer" />
-                        <div onClick={minimize} className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 cursor-pointer" />
-                        <div onClick={maximize} className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 cursor-pointer" />
+                        {/* Mac Traffic Lights */}
+                        <div onClick={close} className="traffic-light traffic-light-close" />
+                        <div onClick={minimize} className="traffic-light traffic-light-minimize" />
+                        <div onClick={maximize} className="traffic-light traffic-light-maximize" />
                     </div>
                 )}
-                {!isMac && <div className="text-xs font-semibold tracking-wide opacity-50 ml-2">SONAMI</div>}
+                {!isMac && <div className="text-xs font-semibold tracking-wide text-theme-muted ml-2">SONAMI</div>}
             </div>
 
             {/* Right Section (Windows/Linux Controls) */}
@@ -80,19 +80,19 @@ export const TitleBar = () => {
                 <div className="flex h-full no-drag">
                     <button
                         onClick={minimize}
-                        className="h-full px-4 hover:bg-white/10 flex items-center justify-center text-white/80 transition-colors"
+                        className="window-control"
                     >
                         <MinusIcon />
                     </button>
                     <button
                         onClick={maximize}
-                        className="h-full px-4 hover:bg-white/10 flex items-center justify-center text-white/80 transition-colors"
+                        className="window-control"
                     >
                         <SquareIcon />
                     </button>
                     <button
                         onClick={close}
-                        className="h-full px-4 hover:bg-red-600 flex items-center justify-center text-white/80 transition-colors group"
+                        className="window-control window-control-close"
                     >
                         <div className="scale-75"><XIcon /></div>
                     </button>

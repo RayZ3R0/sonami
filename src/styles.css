@@ -2,46 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   THEME VARIABLES
+   These are set dynamically by ThemeContext
+   ============================================ */
 :root {
-    --app-bg: #121212;
-    /* Pleasing Dark Grey (Spotify/Standard) */
-    --sidebar-bg: rgba(18, 18, 18, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --accent: #fa586a;
-    /* Apple-ish Pink/Red or user choice */
+    /* Layout dimensions */
     --sidebar-w: 260px;
-    /* Slightly wider for "Airy" feel */
     --player-h: 88px;
     --titlebar-h: 38px;
-    /* Taller for breathing room */
+    
+    /* Theme colors - defaults (overridden by ThemeContext) */
+    --theme-background: #121212;
+    --theme-background-secondary: #1a1a20;
+    --theme-background-tertiary: #0a0a0a;
+    
+    --theme-surface: rgba(20, 20, 23, 0.6);
+    --theme-surface-hover: rgba(255, 255, 255, 0.06);
+    --theme-surface-active: rgba(255, 255, 255, 0.10);
+    
+    --theme-glass: rgba(30, 30, 35, 0.7);
+    --theme-glass-hover: rgba(40, 40, 45, 0.8);
+    --theme-glass-border: rgba(255, 255, 255, 0.1);
+    
+    --theme-text-primary: #ffffff;
+    --theme-text-secondary: #a1a1aa;
+    --theme-text-muted: #71717a;
+    --theme-text-inverse: #000000;
+    
+    --theme-accent: #fa586a;
+    --theme-accent-hover: #fb6b7b;
+    --theme-accent-muted: rgba(250, 88, 106, 0.2);
+    
+    --theme-interactive: rgba(255, 255, 255, 0.08);
+    --theme-interactive-hover: rgba(255, 255, 255, 0.12);
+    --theme-interactive-active: rgba(255, 255, 255, 0.16);
+    
+    --theme-success: #22c55e;
+    --theme-warning: #eab308;
+    --theme-error: #ef4444;
+    
+    --theme-progress-track: rgba(255, 255, 255, 0.1);
+    --theme-progress-fill: rgba(255, 255, 255, 0.6);
+    --theme-progress-fill-gradient: #ffffff;
+    
+    --theme-overlay-light: rgba(0, 0, 0, 0.1);
+    --theme-overlay-medium: rgba(0, 0, 0, 0.4);
+    --theme-overlay-heavy: rgba(0, 0, 0, 0.6);
+    
+    --theme-border: rgba(255, 255, 255, 0.08);
+    --theme-border-subtle: rgba(255, 255, 255, 0.06);
+    --theme-border-focus: rgba(255, 255, 255, 0.2);
+    
+    --theme-shadow-color: rgba(0, 0, 0, 0.5);
 }
 
+/* ============================================
+   BASE STYLES
+   ============================================ */
 body {
     margin: 0;
     padding: 0;
-    background-color: var(--app-bg);
-    color: #fff;
+    background-color: var(--theme-background);
+    color: var(--theme-text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
     font-smooth: always;
     -webkit-font-smoothing: antialiased;
 }
 
+/* ============================================
+   GLASS EFFECT CLASSES
+   ============================================ */
 .glass-panel {
-    background: rgba(20, 20, 23, 0.6);
+    background: var(--theme-surface);
     backdrop-filter: blur(40px) saturate(140%);
     -webkit-backdrop-filter: blur(40px) saturate(140%);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--theme-border);
 }
 
 .glass-floating {
-    background: rgba(30, 30, 35, 0.7);
+    background: var(--theme-glass);
     backdrop-filter: blur(50px) saturate(180%);
     -webkit-backdrop-filter: blur(50px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--theme-glass-border);
+    box-shadow: 0 10px 40px var(--theme-shadow-color);
 }
 
+/* ============================================
+   TITLEBAR STYLES
+   ============================================ */
 .titlebar-drag-region {
     height: 100%;
     width: 100%;
@@ -52,7 +102,9 @@ body {
     -webkit-app-region: no-drag;
 }
 
-/* Hide scrollbar but keep functionality */
+/* ============================================
+   SCROLLBAR STYLES
+   ============================================ */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -60,4 +112,360 @@ body {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+/* Custom themed scrollbar */
+.themed-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--theme-surface-hover);
+    border-radius: 4px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-surface-active);
+}
+
+/* ============================================
+   THEMED COMPONENT CLASSES
+   ============================================ */
+
+/* Text classes */
+.text-theme-primary {
+    color: var(--theme-text-primary);
+}
+
+.text-theme-secondary {
+    color: var(--theme-text-secondary);
+}
+
+.text-theme-muted {
+    color: var(--theme-text-muted);
+}
+
+.text-theme-inverse {
+    color: var(--theme-text-inverse);
+}
+
+.text-theme-accent {
+    color: var(--theme-accent);
+}
+
+/* Background classes */
+.bg-theme {
+    background-color: var(--theme-background);
+}
+
+.bg-theme-secondary {
+    background-color: var(--theme-background-secondary);
+}
+
+.bg-theme-tertiary {
+    background-color: var(--theme-background-tertiary);
+}
+
+.bg-theme-surface {
+    background: var(--theme-surface);
+}
+
+.bg-theme-surface-hover {
+    background: var(--theme-surface-hover);
+}
+
+.bg-theme-surface-active {
+    background: var(--theme-surface-active);
+}
+
+.bg-theme-interactive {
+    background: var(--theme-interactive);
+}
+
+.bg-theme-accent {
+    background-color: var(--theme-accent);
+}
+
+.bg-theme-primary {
+    background-color: var(--theme-text-primary);
+}
+
+/* Border classes */
+.border-theme {
+    border-color: var(--theme-border);
+}
+
+.border-theme-subtle {
+    border-color: var(--theme-border-subtle);
+}
+
+.border-theme-focus {
+    border-color: var(--theme-border-focus);
+}
+
+/* Hover state classes */
+.hover\:bg-theme-surface-hover:hover {
+    background: var(--theme-surface-hover);
+}
+
+.hover\:bg-theme-interactive-hover:hover {
+    background: var(--theme-interactive-hover);
+}
+
+.hover\:bg-theme-interactive-active:hover {
+    background: var(--theme-interactive-active);
+}
+
+.hover\:text-theme-primary:hover {
+    color: var(--theme-text-primary);
+}
+
+.hover\:text-theme-accent:hover {
+    color: var(--theme-accent);
+}
+
+/* ============================================
+   NAVIGATION ITEM STYLES
+   ============================================ */
+.nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200;
+}
+
+.nav-item-default {
+    color: var(--theme-text-secondary);
+}
+
+.nav-item-default:hover {
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-hover);
+}
+
+.nav-item-active {
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-active);
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+.btn-primary {
+    @apply flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium;
+    background: var(--theme-interactive);
+    border: 1px solid var(--theme-border-subtle);
+    color: var(--theme-text-secondary);
+}
+
+.btn-primary:hover {
+    background: var(--theme-interactive-hover);
+    color: var(--theme-text-primary);
+}
+
+.btn-accent {
+    @apply flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium;
+    background: var(--theme-accent);
+    color: var(--theme-text-inverse);
+}
+
+.btn-accent:hover {
+    background: var(--theme-accent-hover);
+}
+
+/* Play button */
+.btn-play {
+    @apply w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-lg;
+    background: var(--theme-text-primary);
+    color: var(--theme-text-inverse);
+}
+
+.btn-play:hover {
+    transform: scale(1.05);
+}
+
+.btn-play:active {
+    transform: scale(0.95);
+}
+
+/* ============================================
+   PLAYER CONTROLS
+   ============================================ */
+.player-control {
+    color: var(--theme-text-secondary);
+    @apply transition-all transform;
+}
+
+.player-control:hover {
+    color: var(--theme-text-primary);
+    transform: scale(1.1);
+}
+
+.player-control:active {
+    transform: scale(0.95);
+}
+
+/* ============================================
+   PROGRESS BAR
+   ============================================ */
+.progress-track {
+    background: var(--theme-progress-track);
+    @apply rounded-full;
+}
+
+.progress-fill {
+    background: linear-gradient(to right, var(--theme-progress-fill), var(--theme-progress-fill-gradient));
+    @apply rounded-full transition-all duration-75;
+}
+
+/* ============================================
+   CARD STYLES
+   ============================================ */
+.card-track {
+    @apply cursor-pointer;
+}
+
+.card-track:hover .card-track-image {
+    transform: scale(1.02);
+}
+
+.card-track-overlay {
+    background: var(--theme-overlay-medium);
+    @apply absolute inset-0 opacity-0 transition-opacity flex items-center justify-center;
+}
+
+.card-track:hover .card-track-overlay {
+    @apply opacity-100;
+}
+
+/* ============================================
+   SECTION HEADER
+   ============================================ */
+.section-header {
+    @apply text-xs font-semibold uppercase tracking-wider mb-2 ml-3;
+    color: var(--theme-text-muted);
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+    @apply border-t;
+    border-color: var(--theme-border-subtle);
+}
+
+/* ============================================
+   WINDOW CONTROL BUTTONS
+   ============================================ */
+.window-control {
+    @apply h-full px-4 flex items-center justify-center transition-colors;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.window-control:hover {
+    background: var(--theme-surface-hover);
+}
+
+.window-control-close:hover {
+    background: var(--theme-error);
+}
+
+/* Mac traffic lights */
+.traffic-light {
+    @apply w-3 h-3 rounded-full cursor-pointer;
+}
+
+.traffic-light-close {
+    @apply bg-red-500 hover:bg-red-600;
+}
+
+.traffic-light-minimize {
+    @apply bg-yellow-500 hover:bg-yellow-600;
+}
+
+.traffic-light-maximize {
+    @apply bg-green-500 hover:bg-green-600;
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+.empty-state {
+    @apply flex flex-col items-center justify-center p-20 border-2 border-dashed rounded-2xl;
+    border-color: var(--theme-border);
+    opacity: 0.5;
+}
+
+/* ============================================
+   ALBUM ART PLACEHOLDER
+   ============================================ */
+.album-art-placeholder {
+    @apply w-full h-full flex items-center justify-center;
+    background: linear-gradient(to bottom right, var(--theme-background-secondary), var(--theme-background-tertiary));
+    color: var(--theme-text-muted);
+}
+
+/* ============================================
+   GRADIENT OVERLAY
+   ============================================ */
+.gradient-top {
+    background: linear-gradient(to bottom, var(--theme-background-secondary), transparent);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+    from { 
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to { 
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
+}
+
+.animate-slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in-up {
+    animation: slide-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+    animation: scale-in 0.2s ease-out forwards;
 }

@@ -5,7 +5,7 @@ import { MainStage } from "../MainStage";
 
 export const AppLayout = () => {
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--app-bg)] text-white">
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-theme text-theme-primary">
             <TitleBar />
 
             <div className="flex flex-1 pt-[var(--titlebar-h)] overflow-hidden">
