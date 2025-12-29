@@ -77,8 +77,15 @@ export const MiniPlayerBar = memo(() => {
 
     return (
         <div className="mini-player-bar">
+            {/* Drag handle */}
+            <div className="flex justify-center mb-2 -mt-1 group">
+                <div className="w-8 h-1 bg-white/20 rounded-full group-hover:bg-white/40 transition-all duration-200 cursor-grab active:cursor-grabbing">
+                    <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                </div>
+            </div>
+            
             {/* Track info */}
-            <div className="mb-3">
+            <div className="track-info mb-3">
                 <h3 className="text-white font-semibold text-sm truncate">
                     {currentTrack.title}
                 </h3>
@@ -88,7 +95,7 @@ export const MiniPlayerBar = memo(() => {
             </div>
 
             {/* Progress bar */}
-            <div className="mb-3">
+            <div className="progress-section mb-3">
                 <div
                     ref={seekBarRef}
                     className="w-full h-4 flex items-center cursor-pointer group"
@@ -116,7 +123,7 @@ export const MiniPlayerBar = memo(() => {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-between">
+            <div className="controls-section flex items-center justify-between">
                 <button
                     onClick={toggleShuffle}
                     className={`mini-control ${shuffle ? 'text-theme-accent' : 'text-white/60 hover:text-white'}`}

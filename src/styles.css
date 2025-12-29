@@ -753,17 +753,188 @@ body {
             rgba(0, 0, 0, 0.1) 100%);
 }
 
-/* Mini player bar styling - more compact */
+/* Mini player bar styling - more compact with INTENSE blur */
 .mini-player-bar {
     width: 300px;
     padding: 16px 20px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(80px) saturate(200%) brightness(0.9);
+    -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(0.9);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     animation: mini-player-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
+}
+
+/* Draggable container with enhanced effects */
+.draggable-mini-player-container {
+    position: relative;
+    border-radius: 20px;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Full-width mode styling */
+.draggable-mini-player-container.full-width .mini-player-bar {
+    width: 100vw;
+    border-radius: 0;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(40px) saturate(160%) brightness(1.1);
+    -webkit-backdrop-filter: blur(40px) saturate(160%) brightness(1.1);
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+        0 -2px 10px rgba(0, 0, 0, 0.2),
+        0 -1px 4px rgba(0, 0, 0, 0.1);
+    animation: none;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    min-height: 72px;
+    gap: 32px;
+}
+
+/* Hide the drag handle in full-width mode */
+.draggable-mini-player-container.full-width .mini-player-bar > div:first-child {
+    display: none;
+}
+
+/* Track info section - left side, Spotify style */
+.draggable-mini-player-container.full-width .track-info {
+    flex: 0 0 280px;
+    margin-bottom: 0 !important;
+    min-width: 280px;
+}
+
+.draggable-mini-player-container.full-width .track-info h3 {
+    font-size: 15px !important;
+    line-height: 1.3 !important;
+    margin-bottom: 2px !important;
+}
+
+.draggable-mini-player-container.full-width .track-info p {
+    font-size: 13px !important;
+    opacity: 0.7 !important;
+}
+
+/* Progress section - center, takes remaining space */
+.draggable-mini-player-container.full-width .progress-section {
+    flex: 1;
+    margin-bottom: 0 !important;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Controls section - right side */
+.draggable-mini-player-container.full-width .controls-section {
+    flex: 0 0 240px;
+    margin-bottom: 0 !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    min-width: 240px;
+}
+
+/* Progress bar adjustments for horizontal layout */
+.draggable-mini-player-container.full-width .progress-section > div:first-child {
+    margin-bottom: 6px !important;
+}
+
+.draggable-mini-player-container.full-width .progress-section .flex.justify-between {
+    margin-top: 4px;
+    font-size: 11px !important;
+}
+
+/* Snap zone indicator */
+.snap-zone-indicator {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: linear-gradient(to top, 
+        rgba(255, 255, 255, 0.2) 0%, 
+        rgba(255, 255, 255, 0.08) 60%, 
+        transparent 100%);
+    border-top: 2px solid rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 45;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.snap-zone-indicator.active {
+    opacity: 1;
+    animation: snap-zone-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes snap-zone-pulse {
+    0% {
+        border-top-color: rgba(255, 255, 255, 0.5);
+        background: linear-gradient(to top, 
+            rgba(255, 255, 255, 0.3) 0%, 
+            rgba(255, 255, 255, 0.1) 50%, 
+            transparent 100%);
+    }
+    100% {
+        border-top-color: rgba(255, 255, 255, 0.8);
+        background: linear-gradient(to top, 
+            rgba(255, 255, 255, 0.5) 0%, 
+            rgba(255, 255, 255, 0.2) 50%, 
+            transparent 100%);
+    }
+}
+
+/* Smooth position transitions when not dragging */
+.draggable-mini-player-container:not(.dragging) {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.draggable-mini-player-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.25),
+        0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.draggable-mini-player-container:active {
+    transform: scale(1.02);
+}
+
+/* Dragging state styles */
+.draggable-mini-player-container.dragging {
+    transform: scale(1.05) rotate(1deg);
+    opacity: 0.9;
+    z-index: 1000;
+}
+
+/* Enhanced blur effects for different drag states */
+.cursor-grab {
+    cursor: grab !important;
+}
+
+.cursor-grab:active,
+.cursor-grabbing {
+    cursor: grabbing !important;
+}
+
+/* Dragging visual enhancement */
+.dragging .mini-player-bar {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
+    -webkit-backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 15px 40px rgba(0, 0, 0, 0.4),
+        0 8px 20px rgba(0, 0, 0, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.15);
 }
 
 @keyframes mini-player-enter {

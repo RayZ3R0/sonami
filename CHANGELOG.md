@@ -18,6 +18,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-alpha.13] - 2024-12-29
+
+### Added
+- Feature: **Player Bar Style Toggle** in Settings > Appearance.
+  - **Floating Mode**: Centered, rounded, modern glass-morphism style (Original).
+  - **Classic Mode**: Full-width, square, fixed-bottom style for a more traditional layout.
+- Implemented persistent storage for Player Bar preference across sessions.
+
+- Fullscreen: Implemented a draggable floating mini-player with an enhanced glass-morphism style (intense backdrop blur and improved visuals).
+  - Mini-player supports click-and-drag positioning inside the fullscreen view and includes a subtle drag handle.
+  - Position is persisted across sessions using localStorage (key: `spotist-fullscreen-mini-player-position`) with validation and safe fallbacks.
+  - Double-clicking the mini-player resets it to a sensible default position.
+  - Dragging is constrained to viewport bounds and window-resize handling keeps the mini-player visible.
+  - Improved error handling around persistence so corrupted or out-of-range values fall back to defaults.
+  - **Bottom-snap feature**: Drag the mini-player to the bottom of the screen to transform it into a full-width Spotify-style player bar.
+    - Smart snap zone detection with visual feedback (glowing indicator) prevents accidental triggering.
+    - Seamless transition between mini and full-width modes with proper horizontal layout.
+    - Full-width mode features three-section design: track info (left), progress bar (center), controls (right).
+    - Drag upward from full-width mode to return to mini-player format.
+    - Vinyl disc indicator is hidden in full-width mode for cleaner appearance.
+
+### Fixed
+- Fixed a persistent white top border on the Player Bar in Classic mode.
+- Corrected layout logic to ensure the Player Bar never overlaps the Sidebar or Queue Sidebar in Classic mode.
+
+- Toned down excessive shadow intensity for the mini-player (hover and dragging states) to avoid overpowering the UI.
+
+---
+
 ## [0.1.0-alpha.12] - 2024-12-29
 
 ### Added
@@ -84,6 +113,8 @@ This project uses [Semantic Versioning](https://semver.org/):
 - `0.1.0-rc.1` → Release candidate
 - `0.1.0` → Stable release
 
-[Unreleased]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.11...HEAD
+[Unreleased]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.13...HEAD
+[0.1.0-alpha.13]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.12...v0.1.0-alpha.13
+[0.1.0-alpha.12]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.11...v0.1.0-alpha.12
 [0.1.0-alpha.11]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.1...v0.1.0-alpha.11
 [0.1.0-alpha.1]: https://github.com/z3r0/sonami/releases/tag/v0.1.0-alpha.1

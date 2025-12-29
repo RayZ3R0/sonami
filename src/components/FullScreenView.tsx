@@ -59,6 +59,64 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const lastScrolledIndexRef = useRef<number>(-1);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Draggable mini player state
+    const STORAGE_KEY_MINI_PLAYER_POS = 'spotist-fullscreen-mini-player-position';
+    
+    const getDefaultPosition = useCallback(() => ({
+        x: 32, 
+        y: Math.max(32, window.innerHeight - 200)
+    }), []);
+    
+    // Initialize states together with proper dependencies
+    const [isFullWidth, setIsFullWidth] = useState(false);
+    const [miniPlayerPosition, setMiniPlayerPosition] = useState(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_MINI_PLAYER_POS);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Handle legacy format (just {x, y}) and new format ({x, y, isFullWidth})
+                const x = typeof parsed.x === 'number' ? parsed.x : 32;
+                const y = typeof parsed.y === 'number' ? parsed.y : Math.max(32, window.innerHeight - 200);
+                
+                // Validate the saved position more thoroughly
+                if (!isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y) &&
+                    x >= 0 && y >= 0 && 
+                    x < window.innerWidth - 280 && 
+                    y < window.innerHeight - 80) {
+                    return { x, y };
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load mini player position from localStorage:', error);
+        }
+        return { x: 32, y: Math.max(32, window.innerHeight - 200) };
+    });
+    
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [isInSnapZone, setIsInSnapZone] = useState(false);
+    const miniPlayerRef = useRef<HTMLDivElement>(null);
+
+    // Snap zone configuration
+    const SNAP_ZONE_HEIGHT = 40; // pixels from bottom to trigger snap
+    const FULL_WIDTH_THRESHOLD = 0.8; // 80% down the screen to show snap zone
+
+    // Handle saved full-width mode on initial load
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_MINI_PLAYER_POS);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.isFullWidth) {
+                    setIsFullWidth(true);
+                    setMiniPlayerPosition({ x: 0, y: window.innerHeight - 80 });
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to restore full-width mode:', error);
+        }
+    }, []);
+
     // Handle ESC key to close
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -243,6 +301,149 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         };
     }, [activeLyricIndex, isSynced]);
 
+    // Dragging handlers for mini player
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (!miniPlayerRef.current) return;
+        
+        const rect = miniPlayerRef.current.getBoundingClientRect();
+        setDragOffset({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        });
+        setIsDragging(true);
+        
+        // If in full-width mode and dragging up, prepare to exit full-width
+        if (isFullWidth) {
+            setIsFullWidth(false);
+            // Reset position to draggable mini format
+            setMiniPlayerPosition({ 
+                x: Math.min(e.clientX - 150, window.innerWidth - 300 - 16), 
+                y: Math.max(32, e.clientY - 50) 
+            });
+        }
+        
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event bubbling
+    }, [isFullWidth]);
+
+    // Double-click to reset position
+    const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setIsFullWidth(false);
+        const resetPosition = getDefaultPosition();
+        setMiniPlayerPosition(resetPosition);
+        try {
+            localStorage.setItem(STORAGE_KEY_MINI_PLAYER_POS, JSON.stringify({ 
+                ...resetPosition, 
+                isFullWidth: false 
+            }));
+        } catch (error) {
+            console.warn('Failed to save reset position:', error);
+        }
+    }, [getDefaultPosition]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!isDragging) return;
+        
+        const newX = e.clientX - dragOffset.x;
+        const newY = e.clientY - dragOffset.y;
+        
+        // More precise constraints based on actual mini player dimensions
+        const MINI_PLAYER_WIDTH = 300;
+        const MINI_PLAYER_HEIGHT = 100;
+        const MARGIN = 16;
+        
+        const constrainedX = Math.max(MARGIN, Math.min(newX, window.innerWidth - MINI_PLAYER_WIDTH - MARGIN));
+        const constrainedY = Math.max(MARGIN, Math.min(newY, window.innerHeight - MINI_PLAYER_HEIGHT - MARGIN));
+        
+        // Simplified snap zone detection - just check if we're near the bottom
+        const snapTriggerY = window.innerHeight - 120; // 120px from bottom
+        const inSnapZone = constrainedY >= snapTriggerY;
+        
+        console.log('Drag Y:', constrainedY, 'Snap trigger:', snapTriggerY, 'In zone:', inSnapZone);
+        setIsInSnapZone(inSnapZone);
+        
+        const newPosition = { x: constrainedX, y: constrainedY };
+        setMiniPlayerPosition(newPosition);
+    }, [isDragging, dragOffset, isInSnapZone]);
+
+    const handleMouseUp = useCallback(() => {
+        if (isDragging) {
+            setIsDragging(false);
+            
+            let newIsFullWidth = isFullWidth;
+            let newPosition = miniPlayerPosition;
+            
+            // Switch to full-width mode if released in snap zone
+            if (isInSnapZone) {
+                console.log('Switching to full-width mode!');
+                newIsFullWidth = true;
+                newPosition = { x: 0, y: window.innerHeight - 64 }; // Reduced height for compact design
+                setIsFullWidth(true);
+                setMiniPlayerPosition(newPosition);
+            }
+            
+            setIsInSnapZone(false);
+            
+            // Save position to localStorage with the correct state
+            try {
+                localStorage.setItem(STORAGE_KEY_MINI_PLAYER_POS, JSON.stringify({
+                    ...newPosition,
+                    isFullWidth: newIsFullWidth
+                }));
+                console.log('Saved state:', { ...newPosition, isFullWidth: newIsFullWidth });
+            } catch (error) {
+                console.warn('Failed to save mini player position:', error);
+            }
+        }
+    }, [isDragging, isInSnapZone, miniPlayerPosition, isFullWidth]);
+
+    // Add global mouse event listeners for dragging
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+        }
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    // Reset position on window resize to prevent it going off-screen
+    useEffect(() => {
+        const handleResize = () => {
+            setMiniPlayerPosition(prev => {
+                const MINI_PLAYER_WIDTH = 300;
+                const MINI_PLAYER_HEIGHT = 100;
+                const MARGIN = 16;
+                
+                const constrainedX = Math.max(MARGIN, Math.min(prev.x, window.innerWidth - MINI_PLAYER_WIDTH - MARGIN));
+                const constrainedY = Math.max(MARGIN, Math.min(prev.y, window.innerHeight - MINI_PLAYER_HEIGHT - MARGIN));
+                const newPosition = { x: constrainedX, y: constrainedY };
+                
+                // Only save if position actually changed
+                if (newPosition.x !== prev.x || newPosition.y !== prev.y) {
+                    try {
+                        localStorage.setItem(STORAGE_KEY_MINI_PLAYER_POS, JSON.stringify(newPosition));
+                    } catch (error) {
+                        console.warn('Failed to save mini player position on resize:', error);
+                    }
+                }
+                
+                return newPosition;
+            });
+        };
+        
+        if (isOpen) {
+            window.addEventListener('resize', handleResize);
+            return () => window.removeEventListener('resize', handleResize);
+        }
+    }, [isOpen]);
+
     // Only render when open
     if (!isOpen || !currentTrack) return null;
 
@@ -343,10 +544,28 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 </div>
             </div>
 
-            <div className="absolute bottom-8 left-8 z-50">
-                <MiniPlayerBar />
+            {/* Snap zone indicator */}
+            {isDragging && (
+                <div className={`snap-zone-indicator ${isInSnapZone ? 'active' : ''}`} />
+            )}
+
+            {/* Mini Player */}
+            <div 
+                ref={miniPlayerRef}
+                className={`${isFullWidth ? 'fixed bottom-0 left-0 right-0' : 'absolute'} z-50 ${isDragging ? 'transition-none cursor-grabbing' : 'transition-all duration-300 ease-out cursor-grab'}`}
+                style={isFullWidth ? {} : {
+                    left: `${miniPlayerPosition.x}px`,
+                    top: `${miniPlayerPosition.y}px`,
+                    userSelect: 'none'
+                }}
+                onMouseDown={handleMouseDown}
+                onDoubleClick={handleDoubleClick}
+            >
+                <div className={`draggable-mini-player-container ${isDragging ? 'dragging' : ''} ${isFullWidth ? 'full-width' : ''}`}>
+                    <MiniPlayerBar />
+                </div>
             </div>
-            {isPlaying && (
+            {isPlaying && !isFullWidth && (
                 <div className="absolute bottom-8 right-8 z-50">
                     <div className="vinyl-indicator">
                         <div className="vinyl-disc" />
