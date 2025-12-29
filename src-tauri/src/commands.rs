@@ -333,3 +333,10 @@ pub async fn set_crossfade_duration(
         .store(clamped, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }
+
+use crate::lyrics;
+
+#[tauri::command]
+pub async fn get_lyrics(path: String) -> Result<Option<lyrics::LyricsResult>, String> {
+    Ok(lyrics::get_lyrics_for_track(&path))
+}

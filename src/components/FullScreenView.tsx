@@ -13,74 +13,7 @@ interface FullScreenViewProps {
 const LYRICS_X_OFFSET = 1200; // Pixels to push lyrics to the right
 const GRADIENT_WIDTH_PERCENT = 230; // Percentage of screen covered by the gradient from the right
 
-// Placeholder lyrics - will be replaced with real lyrics system
-const PLACEHOLDER_LYRICS = [
-    { time: 0, text: "♪ Instrumental ♪" },
-    { time: 18, text: "(It starts with one)" },
-    { time: 19, text: "One thing, I don't know why" },
-    { time: 21, text: "It doesn't even matter how hard you try" },
-    { time: 23, text: "Keep that in mind, I designed this rhyme" },
-    { time: 26, text: "To explain in due time" },
-    { time: 28, text: "All I know" },
-    { time: 30, text: "Time is a valuable thing" },
-    { time: 32, text: "Watch it fly by as the pendulum swings" },
-    { time: 34, text: "Watch it count down to the end of the day" },
-    { time: 37, text: "The clock ticks life away" },
-    { time: 39, text: "It's so unreal" },
-    { time: 41, text: "Didn't look out below" },
-    { time: 42, text: "Watch the time go right out the window" },
-    { time: 44, text: "Trying to hold on, did-didn't even know" },
-    { time: 47, text: "I wasted it all just to watch you go" },
-    { time: 49, text: "" },
-    { time: 50, text: "I kept everything inside" },
-    { time: 52, text: "And even though I tried, it all fell apart" },
-    { time: 55, text: "What it meant to me will eventually be" },
-    { time: 57, text: "A memory of a time when I tried so hard" },
-    { time: 60, text: "" },
-    { time: 61, text: "I tried so hard and got so far" },
-    { time: 66, text: "But in the end, it doesn't even matter" },
-    { time: 71, text: "I had to fall to lose it all" },
-    { time: 76, text: "But in the end, it doesn't even matter" },
-    { time: 80, text: "" },
-    { time: 82, text: "One thing, I don't know why" },
-    { time: 84, text: "It doesn't even matter how hard you try" },
-    { time: 86, text: "Keep that in mind, I designed this rhyme" },
-    { time: 89, text: "To remind myself how I tried so hard" },
-    { time: 92, text: "In spite of the way you were mockin' me" },
-    { time: 94, text: "Actin' like I was part of your property" },
-    { time: 96, text: "Remembering all the times you fought with me" },
-    { time: 99, text: "I'm surprised it got so far" },
-    { time: 101, text: "Things aren't the way they were before" },
-    { time: 104, text: "You wouldn't even recognize me anymore" },
-    { time: 106, text: "Not that you knew me back then" },
-    { time: 108, text: "But it all comes back to me in the end" },
-    { time: 111, text: "" },
-    { time: 112, text: "You kept everything inside" },
-    { time: 114, text: "And even though I tried, it all fell apart" },
-    { time: 117, text: "What it meant to me will eventually be" },
-    { time: 119, text: "A memory of a time when I tried so hard" },
-    { time: 122, text: "" },
-    { time: 123, text: "I tried so hard and got so far" },
-    { time: 128, text: "But in the end, it doesn't even matter" },
-    { time: 133, text: "I had to fall to lose it all" },
-    { time: 138, text: "But in the end, it doesn't even matter" },
-    { time: 142, text: "" },
-    { time: 144, text: "I've put my trust in you" },
-    { time: 149, text: "Pushed as far as I can go" },
-    { time: 154, text: "For all this" },
-    { time: 157, text: "There's only one thing you should know" },
-    { time: 162, text: "" },
-    { time: 164, text: "I've put my trust in you" },
-    { time: 169, text: "Pushed as far as I can go" },
-    { time: 174, text: "For all this" },
-    { time: 177, text: "There's only one thing you should know" },
-    { time: 182, text: "" },
-    { time: 184, text: "I tried so hard and got so far" },
-    { time: 189, text: "But in the end, it doesn't even matter" },
-    { time: 194, text: "I had to fall to lose it all" },
-    { time: 199, text: "But in the end, it doesn't even matter" },
-    { time: 203, text: "" },
-];
+
 
 // Memoized lyrics line component for performance
 const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
@@ -196,22 +129,83 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         };
     }, []);
 
+    const [lyrics, setLyrics] = useState<{ time: number, text: string }[]>([]);
+    const [isSynced, setIsSynced] = useState(false);
+    const [hasLyrics, setHasLyrics] = useState(false);
+
+    // Fetch Lyrics
+    useEffect(() => {
+        if (!currentTrack) {
+            setLyrics([]);
+            setHasLyrics(false);
+            return;
+        }
+
+        const fetchLyrics = async () => {
+            try {
+                // @ts-ignore
+                const result = await import('@tauri-apps/api/core').then(mod => mod.invoke<{ synced: boolean, lines: { time: number, text: string }[] } | null>("get_lyrics", { path: currentTrack.path }));
+
+                if (result && result.lines.length > 0) {
+                    if (result.synced) {
+                        setLyrics(result.lines);
+                        setIsSynced(true);
+                    } else {
+                        // Handle unsynced: Split by lines if it's one big chunk (backend returns entire content in first line for txt/USLT)
+                        // Or if backend returns multiple lines with 0 time.
+                        // Our backend logic: "lines: vec![LyricLine { time: 0.0, text: content }]" for txt/USLT.
+                        const rawText = result.lines[0].text;
+                        const splitLines = rawText.split(/\r?\n/).map(line => ({ time: 0, text: line }));
+                        setLyrics(splitLines);
+                        setIsSynced(false);
+                    }
+                    setHasLyrics(true);
+                } else {
+                    setLyrics([{ time: 0, text: "No lyrics found." }]);
+                    setHasLyrics(false); // Keeps "Instrumental" look or simple message
+                }
+            } catch (e) {
+                console.error("Failed to fetch lyrics:", e);
+                setLyrics([{ time: 0, text: "Error loading lyrics." }]);
+                setHasLyrics(false);
+            }
+        };
+
+        fetchLyrics();
+    }, [currentTrack]);
+
+    // Fallback if no lyrics found: Show Instrumental
+    useEffect(() => {
+        if (!hasLyrics && lyrics.length <= 1 && lyrics[0]?.text === "No lyrics found.") {
+            // Maybe use PLACEHOLDER_LYRICS for demo? Or "Instrumental"?
+            // User wants "properly grab lyrics", so let's check instrumental.
+            // For now, let's just stick to what we set above.
+        }
+    }, [hasLyrics, lyrics]);
+
+
     // Calculate which lyric is currently active based on playback time
     const activeLyricIndex = useMemo(() => {
-        let activeIdx = 0;
-        for (let i = PLACEHOLDER_LYRICS.length - 1; i >= 0; i--) {
-            if (currentTime >= PLACEHOLDER_LYRICS[i].time) {
+        if (!isSynced || !hasLyrics) return -1; // No active highlighting for unsynced
+
+        let activeIdx = -1;
+        // Logic: active is the *last* lyric that has time <= currentTime
+        // But we want to ensure we don't highlight future ones.
+        // Actually the previous logic was: find first where currentTime >= time? No loop was reversed.
+
+        for (let i = lyrics.length - 1; i >= 0; i--) {
+            if (currentTime >= lyrics[i].time) {
                 activeIdx = i;
                 break;
             }
         }
         return activeIdx;
-    }, [currentTime]);
+    }, [currentTime, lyrics, isSynced, hasLyrics]);
 
     // Auto-scroll to active lyric with throttled smooth scrolling
     useEffect(() => {
-        // Only scroll when the active lyric index actually changes
-        if (activeLyricIndex === lastScrolledIndexRef.current) return;
+        // Only scroll when the active lyric index actually changes AND we are synced
+        if (!isSynced || activeLyricIndex === -1 || activeLyricIndex === lastScrolledIndexRef.current) return;
 
         // Clear any pending scroll
         if (scrollTimeoutRef.current) {
@@ -240,14 +234,14 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
 
                 lastScrolledIndexRef.current = activeLyricIndex;
             }
-        }, 50); // Small throttle to batch rapid updates
+        }, 50);
 
         return () => {
             if (scrollTimeoutRef.current) {
                 clearTimeout(scrollTimeoutRef.current);
             }
         };
-    }, [activeLyricIndex]);
+    }, [activeLyricIndex, isSynced]);
 
     // Only render when open
     if (!isOpen || !currentTrack) return null;
@@ -324,15 +318,27 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                         ref={lyricsContainerRef}
                         className="lyrics-container overflow-y-auto overflow-x-visible max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full"
                     >
-                        {PLACEHOLDER_LYRICS.map((lyric, index) => (
-                            <LyricLine
-                                key={index}
-                                text={lyric.text}
-                                isActive={index === activeLyricIndex}
-                                isPast={index < activeLyricIndex}
-                                lineRef={index === activeLyricIndex ? activeLyricRef : undefined}
-                            />
-                        ))}
+                        {hasLyrics ? (
+                            lyrics.map((lyric, index) => (
+                                <LyricLine
+                                    key={index}
+                                    text={lyric.text}
+                                    isActive={isSynced && index === activeLyricIndex}
+                                    isPast={isSynced && index < activeLyricIndex}
+                                    // If unsynced, render as 'future' (white/50) or specific style?
+                                    // Use 'future' style for unsynced for now, or maybe opacity-80.
+                                    lineRef={isSynced && index === activeLyricIndex ? activeLyricRef : undefined}
+                                />
+                            ))
+                        ) : (
+                            // Show simple message or instrumental
+                            <div className="flex flex-col items-center justify-center h-64 opacity-50 space-y-4">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                    <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                                </svg>
+                                <p className="text-xl font-medium">Instrumental / No Lyrics</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

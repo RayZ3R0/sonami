@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod commands;
 pub mod dsp;
+pub mod lyrics;
 pub mod media_controls;
 pub mod playlist;
 pub mod queue;
@@ -99,7 +100,9 @@ pub fn run() {
             commands::get_shuffle_mode,
             commands::get_repeat_mode,
             commands::get_crossfade_duration,
-            commands::set_crossfade_duration
+            commands::get_crossfade_duration,
+            commands::set_crossfade_duration,
+            commands::get_lyrics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
