@@ -21,14 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha.12] - 2024-12-29
 
 ### Added
-- Implemented real lyrics support with automatic fetching from metadata and local files
-- Added support for synchronized (`.lrc`) and unsynchronized (`.txt`, metadata) lyrics
-- Implemented auto-scrolling and active line highlighting for synchronized lyrics
-- Added robust fallback logic for playing tracks with no lyrics
+- Implemented real lyrics support with automatic fetching from metadata and local files.
+- Added support for synchronized (`.lrc`) and unsynchronized (`.txt`, metadata) lyrics.
+- Implemented auto-scrolling and active line highlighting for synchronized lyrics.
+- Added robust fallback logic for playing tracks with no lyrics.
 
 ### Fixed
-- Fixed visual glitch where seeking while paused would momentarily revert to the old timestamp
-- Implemented robust latching logic for seek updates to ensure stability even with backend delays
+- Fixed visual glitch where seeking while paused would momentarily revert to the old timestamp.
+- Implemented robust latching logic for seek updates to ensure stability even with backend delays.
 
 ## [0.1.0-alpha.11] - 2024-12-29
 
