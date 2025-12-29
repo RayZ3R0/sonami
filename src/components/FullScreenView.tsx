@@ -1,4 +1,4 @@
-import { useEffect, useCallback, memo, useMemo, useState } from 'react';
+import { useEffect, useCallback, memo, useMemo, useState, useRef } from 'react';
 import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
 import { MiniPlayerBar } from './MiniPlayerBar';
 // @ts-ignore
@@ -83,15 +83,21 @@ const PLACEHOLDER_LYRICS = [
 ];
 
 // Memoized lyrics line component for performance
-const LyricLine = memo(({ text, isActive, isPast }: { text: string; isActive: boolean; isPast: boolean }) => (
+const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
+    text: string;
+    isActive: boolean;
+    isPast: boolean;
+    lineRef?: React.RefObject<HTMLParagraphElement | null>;
+}) => (
     <p
+        ref={lineRef}
         className={`
-            transition-all duration-500 ease-out leading-relaxed
+            lyric-line leading-relaxed
             ${isActive
-                ? 'text-white text-4xl font-bold opacity-100 translate-x-0'
+                ? 'text-white text-4xl font-bold opacity-100 translate-x-0 lyric-active'
                 : isPast
-                    ? 'text-white/40 text-2xl font-medium opacity-50 -translate-x-1'
-                    : 'text-white/50 text-2xl font-medium opacity-60'
+                    ? 'text-white/40 text-2xl font-medium opacity-50 -translate-x-1 lyric-past'
+                    : 'text-white/50 text-2xl font-medium opacity-60 lyric-future'
             }
             ${text === '' ? 'h-8' : 'py-1'}
         `}
@@ -122,6 +128,10 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         shadow: {}
     });
 
+    const lyricsContainerRef = useRef<HTMLDivElement>(null);
+    const activeLyricRef = useRef<HTMLParagraphElement>(null);
+    const lastExtractedImageRef = useRef<string | null>(null);
+
     // Handle ESC key to close
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -129,23 +139,27 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, [onClose]);
 
+    // Pre-extract colors when track changes (for instant display)
+    useEffect(() => {
+        if (currentTrack?.cover_image && currentTrack.cover_image !== lastExtractedImageRef.current) {
+            extractColors(currentTrack.cover_image);
+            lastExtractedImageRef.current = currentTrack.cover_image;
+        }
+    }, [currentTrack]);
+
+    // Handle isOpen state for keyboard and overflow
     useEffect(() => {
         if (isOpen) {
             document.addEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'hidden';
-
-            // Trigger color extraction if already loaded
-            if (currentTrack?.cover_image) {
-                extractColors(currentTrack.cover_image);
-            }
         }
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = '';
         };
-    }, [isOpen, handleKeyDown, currentTrack]);
+    }, [isOpen, handleKeyDown]);
 
-    const extractColors = (imageUrl: string) => {
+    const extractColors = useCallback((imageUrl: string) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         img.src = imageUrl;
@@ -153,32 +167,21 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         img.onload = () => {
             try {
                 const colorThief = new ColorThief();
-                // Get 10 colors for a much wider pool to pick from
                 const palette = colorThief.getPalette(img, 10);
 
                 if (palette && palette.length >= 2) {
-                    // Helper to get brightness (perceived luminance)
                     const getLuminance = (rgb: number[]) => (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]);
-
-                    // Find the darkest color in the palette for deep contrast
                     const darkestColor = [...palette].sort((a, b) => getLuminance(a) - getLuminance(b))[0];
 
-                    // Pick distinct colors from the range to ensure variety
-                    // 0 = Dominant
-                    // 4 = Mid-range distinct
-                    // 9 (or last) = Least dominant / accent
                     const c1 = palette[0];
                     const c2 = palette[4] || palette[1];
                     const c3 = palette[8] || palette[2];
                     const cDark = darkestColor || [0, 0, 0];
 
-                    // Shadow Layer: Uses the darkest extracted color for a deep, grounded shadow
                     const shadowStyle = {
                         background: `rgb(${cDark[0]}, ${cDark[1]}, ${cDark[2]})`
                     };
 
-                    // Solid Layer: "Liquid" Mesh Gradient with high variance
-                    // We mix the Dominant, Distant, and Darkest colors
                     const solidStyle = {
                         background: `
                             radial-gradient(at 0% 0%, rgba(${c2[0]},${c2[1]},${c2[2]},1) 0px, transparent 50%),
@@ -189,6 +192,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                         `
                     };
 
+                    // Update layer styles
                     setLayerStyles({ solid: solidStyle, shadow: shadowStyle });
                 }
             } catch (e) {
@@ -196,7 +200,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 setLayerStyles({ solid: {}, shadow: {} });
             }
         };
-    };
+    }, []);
 
     // Calculate which lyric is currently active based on playback time
     const activeLyricIndex = useMemo(() => {
@@ -210,23 +214,39 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         return activeIdx;
     }, [currentTime]);
 
+    // Auto-scroll to active lyric with smooth scrolling
+    useEffect(() => {
+        if (activeLyricRef.current && lyricsContainerRef.current) {
+            const container = lyricsContainerRef.current;
+            const activeLine = activeLyricRef.current;
+
+            const containerRect = container.getBoundingClientRect();
+            const lineRect = activeLine.getBoundingClientRect();
+
+            // Calculate target scroll position (center the active lyric)
+            const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
+
+            // Smooth scroll to target
+            container.scrollTo({
+                top: Math.max(0, targetScrollTop),
+                behavior: 'smooth'
+            });
+        }
+    }, [activeLyricIndex]);
+
+    // Only render when open
     if (!isOpen || !currentTrack) return null;
 
     return (
         <div
-            className={`
-                fixed inset-0 z-[100]
-                fullscreen-view-container
-                ${isOpen ? 'fullscreen-view-enter' : 'fullscreen-view-exit'}
-            `}
+            className="fixed inset-0 z-[100] fullscreen-view-container fullscreen-enter"
             role="dialog"
             aria-modal="true"
             aria-label="Full screen player"
         >
-            {/* Main Background Image - Single Instance */}
-            {/* We apply the dynamic gradient here as the base background */}
+            {/* Main Background with Album Art */}
             <div
-                className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f] transition-all duration-1000 ease-in-out"
+                className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f] fullscreen-bg-layer fullscreen-album-enter"
                 style={layerStyles.solid}
             >
                 {currentTrack.cover_image ? (
@@ -245,26 +265,13 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 )}
             </div>
 
-            {/* Right Panel Overlay - Contains the Dual-Layer Curve Effect */}
-            {/* We use a container for the mask so it doesn't clip the lyrics if they are outside */}
+            {/* Right Panel Overlay - Animated */}
             <div
-                className="absolute right-0 top-0 bottom-0 fullscreen-acrylic-panel z-10 pointer-events-none"
+                className="absolute right-0 top-0 bottom-0 fullscreen-acrylic-panel fullscreen-overlay-enter z-10 pointer-events-none"
                 style={{ width: `${GRADIENT_WIDTH_PERCENT}%` }}
             >
-                {/* Layer 1: The Shadow/Blur Layer (Underneath) */}
                 <div
-                    className="absolute inset-0 transition-all duration-1000 ease-in-out"
-                    style={{
-                        ...layerStyles.shadow,
-                        filter: 'blur(30px) brightness(0.6)', // Increased blur for better shadow effect
-                        transform: 'scale(1.02)', // Slightly larger to peek out
-                        zIndex: 0
-                    }}
-                />
-
-                {/* Layer 2: The Solid Layer (Top) */}
-                <div
-                    className="absolute inset-0 transition-all duration-1000 ease-in-out"
+                    className="absolute inset-0 fullscreen-solid-layer"
                     style={{
                         ...layerStyles.solid,
                         zIndex: 1
@@ -272,16 +279,15 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 />
             </div>
 
-            {/* Lyrics Container - SEPARATED from the mask and absolutely positioned */}
-            {/* pointer-events-auto to allow scrolling interaction */}
+            {/* Lyrics Container - Animated */}
             <div
-                className="absolute right-0 top-0 bottom-0 z-20 flex flex-col justify-center pr-20 py-20 pointer-events-auto"
+                className="absolute right-0 top-0 bottom-0 z-20 flex flex-col justify-center pr-20 py-20 pointer-events-auto fullscreen-lyrics-enter"
                 style={{
-                    left: `${LYRICS_X_OFFSET}px`, // Start container at the offset
-                    pointerEvents: 'none' // Let clicks pass through empty areas
+                    left: `${LYRICS_X_OFFSET}px`,
+                    pointerEvents: 'none'
                 }}
             >
-                <div className="absolute top-6 right-6 z-50 pointer-events-auto">
+                <div className="absolute top-6 right-6 z-50 pointer-events-auto fullscreen-close-enter">
                     <button
                         onClick={onClose}
                         className="w-10 h-10 rounded-full
@@ -298,13 +304,17 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 </div>
 
                 {/* Added pl-8 to prevent clipping from negative transforms */}
-                <div className="lyrics-container overflow-y-auto max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full">
+                <div
+                    ref={lyricsContainerRef}
+                    className="lyrics-container overflow-y-auto max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full"
+                >
                     {PLACEHOLDER_LYRICS.map((lyric, index) => (
                         <LyricLine
                             key={index}
                             text={lyric.text}
                             isActive={index === activeLyricIndex}
                             isPast={index < activeLyricIndex}
+                            lineRef={index === activeLyricIndex ? activeLyricRef : undefined}
                         />
                     ))}
                 </div>

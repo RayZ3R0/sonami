@@ -636,54 +636,90 @@ body {
    FULLSCREEN VIEW - Lyrics & Album Art
    ============================================ */
 
-/* Container animations */
+/* Container - main wrapper with fade-in */
 .fullscreen-view-container {
-    will-change: opacity, transform;
     background: #0a0a0f;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
-.fullscreen-view-enter {
-    animation: fullscreen-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* ===== ENTRANCE ANIMATIONS ===== */
+
+/* Main container fade */
+.fullscreen-enter {
+    animation: fullscreen-fade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.fullscreen-view-exit {
-    animation: fullscreen-fade-out 0.3s ease-out forwards;
+/* Album art slides in from left with subtle scale */
+.fullscreen-album-enter {
+    animation: fullscreen-album-slide 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes fullscreen-fade-in {
-    0% {
+/* Overlay panel slides in from right */
+.fullscreen-overlay-enter {
+    animation: fullscreen-overlay-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+}
+
+/* Lyrics fade in and slide up */
+.fullscreen-lyrics-enter {
+    animation: fullscreen-lyrics-slide 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+}
+
+/* Close button fades in last */
+.fullscreen-close-enter {
+    animation: fullscreen-fade 0.4s ease-out 0.25s backwards;
+}
+
+/* Keyframes */
+@keyframes fullscreen-fade {
+    from {
         opacity: 0;
-        transform: scale(1.02);
     }
 
-    100% {
+    to {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
-@keyframes fullscreen-fade-out {
-    0% {
-        opacity: 1;
-        transform: scale(1);
+@keyframes fullscreen-album-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-30px) scale(0.98);
     }
 
-    100% {
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes fullscreen-overlay-slide {
+    from {
         opacity: 0;
-        transform: scale(0.98);
+        transform: translateX(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fullscreen-lyrics-slide {
+    from {
+        opacity: 0;
+        transform: translateY(25px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
 /* Right acrylic panel with inward curve */
-/* Right acrylic panel with feathered vignette mask */
-/* Right acrylic panel with feathered vignette mask */
 .fullscreen-acrylic-panel {
-    /* 
-       Radial gradient mask creates the "convex curve" / spotlight effect.
-       Anchored to the left center, fading from transparent (showing underlying sharp image)
-       to opaque (this panel's blurred background).
-       Updated to cover 60% of the screen more aggressively.
-    */
+    /* Radial gradient mask creates the "convex curve" / spotlight effect */
     mask-image: radial-gradient(ellipse 90% 120% at 10% 50%,
             transparent 0%,
             transparent 35%,
@@ -693,43 +729,20 @@ body {
             transparent 35%,
             black 80%);
     border-radius: 0;
-
-    animation: glass-slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+    /* No animation - inherits from parent container fade */
 }
 
 /* Heavy acrylic overlay - provides the dark tint */
 .fullscreen-acrylic-overlay {
     border-radius: 0;
     overflow: hidden;
-    /* 
-       Updated gradient: More transparent to let album colors show through.
-       Max opacity reduced from 1.0 to 0.75.
-    */
     background: linear-gradient(to right,
             rgba(0, 0, 0, 0) 0%,
             rgba(0, 0, 0, 0.3) 20%,
             rgba(0, 0, 0, 0.6) 60%,
             rgba(0, 0, 0, 0.75) 100%);
-    /* 
-       Updated filters: 
-       - Saturation increased (140% -> 180%) for vibrant colors.
-       - Brightness increased (0.4 -> 0.7) so it's not pitch black.
-       - Blur remains intense.
-    */
     backdrop-filter: blur(120px) saturate(180%) brightness(0.7);
     -webkit-backdrop-filter: blur(120px) saturate(180%) brightness(0.7);
-}
-
-@keyframes glass-slide-in {
-    0% {
-        opacity: 0;
-        transform: translateX(100px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateX(0);
-    }
 }
 
 /* Glass overlay for additional depth */
@@ -750,13 +763,13 @@ body {
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    animation: mini-player-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
+    animation: mini-player-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
 }
 
 @keyframes mini-player-enter {
     0% {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
     }
 
     100% {
@@ -779,15 +792,65 @@ body {
     transform: scale(0.9);
 }
 
+/* Fullscreen background layers - GPU accelerated */
+.fullscreen-bg-layer {
+    will-change: background;
+    transition: background 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.fullscreen-shadow-layer {
+    will-change: background, transform;
+    transition: background 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backface-visibility: hidden;
+}
+
+.fullscreen-solid-layer {
+    will-change: background;
+    transition: background 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Lyric line transitions - smoother with GPU hints */
+.lyric-line {
+    will-change: transform, opacity, font-size;
+    transition:
+        transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.3s ease-out;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.lyric-active {
+    transition:
+        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.25s ease-out,
+        font-size 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+        color 0.2s ease-out;
+}
+
+.lyric-past {
+    transition:
+        transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        font-size 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.4s ease-out;
+}
+
 /* Lyrics container */
 .lyrics-container {
-    animation: lyrics-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s backwards;
+    animation: lyrics-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+    scroll-behavior: smooth;
 }
 
 @keyframes lyrics-enter {
     0% {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(20px);
     }
 
     100% {
