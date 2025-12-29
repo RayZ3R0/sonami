@@ -104,7 +104,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         return saved ? parseInt(saved) : 5000;
     });
 
-    const isSeeking = useRef(false);
+    const seekTarget = useRef<{ time: number, timestamp: number } | null>(null);
 
 
     // Persist tracks to localStorage
@@ -141,7 +141,21 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
                 try {
                     const info = await invoke<PlaybackInfo>("get_playback_info");
-                    setCurrentTime(info.position);
+
+                    // Only update current time if NOT seeking (or if latch condition met)
+                    if (seekTarget.current) {
+                        const diff = Math.abs(info.position - seekTarget.current.time);
+                        const elapsed = Date.now() - seekTarget.current.timestamp;
+
+                        // Latch if backend matches target (within 0.5s) OR timeout (2s)
+                        if (diff < 0.5 || elapsed > 2000) {
+                            seekTarget.current = null;
+                            setCurrentTime(info.position);
+                        }
+                    } else {
+                        setCurrentTime(info.position);
+                    }
+
                     setDuration(info.duration);
                     setIsPlaying(info.is_playing);
 
@@ -159,6 +173,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             setCurrentTrack(event.payload);
             setDuration(event.payload.duration);
             setCurrentTime(0);
+            seekTarget.current = null;
         });
 
         return () => {
@@ -302,6 +317,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             setCurrentTrack(track);
             setCurrentTime(0);
             setIsPlaying(true);
+            seekTarget.current = null;
 
             // If a specific context queue is provided (e.g. from playlist), use it.
             // Otherwise, default to the full library 'tracks'.
@@ -335,15 +351,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const seek = async (time: number) => {
         try {
-            isSeeking.current = true;
+            seekTarget.current = { time, timestamp: Date.now() };
             setCurrentTime(time);
             await invoke("seek_track", { position: time });
-            setTimeout(() => {
-                isSeeking.current = false;
-            }, 100);
+            // Timeout handled by polling loop latch logic now
         } catch (e) {
             console.error("Failed to seek:", e);
-            isSeeking.current = false;
+            seekTarget.current = null;
         }
     };
 
