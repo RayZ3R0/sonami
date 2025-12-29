@@ -509,6 +509,7 @@ body {
    EQUALIZER ANIMATION (Now Playing indicator)
    ============================================ */
 @keyframes eq-bar {
+
     0%,
     100% {
         transform: scaleY(0.25);
@@ -582,6 +583,7 @@ body {
         opacity: 0;
         transform: translateX(100%) scale(0.9);
     }
+
     100% {
         opacity: 1;
         transform: translateX(0) scale(1);
@@ -589,9 +591,26 @@ body {
 }
 
 @keyframes toast-shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-    20%, 40%, 60%, 80% { transform: translateX(4px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-4px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(4px);
+    }
 }
 
 .animate-toast-enter {
@@ -607,8 +626,251 @@ body {
     background: var(--theme-glass);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    box-shadow: 
+    box-shadow:
         0 8px 32px var(--theme-shadow-color),
         0 0 0 1px var(--theme-glass-border),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================
+   FULLSCREEN VIEW - Lyrics & Album Art
+   ============================================ */
+
+/* Container animations */
+.fullscreen-view-container {
+    will-change: opacity, transform;
+    background: #0a0a0f;
+}
+
+.fullscreen-view-enter {
+    animation: fullscreen-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.fullscreen-view-exit {
+    animation: fullscreen-fade-out 0.3s ease-out forwards;
+}
+
+@keyframes fullscreen-fade-in {
+    0% {
+        opacity: 0;
+        transform: scale(1.02);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fullscreen-fade-out {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+}
+
+/* Right acrylic panel with inward curve */
+/* Right acrylic panel with feathered vignette mask */
+/* Right acrylic panel with feathered vignette mask */
+.fullscreen-acrylic-panel {
+    /* 
+       Radial gradient mask creates the "convex curve" / spotlight effect.
+       Anchored to the left center, fading from transparent (showing underlying sharp image)
+       to opaque (this panel's blurred background).
+       Updated to cover 60% of the screen more aggressively.
+    */
+    mask-image: radial-gradient(ellipse 90% 120% at 10% 50%,
+            transparent 0%,
+            transparent 35%,
+            black 80%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 120% at 10% 50%,
+            transparent 0%,
+            transparent 35%,
+            black 80%);
+    border-radius: 0;
+
+    animation: glass-slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+}
+
+/* Heavy acrylic overlay - provides the dark tint */
+.fullscreen-acrylic-overlay {
+    border-radius: 0;
+    overflow: hidden;
+    /* 
+       Updated gradient: More transparent to let album colors show through.
+       Max opacity reduced from 1.0 to 0.75.
+    */
+    background: linear-gradient(to right,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0.3) 20%,
+            rgba(0, 0, 0, 0.6) 60%,
+            rgba(0, 0, 0, 0.75) 100%);
+    /* 
+       Updated filters: 
+       - Saturation increased (140% -> 180%) for vibrant colors.
+       - Brightness increased (0.4 -> 0.7) so it's not pitch black.
+       - Blur remains intense.
+    */
+    backdrop-filter: blur(120px) saturate(180%) brightness(0.7);
+    -webkit-backdrop-filter: blur(120px) saturate(180%) brightness(0.7);
+}
+
+@keyframes glass-slide-in {
+    0% {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Glass overlay for additional depth */
+.fullscreen-glass-overlay {
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.03) 0%,
+            transparent 50%,
+            rgba(0, 0, 0, 0.1) 100%);
+}
+
+/* Mini player bar styling - more compact */
+.mini-player-bar {
+    width: 300px;
+    padding: 16px 20px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    animation: mini-player-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
+}
+
+@keyframes mini-player-enter {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mini-control {
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.mini-control:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mini-control:active {
+    transform: scale(0.9);
+}
+
+/* Lyrics container */
+.lyrics-container {
+    animation: lyrics-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s backwards;
+}
+
+@keyframes lyrics-enter {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Lyrics scrollbar */
+.lyrics-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.lyrics-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.lyrics-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+.lyrics-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Vinyl indicator animation */
+.vinyl-indicator {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vinyl-disc {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+            #333 0deg,
+            #555 90deg,
+            #333 180deg,
+            #555 270deg,
+            #333 360deg);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    animation: vinyl-spin 2s linear infinite;
+}
+
+.vinyl-disc::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: white;
+}
+
+@keyframes vinyl-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Clickable album art in player bar */
+.player-album-art-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.player-album-art-clickable:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.player-album-art-clickable:active {
+    transform: scale(0.98);
 }

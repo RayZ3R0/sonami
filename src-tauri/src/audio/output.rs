@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use tauri::Emitter;
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use super::types::{AudioContext, AudioError, DeviceChanged};
 use super::manager::BUFFER_SIZE;
+use super::types::{AudioContext, AudioError, DeviceChanged};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 const DEBUG_CROSSFADE: bool = false;
 
@@ -19,9 +19,7 @@ macro_rules! debug_cf {
     };
 }
 
-pub fn run_audio_output(
-    context: AudioContext,
-) {
+pub fn run_audio_output(context: AudioContext) {
     let host = cpal::default_host();
     let mut current_device_name: Option<String> = None;
     let mut no_device_notified = false;
@@ -87,7 +85,8 @@ pub fn run_audio_output(
         };
 
         let sample_rate = config.sample_rate().0;
-        context.state
+        context
+            .state
             .device_sample_rate
             .store(sample_rate, Ordering::Relaxed);
 
@@ -105,24 +104,15 @@ pub fn run_audio_output(
         };
 
         let stream_result = match config.sample_format() {
-            cpal::SampleFormat::F32 => run_stream::<f32>(
-                &device,
-                &config.into(),
-                context.clone(),
-                err_fn,
-            ),
-            cpal::SampleFormat::I16 => run_stream::<i16>(
-                &device,
-                &config.into(),
-                context.clone(),
-                err_fn,
-            ),
-            cpal::SampleFormat::U16 => run_stream::<u16>(
-                &device,
-                &config.into(),
-                context.clone(),
-                err_fn,
-            ),
+            cpal::SampleFormat::F32 => {
+                run_stream::<f32>(&device, &config.into(), context.clone(), err_fn)
+            }
+            cpal::SampleFormat::I16 => {
+                run_stream::<i16>(&device, &config.into(), context.clone(), err_fn)
+            }
+            cpal::SampleFormat::U16 => {
+                run_stream::<u16>(&device, &config.into(), context.clone(), err_fn)
+            }
             _ => Err(cpal::BuildStreamError::StreamConfigNotSupported),
         };
 

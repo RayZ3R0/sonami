@@ -1,7 +1,7 @@
+use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread;
-use parking_lot::RwLock;
 use tauri::AppHandle;
 
 use crate::dsp::DspChain;
@@ -9,9 +9,9 @@ use crate::media_controls::MediaControlsManager;
 use crate::queue::PlayQueue;
 
 use super::buffer::AudioBuffer;
-use super::types::{AudioContext, DecoderCommand, PlaybackState, DEFAULT_CROSSFADE_MS};
 use super::decoder::decoder_thread;
 use super::output::run_audio_output;
+use super::types::{AudioContext, DecoderCommand, PlaybackState, DEFAULT_CROSSFADE_MS};
 
 pub const BUFFER_SIZE: usize = 65536;
 

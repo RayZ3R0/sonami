@@ -1,5 +1,6 @@
 import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { FullScreenView } from './FullScreenView';
 
 const MarqueeText = ({ text, className }: { text: string; className?: string }) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -100,6 +101,15 @@ export const PlayerBar = () => {
     const seekBarRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+    const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+
+    const openFullScreen = useCallback(() => {
+        setIsFullScreenOpen(true);
+    }, []);
+
+    const closeFullScreen = useCallback(() => {
+        setIsFullScreenOpen(false);
+    }, []);
 
     if (!currentTrack) return null;
 
@@ -135,30 +145,40 @@ export const PlayerBar = () => {
     };
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[860px]">
-            <div className="glass-floating rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
-                <div className="px-4 pt-3 pb-2 flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-3 w-[30%] min-w-[180px]">
-                        <div className="w-12 h-12 rounded-lg bg-theme-secondary shadow-lg overflow-hidden flex-shrink-0">
-                            {currentTrack.cover_image ? (
-                                <img
-                                    src={currentTrack.cover_image}
-                                    alt={currentTrack.title}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="album-art-placeholder">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-theme-muted">
-                                        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                                    </svg>
-                                </div>
-                            )}
+        <>
+            <FullScreenView isOpen={isFullScreenOpen} onClose={closeFullScreen} />
+            
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[860px]">
+                <div className="glass-floating rounded-2xl flex flex-col overflow-hidden shadow-2xl transition-all hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)]">
+                    <div className="px-4 pt-3 pb-2 flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-3 w-[30%] min-w-[180px]">
+                            <div 
+                                className="w-12 h-12 rounded-lg bg-theme-secondary shadow-lg overflow-hidden flex-shrink-0 player-album-art-clickable"
+                                onClick={openFullScreen}
+                                title="Open full screen view"
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => e.key === 'Enter' && openFullScreen()}
+                            >
+                                {currentTrack.cover_image ? (
+                                    <img
+                                        src={currentTrack.cover_image}
+                                        alt={currentTrack.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="album-art-placeholder">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-theme-muted">
+                                            <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col overflow-hidden min-w-0">
+                                <MarqueeText text={currentTrack.title} className="text-sm font-semibold text-theme-primary leading-tight" />
+                                <span className="text-xs text-theme-secondary truncate">{currentTrack.artist}</span>
+                            </div>
                         </div>
-                        <div className="flex flex-col overflow-hidden min-w-0">
-                            <MarqueeText text={currentTrack.title} className="text-sm font-semibold text-theme-primary leading-tight" />
-                            <span className="text-xs text-theme-secondary truncate">{currentTrack.artist}</span>
-                        </div>
-                    </div>
 
                     <div className="flex items-center gap-3">
                         <button
@@ -292,5 +312,6 @@ export const PlayerBar = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };

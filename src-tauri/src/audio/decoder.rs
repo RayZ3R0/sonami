@@ -19,10 +19,13 @@ use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 use tauri::{AppHandle, Emitter};
 
-use crate::queue::{PlayQueue, RepeatMode};
 use super::buffer::AudioBuffer;
 use super::manager::BUFFER_SIZE;
-use super::types::{AudioContext, AudioError, CrossfadeState, DecoderCommand, DecoderState, LoadTrackResult, PlaybackState};
+use super::types::{
+    AudioContext, AudioError, CrossfadeState, DecoderCommand, DecoderState, LoadTrackResult,
+    PlaybackState,
+};
+use crate::queue::{PlayQueue, RepeatMode};
 
 const DEBUG_CROSSFADE: bool = false;
 
