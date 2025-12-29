@@ -140,7 +140,7 @@ interface SettingsProps {
 
 export const Settings = ({ isOpen, onClose, defaultTab = "appearance" }: SettingsProps) => {
     const { theme, themeId, availableThemes, setTheme } = useTheme();
-    const { crossfadeEnabled, crossfadeDuration, setCrossfade } = usePlayer();
+    const { crossfadeEnabled, crossfadeDuration, setCrossfade, playerBarStyle, setPlayerBarStyle } = usePlayer();
     const [activeTab, setActiveTab] = useState<"appearance" | "playback">(defaultTab);
 
     // Reset active tab when modal opens or defaultTab changes
@@ -249,6 +249,79 @@ export const Settings = ({ isOpen, onClose, defaultTab = "appearance" }: Setting
                 <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
                     {activeTab === "appearance" && (
                         <div>
+                            {/* Player Bar Style Section */}
+                            <div className="mb-8">
+                                <h3
+                                    className="text-xs font-semibold uppercase tracking-wider mb-4"
+                                    style={{ color: theme.colors.textMuted }}
+                                >
+                                    Player Bar Style
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setPlayerBarStyle("floating")}
+                                        className={`
+                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
+                                            ${playerBarStyle === "floating"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
+                                        `}
+                                        style={{
+                                            background: theme.colors.surface,
+                                            borderColor: playerBarStyle === "floating" ? theme.colors.accent : theme.colors.border,
+                                            borderWidth: "1px",
+                                            borderStyle: "solid",
+                                            // @ts-ignore
+                                            "--tw-ring-color": theme.colors.accent,
+                                        }}
+                                    >
+                                        <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end p-2 border border-theme-border opacity-80">
+                                            <div className="h-6 w-3/4 mx-auto bg-theme-surface-active rounded-full shadow-lg" style={{ background: theme.colors.surfaceActive }} />
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-medium" style={{ color: theme.colors.textPrimary }}>Floating</span>
+                                            {playerBarStyle === "floating" && (
+                                                <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: theme.colors.accent, color: theme.colors.textInverse }}>
+                                                    <CheckIcon />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setPlayerBarStyle("classic")}
+                                        className={`
+                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
+                                            ${playerBarStyle === "classic"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
+                                        `}
+                                        style={{
+                                            background: theme.colors.surface,
+                                            borderColor: playerBarStyle === "classic" ? theme.colors.accent : theme.colors.border,
+                                            borderWidth: "1px",
+                                            borderStyle: "solid",
+                                            // @ts-ignore
+                                            "--tw-ring-color": theme.colors.accent,
+                                        }}
+                                    >
+                                        <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end border border-theme-border opacity-80">
+                                            <div className="h-6 w-full bg-theme-surface-active shadow-sm border-t border-theme-border" style={{ background: theme.colors.surfaceActive }} />
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-medium" style={{ color: theme.colors.textPrimary }}>Classic</span>
+                                            {playerBarStyle === "classic" && (
+                                                <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: theme.colors.accent, color: theme.colors.textInverse }}>
+                                                    <CheckIcon />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="mb-8">
                                 <h3
                                     className="text-xs font-semibold uppercase tracking-wider mb-4"

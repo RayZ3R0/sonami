@@ -57,6 +57,9 @@ interface PlayerContextType {
     crossfadeEnabled: boolean;
     crossfadeDuration: number;
     setCrossfade: (enabled: boolean, duration: number) => Promise<void>;
+
+    playerBarStyle: "floating" | "classic";
+    setPlayerBarStyle: (style: "floating" | "classic") => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -69,6 +72,7 @@ const STORAGE_KEYS = {
     REPEAT: "sonami-repeat",
     CROSSFADE_ENABLED: "sonami-crossfade-enabled",
     CROSSFADE_DURATION: "sonami-crossfade-duration",
+    PLAYER_BAR_STYLE: "sonami-player-bar-style",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -102,6 +106,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [crossfadeDuration, setCrossfadeDurationState] = useState(() => {
         const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_DURATION);
         return saved ? parseInt(saved) : 5000;
+    });
+    const [playerBarStyle, setPlayerBarStyleState] = useState<"floating" | "classic">(() => {
+        const saved = localStorage.getItem(STORAGE_KEYS.PLAYER_BAR_STYLE);
+        return (saved === "classic" || saved === "floating") ? saved : "floating";
     });
 
     const seekTarget = useRef<{ time: number, timestamp: number } | null>(null);
@@ -457,6 +465,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const setPlayerBarStyle = (style: "floating" | "classic") => {
+        setPlayerBarStyleState(style);
+        localStorage.setItem(STORAGE_KEYS.PLAYER_BAR_STYLE, style);
+    };
+
 
     // Memoize the main player context value to prevent re-renders when only currentTime changes
     const playerValue = useMemo(() => ({
@@ -466,11 +479,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         nextTrack, prevTrack, toggleShuffle, toggleRepeat,
         queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
         createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
-        crossfadeEnabled, crossfadeDuration, setCrossfade
+        crossfadeEnabled, crossfadeDuration, setCrossfade,
+        playerBarStyle, setPlayerBarStyle
     }), [
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen,
-        crossfadeEnabled, crossfadeDuration
+        crossfadeEnabled, crossfadeDuration, playerBarStyle
     ]);
 
     // Memoize playback progress
