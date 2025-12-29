@@ -33,7 +33,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "Audio",
+    "category": "Music",
     "linux": {
       "deb": {
         "desktopTemplate": null
