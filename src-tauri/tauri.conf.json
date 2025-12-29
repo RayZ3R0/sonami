@@ -33,15 +33,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "category": "Audio",
     "linux": {
-      "desktop": {
-        "startupWMClass": "sonami",
-        "exec": "env GDK_BACKEND=x11 %F",
-        "categories": [
-          "AudioVideo",
-          "Audio",
-          "Player"
-        ]
+      "deb": {
+        "desktopTemplate": null
       }
     }
   }
