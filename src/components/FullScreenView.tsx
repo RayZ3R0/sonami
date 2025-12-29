@@ -1,4 +1,4 @@
-import { useEffect, useCallback, memo, useMemo, useState, useRef } from 'react';
+import { useEffect, useCallback, memo, useMemo, useState, useRef, startTransition } from 'react';
 import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
 import { MiniPlayerBar } from './MiniPlayerBar';
 // @ts-ignore
@@ -101,19 +101,11 @@ const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
             }
             ${text === '' ? 'h-8' : 'py-1'}
         `}
+        style={isActive ? {
+            textShadow: '0 0 10px rgba(255, 255, 255, 0.4), 0 0 20px rgba(255, 255, 255, 0.25), 0 0 35px rgba(255, 255, 255, 0.15), 0 0 50px rgba(255, 255, 255, 0.08)'
+        } : undefined}
     >
-        {isActive && text ? (
-            <span className="inline-block">
-                {text.split(' ').map((word, i) => (
-                    <span key={i} className="inline-block mr-3">
-                        <span className="text-white">{word.slice(0, Math.ceil(word.length * 0.6))}</span>
-                        <span className="text-white/60">{word.slice(Math.ceil(word.length * 0.6))}</span>
-                    </span>
-                ))}
-            </span>
-        ) : (
-            text || '\u00A0'
-        )}
+        {text || '\u00A0'}
     </p>
 ));
 
@@ -131,6 +123,8 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
     const activeLyricRef = useRef<HTMLParagraphElement>(null);
     const lastExtractedImageRef = useRef<string | null>(null);
+    const lastScrolledIndexRef = useRef<number>(-1);
+    const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Handle ESC key to close
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -214,24 +208,45 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         return activeIdx;
     }, [currentTime]);
 
-    // Auto-scroll to active lyric with smooth scrolling
+    // Auto-scroll to active lyric with throttled smooth scrolling
     useEffect(() => {
-        if (activeLyricRef.current && lyricsContainerRef.current) {
-            const container = lyricsContainerRef.current;
-            const activeLine = activeLyricRef.current;
+        // Only scroll when the active lyric index actually changes
+        if (activeLyricIndex === lastScrolledIndexRef.current) return;
 
-            const containerRect = container.getBoundingClientRect();
-            const lineRect = activeLine.getBoundingClientRect();
-
-            // Calculate target scroll position (center the active lyric)
-            const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
-
-            // Smooth scroll to target
-            container.scrollTo({
-                top: Math.max(0, targetScrollTop),
-                behavior: 'smooth'
-            });
+        // Clear any pending scroll
+        if (scrollTimeoutRef.current) {
+            clearTimeout(scrollTimeoutRef.current);
         }
+
+        // Throttle scroll updates to prevent jank
+        scrollTimeoutRef.current = setTimeout(() => {
+            if (activeLyricRef.current && lyricsContainerRef.current) {
+                const container = lyricsContainerRef.current;
+                const activeLine = activeLyricRef.current;
+
+                const containerRect = container.getBoundingClientRect();
+                const lineRect = activeLine.getBoundingClientRect();
+
+                // Calculate target scroll position (center the active lyric)
+                const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
+
+                // Smooth scroll to target
+                startTransition(() => {
+                    container.scrollTo({
+                        top: Math.max(0, targetScrollTop),
+                        behavior: 'smooth'
+                    });
+                });
+
+                lastScrolledIndexRef.current = activeLyricIndex;
+            }
+        }, 50); // Small throttle to batch rapid updates
+
+        return () => {
+            if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
+            }
+        };
     }, [activeLyricIndex]);
 
     // Only render when open
@@ -303,30 +318,23 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                     </button>
                 </div>
 
-                {/* Added pl-8 to prevent clipping from negative transforms */}
-                <div
-                    ref={lyricsContainerRef}
-                    className="lyrics-container overflow-y-auto max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full"
-                >
-                    {PLACEHOLDER_LYRICS.map((lyric, index) => (
-                        <LyricLine
-                            key={index}
-                            text={lyric.text}
-                            isActive={index === activeLyricIndex}
-                            isPast={index < activeLyricIndex}
-                            lineRef={index === activeLyricIndex ? activeLyricRef : undefined}
-                        />
-                    ))}
+                {/* Wrapper with visible overflow for glow, inner scroll container */}
+                <div className="relative max-h-[65vh] w-full lyrics-wrapper">
+                    <div
+                        ref={lyricsContainerRef}
+                        className="lyrics-container overflow-y-auto overflow-x-visible max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full"
+                    >
+                        {PLACEHOLDER_LYRICS.map((lyric, index) => (
+                            <LyricLine
+                                key={index}
+                                text={lyric.text}
+                                isActive={index === activeLyricIndex}
+                                isPast={index < activeLyricIndex}
+                                lineRef={index === activeLyricIndex ? activeLyricRef : undefined}
+                            />
+                        ))}
+                    </div>
                 </div>
-
-                {/* <div className="mt-8 text-white/30 text-sm flex items-center gap-2 pointer-events-auto">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    Lyrics
-                </div> */}
             </div>
 
             <div className="absolute bottom-8 left-8 z-50">
