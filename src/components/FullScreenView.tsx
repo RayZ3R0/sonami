@@ -1,4 +1,4 @@
-import { useEffect, useCallback, memo, useMemo, useState, useRef, startTransition } from 'react';
+import { useEffect, useCallback, memo, useMemo, useState, useRef } from 'react';
 import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
 import { MiniPlayerBar } from './MiniPlayerBar';
 // @ts-ignore
@@ -96,10 +96,6 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [isInSnapZone, setIsInSnapZone] = useState(false);
     const miniPlayerRef = useRef<HTMLDivElement>(null);
-
-    // Snap zone configuration
-    const SNAP_ZONE_HEIGHT = 40; // pixels from bottom to trigger snap
-    const FULL_WIDTH_THRESHOLD = 0.8; // 80% down the screen to show snap zone
 
     // Handle saved full-width mode on initial load
     useEffect(() => {

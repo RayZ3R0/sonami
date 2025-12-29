@@ -32,6 +32,17 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "desktop": {
+        "startupWMClass": "sonami",
+        "exec": "env GDK_BACKEND=x11 %F",
+        "categories": [
+          "AudioVideo",
+          "Audio",
+          "Player"
+        ]
+      }
+    }
   }
 }
