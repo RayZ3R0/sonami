@@ -16,20 +16,70 @@ const GRADIENT_WIDTH_PERCENT = 230; // Percentage of screen covered by the gradi
 // Placeholder lyrics - will be replaced with real lyrics system
 const PLACEHOLDER_LYRICS = [
     { time: 0, text: "♪ Instrumental ♪" },
-    { time: 5, text: "Loading lyrics..." },
-    { time: 10, text: "Of my soul" },
-    { time: 15, text: "Suffering, I've been low," },
-    { time: 20, text: "then I seen your halo" },
-    { time: 25, text: "" },
-    { time: 30, text: "Oh, oh-oh, oh" },
-    { time: 35, text: "" },
-    { time: 40, text: "Falling, angels call my name" },
-    { time: 45, text: "But the things you say" },
-    { time: 50, text: "Keep me holding on" },
-    { time: 55, text: "" },
-    { time: 60, text: "Where do we go from here?" },
-    { time: 65, text: "The path is never clear" },
-    { time: 70, text: "But I know you're near" },
+    { time: 18, text: "(It starts with one)" },
+    { time: 19, text: "One thing, I don't know why" },
+    { time: 21, text: "It doesn't even matter how hard you try" },
+    { time: 23, text: "Keep that in mind, I designed this rhyme" },
+    { time: 26, text: "To explain in due time" },
+    { time: 28, text: "All I know" },
+    { time: 30, text: "Time is a valuable thing" },
+    { time: 32, text: "Watch it fly by as the pendulum swings" },
+    { time: 34, text: "Watch it count down to the end of the day" },
+    { time: 37, text: "The clock ticks life away" },
+    { time: 39, text: "It's so unreal" },
+    { time: 41, text: "Didn't look out below" },
+    { time: 42, text: "Watch the time go right out the window" },
+    { time: 44, text: "Trying to hold on, did-didn't even know" },
+    { time: 47, text: "I wasted it all just to watch you go" },
+    { time: 49, text: "" },
+    { time: 50, text: "I kept everything inside" },
+    { time: 52, text: "And even though I tried, it all fell apart" },
+    { time: 55, text: "What it meant to me will eventually be" },
+    { time: 57, text: "A memory of a time when I tried so hard" },
+    { time: 60, text: "" },
+    { time: 61, text: "I tried so hard and got so far" },
+    { time: 66, text: "But in the end, it doesn't even matter" },
+    { time: 71, text: "I had to fall to lose it all" },
+    { time: 76, text: "But in the end, it doesn't even matter" },
+    { time: 80, text: "" },
+    { time: 82, text: "One thing, I don't know why" },
+    { time: 84, text: "It doesn't even matter how hard you try" },
+    { time: 86, text: "Keep that in mind, I designed this rhyme" },
+    { time: 89, text: "To remind myself how I tried so hard" },
+    { time: 92, text: "In spite of the way you were mockin' me" },
+    { time: 94, text: "Actin' like I was part of your property" },
+    { time: 96, text: "Remembering all the times you fought with me" },
+    { time: 99, text: "I'm surprised it got so far" },
+    { time: 101, text: "Things aren't the way they were before" },
+    { time: 104, text: "You wouldn't even recognize me anymore" },
+    { time: 106, text: "Not that you knew me back then" },
+    { time: 108, text: "But it all comes back to me in the end" },
+    { time: 111, text: "" },
+    { time: 112, text: "You kept everything inside" },
+    { time: 114, text: "And even though I tried, it all fell apart" },
+    { time: 117, text: "What it meant to me will eventually be" },
+    { time: 119, text: "A memory of a time when I tried so hard" },
+    { time: 122, text: "" },
+    { time: 123, text: "I tried so hard and got so far" },
+    { time: 128, text: "But in the end, it doesn't even matter" },
+    { time: 133, text: "I had to fall to lose it all" },
+    { time: 138, text: "But in the end, it doesn't even matter" },
+    { time: 142, text: "" },
+    { time: 144, text: "I've put my trust in you" },
+    { time: 149, text: "Pushed as far as I can go" },
+    { time: 154, text: "For all this" },
+    { time: 157, text: "There's only one thing you should know" },
+    { time: 162, text: "" },
+    { time: 164, text: "I've put my trust in you" },
+    { time: 169, text: "Pushed as far as I can go" },
+    { time: 174, text: "For all this" },
+    { time: 177, text: "There's only one thing you should know" },
+    { time: 182, text: "" },
+    { time: 184, text: "I tried so hard and got so far" },
+    { time: 189, text: "But in the end, it doesn't even matter" },
+    { time: 194, text: "I had to fall to lose it all" },
+    { time: 199, text: "But in the end, it doesn't even matter" },
+    { time: 203, text: "" },
 ];
 
 // Memoized lyrics line component for performance
@@ -103,30 +153,39 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         img.onload = () => {
             try {
                 const colorThief = new ColorThief();
-                // Get 5 colors for a richer mix
-                const palette = colorThief.getPalette(img, 5);
+                // Get 10 colors for a much wider pool to pick from
+                const palette = colorThief.getPalette(img, 10);
 
                 if (palette && palette.length >= 2) {
-                    const c1 = palette[0];
-                    const c2 = palette[1] || c1;
-                    const c3 = palette[2] || c1;
-                    const c4 = palette[3] || c2;
-                    const c5 = palette[4] || c3;
+                    // Helper to get brightness (perceived luminance)
+                    const getLuminance = (rgb: number[]) => (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]);
 
-                    // Shadow Layer: deeply blurred dominant color
+                    // Find the darkest color in the palette for deep contrast
+                    const darkestColor = [...palette].sort((a, b) => getLuminance(a) - getLuminance(b))[0];
+
+                    // Pick distinct colors from the range to ensure variety
+                    // 0 = Dominant
+                    // 4 = Mid-range distinct
+                    // 9 (or last) = Least dominant / accent
+                    const c1 = palette[0];
+                    const c2 = palette[4] || palette[1];
+                    const c3 = palette[8] || palette[2];
+                    const cDark = darkestColor || [0, 0, 0];
+
+                    // Shadow Layer: Uses the darkest extracted color for a deep, grounded shadow
                     const shadowStyle = {
-                        background: `rgb(${c1[0]}, ${c1[1]}, ${c1[2]})`
+                        background: `rgb(${cDark[0]}, ${cDark[1]}, ${cDark[2]})`
                     };
 
-                    // Solid Layer: "Liquid" Mesh Gradient
-                    // Mix multiple radial gradients to create a complex, organic look
+                    // Solid Layer: "Liquid" Mesh Gradient with high variance
+                    // We mix the Dominant, Distant, and Darkest colors
                     const solidStyle = {
                         background: `
                             radial-gradient(at 0% 0%, rgba(${c2[0]},${c2[1]},${c2[2]},1) 0px, transparent 50%),
-                            radial-gradient(at 100% 0%, rgba(${c3[0]},${c3[1]},${c3[2]},1) 0px, transparent 50%),
-                            radial-gradient(at 100% 100%, rgba(${c4[0]},${c4[1]},${c4[2]},1) 0px, transparent 50%),
-                            radial-gradient(at 0% 100%, rgba(${c5[0]},${c5[1]},${c5[2]},1) 0px, transparent 50%),
-                            linear-gradient(to right, rgba(${c1[0]},${c1[1]},${c1[2]},1), rgba(${c2[0]},${c2[1]},${c2[2]},1))
+                            radial-gradient(at 100% 0%, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1) 0px, transparent 50%),
+                            radial-gradient(at 100% 100%, rgba(${c3[0]},${c3[1]},${c3[2]},1) 0px, transparent 50%),
+                            radial-gradient(at 0% 100%, rgba(${c1[0]},${c1[1]},${c1[2]},1) 0px, transparent 50%),
+                            linear-gradient(to right, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1), rgba(${c1[0]},${c1[1]},${c1[2]},1))
                         `
                     };
 
@@ -165,7 +224,11 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             aria-label="Full screen player"
         >
             {/* Main Background Image - Single Instance */}
-            <div className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f]">
+            {/* We apply the dynamic gradient here as the base background */}
+            <div
+                className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f] transition-all duration-1000 ease-in-out"
+                style={layerStyles.solid}
+            >
                 {currentTrack.cover_image ? (
                     <img
                         src={currentTrack.cover_image}
