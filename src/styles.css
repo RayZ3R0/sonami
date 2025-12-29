@@ -984,37 +984,56 @@ body {
     backface-visibility: hidden;
 }
 
-/* Lyric line transitions - smoother with GPU hints */
+/* Lyric line transitions - ultra-smooth with enhanced effects */
 .lyric-line {
-    will-change: transform, opacity, font-size, text-shadow;
+    will-change: transform, opacity, font-size, text-shadow, color, filter;
     transition:
-        transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        opacity 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        font-size 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        text-shadow 0.3s ease-out,
-        color 0.3s ease-out;
-    transform: translateZ(0) scale(1);
+        transform 0.8s cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        font-size 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        text-shadow 0.8s cubic-bezier(0.23, 1, 0.32, 1),
+        color 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        filter 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    transform: translateZ(0) scale(1) translateY(0);
     transform-origin: left center;
     backface-visibility: hidden;
+    filter: blur(0px);
 }
 
 .lyric-active {
-    transform: translateZ(0) scale(1.02);
+    transform: translateZ(0) scale(1.05) translateY(-2px);
+    filter: blur(0px) brightness(1.1);
     transition:
-        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-        opacity 0.2s ease-out,
-        font-size 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-        text-shadow 0.25s ease-out,
-        color 0.2s ease-out;
+        transform 0.7s cubic-bezier(0.16, 1.08, 0.38, 0.98),
+        opacity 0.4s cubic-bezier(0.16, 1.08, 0.38, 0.98),
+        font-size 0.5s cubic-bezier(0.16, 1.08, 0.38, 0.98),
+        text-shadow 0.6s cubic-bezier(0.16, 1.08, 0.38, 0.98),
+        color 0.4s cubic-bezier(0.16, 1.08, 0.38, 0.98),
+        filter 0.5s cubic-bezier(0.16, 1.08, 0.38, 0.98);
 }
 
 .lyric-past {
+    transform: translateZ(0) scale(0.98) translateY(1px);
+    filter: blur(0.5px) brightness(0.9);
     transition:
-        transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-        font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-        text-shadow 0.35s ease-out,
-        color 0.35s ease-out;
+        transform 1.2s cubic-bezier(0.19, 1, 0.22, 1),
+        opacity 1s cubic-bezier(0.19, 1, 0.22, 1),
+        font-size 0.8s cubic-bezier(0.19, 1, 0.22, 1),
+        text-shadow 1s cubic-bezier(0.19, 1, 0.22, 1),
+        color 0.8s cubic-bezier(0.19, 1, 0.22, 1),
+        filter 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.lyric-future {
+    transform: translateZ(0) scale(1) translateY(0);
+    filter: blur(0px) brightness(1);
+    transition:
+        transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        opacity 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        font-size 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        text-shadow 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        color 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        filter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Lyrics wrapper - allows glow to overflow while containing scroll */
@@ -1023,13 +1042,16 @@ body {
     position: relative;
 }
 
-/* Lyrics container */
+/* Lyrics container - ultra-smooth scrolling */
 .lyrics-container {
     animation: lyrics-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
     scroll-behavior: smooth;
     overflow-x: visible !important;
     padding-top: 20px;
     padding-bottom: 20px;
+    /* Enhanced smooth scrolling for webkit */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-behavior: smooth;
 }
 
 @keyframes lyrics-enter {

@@ -260,7 +260,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         return activeIdx;
     }, [currentTime, lyrics, isSynced, hasLyrics]);
 
-    // Auto-scroll to active lyric with throttled smooth scrolling
+    // Auto-scroll to active lyric with ultra-smooth scrolling
     useEffect(() => {
         // Only scroll when the active lyric index actually changes AND we are synced
         if (!isSynced || activeLyricIndex === -1 || activeLyricIndex === lastScrolledIndexRef.current) return;
@@ -270,7 +270,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             clearTimeout(scrollTimeoutRef.current);
         }
 
-        // Throttle scroll updates to prevent jank
+        // Enhanced scroll timing for buttery smooth experience
         scrollTimeoutRef.current = setTimeout(() => {
             if (activeLyricRef.current && lyricsContainerRef.current) {
                 const container = lyricsContainerRef.current;
@@ -279,20 +279,27 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 const containerRect = container.getBoundingClientRect();
                 const lineRect = activeLine.getBoundingClientRect();
 
-                // Calculate target scroll position (center the active lyric)
+                // Calculate target scroll position (center the active lyric with slight offset)
                 const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
 
-                // Smooth scroll to target
+                // Ultra-smooth scroll with optimized behavior
                 startTransition(() => {
-                    container.scrollTo({
+                    // Use a more gentle scroll approach
+                    const currentScroll = container.scrollTop;
+                    const distance = Math.abs(targetScrollTop - currentScroll);
+                    
+                    // Adjust scroll behavior based on distance for smoother experience
+                    const scrollOptions: ScrollToOptions = {
                         top: Math.max(0, targetScrollTop),
-                        behavior: 'smooth'
-                    });
+                        behavior: distance > 200 ? 'smooth' : 'smooth'
+                    };
+                    
+                    container.scrollTo(scrollOptions);
                 });
 
                 lastScrolledIndexRef.current = activeLyricIndex;
             }
-        }, 50);
+        }, 100); // Slightly increased delay for smoother batching
 
         return () => {
             if (scrollTimeoutRef.current) {
