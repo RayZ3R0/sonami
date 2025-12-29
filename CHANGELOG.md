@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-alpha.11] - 2024-12-29
+
+### Fixed
+- Removed broken lyrics karaoke effect that randomly dimmed letters in words
+- Improved active lyric glow effect with smoother, multi-layered text shadow
+- Fixed lyrics scroll lag by throttling scroll updates and using React's `startTransition`
+- Added wrapper container to prevent glow clipping on lyrics
+
+### Changed
+- Enhanced lyric line transitions with subtle scale transform for smoother pop-out effect
+- Optimized lyric index calculation to prevent unnecessary re-renders
+
+---
+
 ## [0.1.0-alpha.1] - 2024-12-28
 
 ### Added
@@ -58,5 +72,6 @@ This project uses [Semantic Versioning](https://semver.org/):
 - `0.1.0-rc.1` → Release candidate
 - `0.1.0` → Stable release
 
-[Unreleased]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.1...HEAD
+[Unreleased]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.11...HEAD
+[0.1.0-alpha.11]: https://github.com/z3r0/sonami/compare/v0.1.0-alpha.1...v0.1.0-alpha.11
 [0.1.0-alpha.1]: https://github.com/z3r0/sonami/releases/tag/v0.1.0-alpha.1
