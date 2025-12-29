@@ -77,10 +77,10 @@ export const MiniPlayerBar = memo(() => {
 
     return (
         <div className="mini-player-bar">
-            {/* Drag handle */}
-            <div className="flex justify-center mb-2 -mt-1 group">
-                <div className="w-8 h-1 bg-white/20 rounded-full group-hover:bg-white/40 transition-all duration-200 cursor-grab active:cursor-grabbing">
-                    <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+            {/* Dedicated drag handle area - only show in mini mode */}
+            <div className="drag-handle-area flex justify-center py-2 -mt-1 cursor-grab active:cursor-grabbing hover:bg-white/5 transition-colors rounded-t-lg">
+                <div className="w-12 h-1 bg-white/25 rounded-full hover:bg-white/40 transition-all duration-200">
+                    <div className="w-full h-full bg-gradient-to-r from-transparent via-white/15 to-transparent rounded-full"></div>
                 </div>
             </div>
             

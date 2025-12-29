@@ -799,8 +799,68 @@ body {
 }
 
 /* Hide the drag handle in full-width mode */
-.draggable-mini-player-container.full-width .mini-player-bar > div:first-child {
+.draggable-mini-player-container.full-width .drag-handle-area {
     display: none;
+}
+
+/* Full-width drag indicator - positioned in left area */
+.full-width-drag-indicator {
+    position: absolute;
+    left: 20%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 56px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    opacity: 0.4;
+    z-index: 10;
+}
+
+.full-width-drag-indicator:hover {
+    opacity: 0.8;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.full-width-drag-indicator:active {
+    cursor: grabbing;
+    opacity: 1;
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Drag indicator icon */
+.full-width-drag-indicator::before {
+    content: '';
+    width: 5px;
+    height: 20px;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.6) 0px,
+        rgba(255, 255, 255, 0.6) 3px,
+        transparent 3px,
+        transparent 6px
+    );
+    border-radius: 2px;
+    margin-right: 4px;
+}
+
+.full-width-drag-indicator::after {
+    content: '';
+    width: 5px;
+    height: 20px;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.6) 0px,
+        rgba(255, 255, 255, 0.6) 3px,
+        transparent 3px,
+        transparent 6px
+    );
+    border-radius: 2px;
 }
 
 /* Track info section - left side, Spotify style */
@@ -897,14 +957,15 @@ body {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.draggable-mini-player-container:hover {
+/* Hover/active effects only for mini mode, not full-width */
+.draggable-mini-player-container:not(.full-width):hover {
     transform: translateY(-2px);
     box-shadow: 
         0 12px 30px rgba(0, 0, 0, 0.25),
         0 6px 15px rgba(0, 0, 0, 0.15);
 }
 
-.draggable-mini-player-container:active {
+.draggable-mini-player-container:not(.full-width):active {
     transform: scale(1.02);
 }
 
@@ -984,74 +1045,55 @@ body {
     backface-visibility: hidden;
 }
 
-/* Lyric line transitions - ultra-smooth with enhanced effects */
+/* Lyric line transitions - optimized for performance */
 .lyric-line {
-    will-change: transform, opacity, font-size, text-shadow, color, filter;
+    will-change: opacity;
     transition:
-        transform 0.8s cubic-bezier(0.23, 1, 0.32, 1),
-        opacity 0.6s cubic-bezier(0.23, 1, 0.32, 1),
-        font-size 0.6s cubic-bezier(0.23, 1, 0.32, 1),
-        text-shadow 0.8s cubic-bezier(0.23, 1, 0.32, 1),
-        color 0.6s cubic-bezier(0.23, 1, 0.32, 1),
-        filter 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-    transform: translateZ(0) scale(1) translateY(0);
-    transform-origin: left center;
+        opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1),
+        font-size 0.3s ease-out,
+        color 0.3s ease-out;
     backface-visibility: hidden;
-    filter: blur(0px);
 }
 
 .lyric-active {
-    transform: translateZ(0) scale(1.05) translateY(-2px);
-    filter: blur(0px) brightness(1.1);
+    opacity: 1;
     transition:
-        transform 0.7s cubic-bezier(0.16, 1.08, 0.38, 0.98),
-        opacity 0.4s cubic-bezier(0.16, 1.08, 0.38, 0.98),
-        font-size 0.5s cubic-bezier(0.16, 1.08, 0.38, 0.98),
-        text-shadow 0.6s cubic-bezier(0.16, 1.08, 0.38, 0.98),
-        color 0.4s cubic-bezier(0.16, 1.08, 0.38, 0.98),
-        filter 0.5s cubic-bezier(0.16, 1.08, 0.38, 0.98);
+        opacity 0.3s ease-out,
+        font-size 0.25s ease-out,
+        color 0.25s ease-out;
 }
 
 .lyric-past {
-    transform: translateZ(0) scale(0.98) translateY(1px);
-    filter: blur(0.5px) brightness(0.9);
+    opacity: 0.5;
     transition:
-        transform 1.2s cubic-bezier(0.19, 1, 0.22, 1),
-        opacity 1s cubic-bezier(0.19, 1, 0.22, 1),
-        font-size 0.8s cubic-bezier(0.19, 1, 0.22, 1),
-        text-shadow 1s cubic-bezier(0.19, 1, 0.22, 1),
-        color 0.8s cubic-bezier(0.19, 1, 0.22, 1),
-        filter 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+        opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1),
+        font-size 0.4s ease-out,
+        color 0.4s ease-out;
 }
 
 .lyric-future {
-    transform: translateZ(0) scale(1) translateY(0);
-    filter: blur(0px) brightness(1);
+    opacity: 0.6;
     transition:
-        transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        opacity 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        font-size 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        text-shadow 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        color 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        filter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        font-size 0.25s ease-out,
+        color 0.25s ease-out;
 }
 
 /* Lyrics wrapper - allows glow to overflow while containing scroll */
 .lyrics-wrapper {
-    overflow: visible;
     position: relative;
 }
 
-/* Lyrics container - ultra-smooth scrolling */
+/* Lyrics container - clean scrolling without horizontal overflow */
 .lyrics-container {
     animation: lyrics-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
     scroll-behavior: smooth;
-    overflow-x: visible !important;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-top: 20px;
     padding-bottom: 20px;
     /* Enhanced smooth scrolling for webkit */
     -webkit-overflow-scrolling: touch;
-    scrollbar-behavior: smooth;
 }
 
 @keyframes lyrics-enter {

@@ -27,10 +27,10 @@ const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
         className={`
             lyric-line leading-relaxed
             ${isActive
-                ? 'text-white text-4xl font-bold opacity-100 translate-x-0 lyric-active'
+                ? 'text-white text-4xl font-bold lyric-active'
                 : isPast
-                    ? 'text-white/40 text-2xl font-medium opacity-50 -translate-x-1 lyric-past'
-                    : 'text-white/50 text-2xl font-medium opacity-60 lyric-future'
+                    ? 'text-white/40 text-2xl font-medium lyric-past'
+                    : 'text-white/50 text-2xl font-medium lyric-future'
             }
             ${text === '' ? 'h-8' : 'py-1'}
         `}
@@ -260,7 +260,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         return activeIdx;
     }, [currentTime, lyrics, isSynced, hasLyrics]);
 
-    // Auto-scroll to active lyric with ultra-smooth scrolling
+    // Auto-scroll to active lyric - simplified for performance
     useEffect(() => {
         // Only scroll when the active lyric index actually changes AND we are synced
         if (!isSynced || activeLyricIndex === -1 || activeLyricIndex === lastScrolledIndexRef.current) return;
@@ -270,7 +270,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             clearTimeout(scrollTimeoutRef.current);
         }
 
-        // Enhanced scroll timing for buttery smooth experience
+        // Simplified scroll timing for better performance
         scrollTimeoutRef.current = setTimeout(() => {
             if (activeLyricRef.current && lyricsContainerRef.current) {
                 const container = lyricsContainerRef.current;
@@ -279,27 +279,18 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 const containerRect = container.getBoundingClientRect();
                 const lineRect = activeLine.getBoundingClientRect();
 
-                // Calculate target scroll position (center the active lyric with slight offset)
+                // Calculate target scroll position (center the active lyric)
                 const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
 
-                // Ultra-smooth scroll with optimized behavior
-                startTransition(() => {
-                    // Use a more gentle scroll approach
-                    const currentScroll = container.scrollTop;
-                    const distance = Math.abs(targetScrollTop - currentScroll);
-                    
-                    // Adjust scroll behavior based on distance for smoother experience
-                    const scrollOptions: ScrollToOptions = {
-                        top: Math.max(0, targetScrollTop),
-                        behavior: distance > 200 ? 'smooth' : 'smooth'
-                    };
-                    
-                    container.scrollTo(scrollOptions);
+                // Simple smooth scroll
+                container.scrollTo({
+                    top: Math.max(0, targetScrollTop),
+                    behavior: 'smooth'
                 });
 
                 lastScrolledIndexRef.current = activeLyricIndex;
             }
-        }, 100); // Slightly increased delay for smoother batching
+        }, 75); // Optimized timing
 
         return () => {
             if (scrollTimeoutRef.current) {
@@ -312,25 +303,50 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (!miniPlayerRef.current) return;
         
-        const rect = miniPlayerRef.current.getBoundingClientRect();
-        setDragOffset({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        });
-        setIsDragging(true);
+        // Only allow drag from dedicated drag areas
+        const target = e.target as HTMLElement;
         
-        // If in full-width mode and dragging up, prepare to exit full-width
+        // For mini mode: only drag from drag handle area
+        if (!isFullWidth && !target.closest('.drag-handle-area')) {
+            return;
+        }
+        
+        // For full-width mode: only drag from left drag indicator
+        if (isFullWidth && !target.closest('.full-width-drag-indicator')) {
+            return;
+        }
+        
+        // Mini player dimensions for offset calculation
+        const MINI_PLAYER_WIDTH = 300;
+        const MINI_PLAYER_HEIGHT = 100;
+        
+        // If in full-width mode, we need to calculate offset for the new mini player position
         if (isFullWidth) {
+            // Set offset to center of mini player so it follows cursor naturally
+            const offsetX = MINI_PLAYER_WIDTH / 2;
+            const offsetY = MINI_PLAYER_HEIGHT / 2;
+            
+            setDragOffset({ x: offsetX, y: offsetY });
             setIsFullWidth(false);
-            // Reset position to draggable mini format
+            
+            // Position mini player centered under cursor
             setMiniPlayerPosition({ 
-                x: Math.min(e.clientX - 150, window.innerWidth - 300 - 16), 
-                y: Math.max(32, e.clientY - 50) 
+                x: Math.max(16, Math.min(e.clientX - offsetX, window.innerWidth - MINI_PLAYER_WIDTH - 16)), 
+                y: Math.max(32, Math.min(e.clientY - offsetY, window.innerHeight - MINI_PLAYER_HEIGHT - 16))
+            });
+        } else {
+            // Normal mini mode - calculate offset from current position
+            const rect = miniPlayerRef.current.getBoundingClientRect();
+            setDragOffset({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
             });
         }
         
+        setIsDragging(true);
+        
         e.preventDefault();
-        e.stopPropagation(); // Prevent event bubbling
+        e.stopPropagation();
     }, [isFullWidth]);
 
     // Double-click to reset position
@@ -461,6 +477,37 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             aria-modal="true"
             aria-label="Full screen player"
         >
+            {/* Close button - top left corner */}
+            <div className="fixed top-0 left-0 z-[110] fullscreen-close-enter">
+                <button
+                    onClick={onClose}
+                    className="group flex items-center gap-2 px-3.5 py-3
+                        bg-black/20 hover:bg-black/30 backdrop-blur-md
+                        border-r border-b border-white/10 hover:border-white/20
+                        rounded-br-2xl
+                        transition-all duration-300 ease-out
+                        active:scale-95"
+                    aria-label="Close full screen view"
+                >
+                    <svg 
+                        width="18" 
+                        height="18" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                        className="opacity-70 group-hover:opacity-100 transition-opacity"
+                    >
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors relative top-[1.5px]">
+                        Back
+                    </span>
+                </button>
+            </div>
+
             {/* Main Background with Album Art */}
             <div
                 className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f] fullscreen-bg-layer fullscreen-album-enter"
@@ -504,28 +551,11 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                     pointerEvents: 'none'
                 }}
             >
-                <div className="absolute top-6 right-6 z-50 pointer-events-auto fullscreen-close-enter">
-                    <button
-                        onClick={onClose}
-                        className="w-10 h-10 rounded-full
-                            bg-white/10 hover:bg-white/20
-                            flex items-center justify-center transition-all duration-200
-                            hover:scale-110 active:scale-95"
-                        aria-label="Close full screen view"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                    </button>
-                </div>
-
-                {/* Wrapper with visible overflow for glow, inner scroll container */}
-                <div className="relative max-h-[65vh] w-full lyrics-wrapper">
-                    <div
-                        ref={lyricsContainerRef}
-                        className="lyrics-container overflow-y-auto overflow-x-visible max-h-[65vh] space-y-3 pl-8 pr-4 pointer-events-auto w-full"
-                    >
+                {/* Lyrics scroll container */}
+                <div
+                    ref={lyricsContainerRef}
+                    className="lyrics-container max-h-[65vh] space-y-3 px-8 pointer-events-auto w-full"
+                >
                         {hasLyrics ? (
                             lyrics.map((lyric, index) => (
                                 <LyricLine
@@ -549,7 +579,6 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                         )}
                     </div>
                 </div>
-            </div>
 
             {/* Snap zone indicator */}
             {isDragging && (
@@ -559,7 +588,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             {/* Mini Player */}
             <div 
                 ref={miniPlayerRef}
-                className={`${isFullWidth ? 'fixed bottom-0 left-0 right-0' : 'absolute'} z-50 ${isDragging ? 'transition-none cursor-grabbing' : 'transition-all duration-300 ease-out cursor-grab'}`}
+                className={`${isFullWidth ? 'fixed bottom-0 left-0 right-0' : 'absolute'} z-50 ${isDragging ? 'transition-none' : 'transition-all duration-300 ease-out'}`}
                 style={isFullWidth ? {} : {
                     left: `${miniPlayerPosition.x}px`,
                     top: `${miniPlayerPosition.y}px`,
@@ -569,6 +598,10 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 onDoubleClick={handleDoubleClick}
             >
                 <div className={`draggable-mini-player-container ${isDragging ? 'dragging' : ''} ${isFullWidth ? 'full-width' : ''}`}>
+                    {/* Full-width mode drag indicator */}
+                    {isFullWidth && (
+                        <div className="full-width-drag-indicator" title="Drag to detach" />
+                    )}
                     <MiniPlayerBar />
                 </div>
             </div>
