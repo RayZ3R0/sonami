@@ -9,7 +9,7 @@ interface PlaylistViewProps {
 export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
     const { playlists, playTrack, currentTrack, removeFromPlaylist, deletePlaylist, renamePlaylist } = usePlayer();
 
-    // Find the current playlist
+    
     const playlist = playlists.find(p => p.id === playlistId);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -38,8 +38,8 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
     const handleDelete = () => {
         if (confirm(`Are you sure you want to delete "${playlist.name}"?`)) {
             deletePlaylist(playlist.id);
-            // Parent MainStage/Sidebar should handle navigation change ideally, 
-            // but Sidebar activeTab might need reset if current tab deleted.
+            
+            
         }
     };
 
@@ -109,7 +109,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                                     key={`${track.id}-${index}`}
                                     className={`grid grid-cols-[16px_1fr_1fr_48px] gap-4 px-4 py-2.5 rounded-md group hover:bg-white/5 transition-colors items-center text-sm cursor-default ${isPlaying ? 'text-theme-accent' : 'text-theme-secondary'}`}
                                     onDoubleClick={() => playTrack(track, playlist.tracks)}
-                                    // Add context menu for removing later
+                                    
                                     onContextMenu={(e) => {
                                         e.preventDefault();
                                         if (confirm(`Remove "${track.title}" from playlist?`)) {

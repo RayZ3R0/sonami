@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Window } from "@tauri-apps/api/window";
 import { type } from "@tauri-apps/plugin-os";
 
-// We'll lazy load icons or just use SVG directly to save setup
+
 const MinusIcon = () => (
     <svg width="10" height="10" viewBox="0 0 10.2 1" fill="currentColor">
         <rect width="10.2" height="1" rx="0.5" />
@@ -22,15 +22,15 @@ const XIcon = () => (
 );
 
 export const TitleBar = () => {
-    // Current window usage is simpler in v2, usually just Window.getCurrent()
-    // But @tauri-apps/api v2 has specific ways. Assuming Window.getCurrent() is valid or we use useWindow() if available.
-    // For now, let's assume we can grab the current window.
+    
+    
+    
     const [osType, setOsType] = useState<string>("windows");
 
     useEffect(() => {
         async function init() {
             try {
-                // @ts-ignore - The plugin-os might behave differently in strict mode or mock
+                
                 const platform = await type();
                 setOsType(platform);
             } catch (e) {
@@ -40,17 +40,13 @@ export const TitleBar = () => {
         init();
     }, []);
 
-    const appWindow = new Window("main"); // Assuming default label
+    const appWindow = new Window("main"); 
 
     const minimize = () => appWindow.minimize();
     const maximize = () => appWindow.toggleMaximize();
     const close = () => appWindow.close();
 
     const isMac = osType === "macos";
-    // const isLinux = osType === "linux"; // Future handling if needed
-
-    // Windows/Linux Style: Controls on Right
-    // Mac Style: Controls on Left
 
     return (
         <div

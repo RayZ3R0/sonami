@@ -66,7 +66,6 @@ pub fn decoder_thread(
     let mut next_track_info: Option<crate::queue::Track> = None;
 
     loop {
-        // Check for shutdown
         if shutdown.load(Ordering::Relaxed) {
             break;
         }
@@ -74,7 +73,6 @@ pub fn decoder_thread(
         let command = if current_decoder.is_some() && state.is_playing.load(Ordering::Relaxed) {
             command_rx.try_recv().ok()
         } else {
-            // Use timeout to allow shutdown checks
             command_rx.recv_timeout(Duration::from_millis(100)).ok()
         };
 
@@ -159,7 +157,7 @@ pub fn decoder_thread(
                             decoder.reset();
                             buffer_a.clear();
                             input_accumulator.clear();
-                            // Cancel any pending crossfade on seek
+
                             crossfade_active.store(false, Ordering::Relaxed);
                             crossfade_state = CrossfadeState::Idle;
                             next_decoder = None;
@@ -183,9 +181,7 @@ pub fn decoder_thread(
                     next_track_info = None;
                     crossfade_state = CrossfadeState::Idle;
                 }
-                DecoderCommand::QueueNext(_) => {
-                    // Deprecated command, queue is now managed internally
-                }
+                DecoderCommand::QueueNext(_) => {}
             }
         }
 
@@ -195,14 +191,12 @@ pub fn decoder_thread(
                 continue;
             }
 
-            // Get crossfade duration in samples
             let cf_duration_ms = crossfade_ms.load(Ordering::Relaxed) as u64;
             let sample_rate = state.sample_rate.load(Ordering::Relaxed);
             let cf_duration_samples = (cf_duration_ms * sample_rate) / 1000;
             let position = state.position_samples.load(Ordering::Relaxed);
             let duration = state.duration_samples.load(Ordering::Relaxed);
 
-            // Check if we should start pre-buffering (approaching end of track)
             let should_prebuffer = cf_duration_ms > 0
                 && duration > cf_duration_samples
                 && position >= duration.saturating_sub(cf_duration_samples)
@@ -210,7 +204,6 @@ pub fn decoder_thread(
                 && next_decoder.is_none();
 
             if should_prebuffer {
-                // Get next track from queue
                 let next_track_opt = {
                     let q = queue.read();
                     q.peek_next_track()
@@ -224,7 +217,6 @@ pub fn decoder_thread(
                         next_input_accumulator.clear();
                         buffer_b.clear();
 
-                        // Set up resampler for next track if needed
                         let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                         if device_rate != 0 && device_rate != sr {
                             let params = SincInterpolationParameters {
@@ -259,7 +251,6 @@ pub fn decoder_thread(
                 }
             }
 
-            // Decode primary track into buffer_a
             if buffer_a.available_space() >= 4096 {
                 match reader.next_packet() {
                     Ok(packet) => {
@@ -290,7 +281,6 @@ pub fn decoder_thread(
                     Err(symphonia::core::errors::Error::IoError(ref e))
                         if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
-                        // Primary track ended - handle transition
                         handle_track_end(
                             &mut current_decoder,
                             &mut next_decoder,
@@ -318,7 +308,6 @@ pub fn decoder_thread(
                 }
             }
 
-            // Decode secondary track into buffer_b during prebuffering/crossfade
             if matches!(
                 crossfade_state,
                 CrossfadeState::Prebuffering | CrossfadeState::Crossfading { .. }
@@ -351,7 +340,6 @@ pub fn decoder_thread(
                                 }
                             }
 
-                            // Once we have enough in buffer_b, activate crossfade
                             if crossfade_state == CrossfadeState::Prebuffering
                                 && BUFFER_SIZE - buffer_b.available_space() >= 8192
                             {
@@ -368,7 +356,6 @@ pub fn decoder_thread(
                 }
             }
 
-            // Brief sleep to avoid spinning
             if buffer_a.available_space() < 4096 {
                 thread::sleep(Duration::from_micros(500));
             }
@@ -378,7 +365,6 @@ pub fn decoder_thread(
     }
 }
 
-/// Push samples to buffer with optional resampling
 #[allow(clippy::needless_range_loop)]
 fn push_samples_to_buffer(
     samples: &[f32],
@@ -433,7 +419,6 @@ fn push_samples_to_buffer(
     }
 }
 
-/// Handle end of current track - transition to next or stop
 #[allow(clippy::too_many_arguments)]
 fn handle_track_end(
     current_decoder: &mut Option<DecoderState>,
@@ -458,10 +443,8 @@ fn handle_track_end(
 ) {
     let _ = app_handle.emit("track-ended", ());
 
-    // Check if Repeat One is active - if so, seek to beginning instead of loading next
     let repeat_mode = queue.read().repeat;
     if repeat_mode == RepeatMode::One && current_decoder.is_some() {
-        // Seek to beginning of current track
         if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
             let seek_time = Time::new(0, 0.0);
             if reader
@@ -486,10 +469,8 @@ fn handle_track_end(
                 return;
             }
         }
-        // If seek fails, fall through to reload
     }
 
-    // If we were crossfading, the next decoder is already set up
     if next_decoder.is_some() {
         debug_cf!("HANDLE_TRACK_END: Crossfade complete, promoting next decoder");
         debug_cf!(
@@ -502,9 +483,6 @@ fn handle_track_end(
             next_input_accumulator.len()
         );
 
-        // IMPORTANT: Flush any remaining samples from next_input_accumulator to buffer_b
-        // These samples are the continuation of what's already in buffer_b and should
-        // play BEFORE we switch to buffer_a
         if !next_input_accumulator.is_empty() {
             let remaining: Vec<f32> = next_input_accumulator.drain(..).collect();
             debug_cf!(
@@ -515,39 +493,30 @@ fn handle_track_end(
             while written < remaining.len() {
                 let w = buffer_b.push_samples(&remaining[written..]);
                 if w == 0 {
-                    break; // buffer_b is full, can't push more
+                    break;
                 }
                 written += w;
             }
         }
 
-        // Promote next decoder to current
         *current_decoder = next_decoder.take();
         *sample_buf = next_sample_buf.take();
         *resampler = next_resampler.take();
         std::mem::swap(resampler_input_buffer, next_resampler_input_buffer);
-        // Clear the accumulator instead of swapping - we already flushed next's samples to buffer_b
+
         input_accumulator.clear();
         next_input_accumulator.clear();
-
-        // Don't clear buffer_a yet - let the output drain buffer_b first
-        // The decoder will start writing to buffer_a from where it left off
-        // Note: buffer_b may still have Song 2 data that output is playing
 
         if let Some(track) = next_track_info.take() {
             debug_cf!("  New track: {:?}", track.path);
             *state.current_path.write() = Some(track.path.clone());
             let _ = app_handle.emit("track-changed", track.clone());
 
-            // Update queue position
             {
                 let mut q = queue.write();
-                q.get_next_track(false); // Advance queue to match
+                q.get_next_track(false);
             }
 
-            // Update state for new track
-            // Note: We set position to the crossfade duration since that's roughly
-            // how far into Song 2 we already are
             if let Some((ref reader, _, _)) = current_decoder {
                 if let Some(audio_track) = reader
                     .tracks()
@@ -557,7 +526,7 @@ fn handle_track_end(
                     let sample_rate = audio_track.codec_params.sample_rate.unwrap_or(44100) as u64;
                     let cf_ms = crossfade_ms.load(Ordering::Relaxed);
                     let cf_samples = (cf_ms as u64 * sample_rate) / 1000;
-                    // Position is approximately the crossfade duration into the song
+
                     debug_cf!(
                         "  Setting position to {} samples ({}ms into song)",
                         cf_samples,
@@ -575,12 +544,9 @@ fn handle_track_end(
 
         *crossfade_state = CrossfadeState::Idle;
 
-        // IMPORTANT: Clear buffer_a FIRST before setting crossfade_active to false.
-        // Otherwise output callback might read stale Song 1 data from buffer_a.
-        // After clearing, output will use the special case to keep reading buffer_b.
         debug_cf!("  Clearing buffer_a and setting crossfade_active=false");
         buffer_a.clear();
-        std::sync::atomic::fence(Ordering::SeqCst); // Memory barrier to ensure clear is visible
+        std::sync::atomic::fence(Ordering::SeqCst);
         crossfade_active.store(false, Ordering::Release);
         debug_cf!(
             "  After clear: buffer_a space={} buffer_b space={}",
@@ -590,7 +556,6 @@ fn handle_track_end(
         return;
     }
 
-    // No crossfade - load next track directly
     let next_track_opt = {
         let mut q = queue.write();
         q.get_next_track(false)

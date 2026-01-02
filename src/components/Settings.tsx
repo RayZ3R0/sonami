@@ -421,7 +421,6 @@ export const Settings = ({ isOpen, onClose, defaultTab = "appearance" }: Setting
     );
 };
 
-// Re-export specific buttons if needed, or simple wrappers
 export const SettingsButton = ({ onClick }: { onClick: () => void }) => {
     return (
         <button

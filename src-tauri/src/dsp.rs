@@ -37,8 +37,6 @@ impl DspChain {
     }
 }
 
-/// Loudness Normalizer using running RMS with attack/release
-/// Target: -14 LUFS (Spotify standard), approximated via RMS
 pub struct LoudnessNormalizer {
     enabled: bool,
     target_db: f32,
@@ -91,7 +89,6 @@ impl DspProcessor for LoudnessNormalizer {
             return;
         }
 
-        // Calculate RMS of this block
         let mut block_sum: f64 = 0.0;
         for &s in samples.iter() {
             block_sum += (s as f64) * (s as f64);
@@ -100,12 +97,10 @@ impl DspProcessor for LoudnessNormalizer {
         self.rms_sum += block_sum;
         self.rms_count += samples.len() as u64;
 
-        // Calculate running RMS
         if self.rms_count > 0 {
             let rms = (self.rms_sum / self.rms_count as f64).sqrt() as f32;
             let current_db = Self::linear_to_db(rms);
 
-            // Calculate target gain
             let target_gain = if current_db > -60.0 {
                 Self::db_to_linear(self.target_db - current_db)
             } else {
@@ -135,7 +130,6 @@ impl DspProcessor for LoudnessNormalizer {
     }
 }
 
-/// Simple static gain processor (kept for manual volume boosts)
 pub struct VolumeNormalizer {
     pub target_gain: f32,
 }

@@ -11,7 +11,7 @@ interface PlaybackInfo {
 
 export type RepeatMode = "off" | "all" | "one";
 
-// New Context for high-frequency updates
+
 interface PlaybackProgressContextType {
     currentTime: number;
     duration: number;
@@ -23,8 +23,8 @@ interface PlayerContextType {
     tracks: Track[];
     currentTrack: Track | null;
     isPlaying: boolean;
-    // currentTime: removed (usePlaybackProgress)
-    // duration: removed (usePlaybackProgress)
+    
+    
     volume: number;
     shuffle: boolean;
     repeatMode: RepeatMode;
@@ -64,7 +64,7 @@ interface PlayerContextType {
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
-// Storage keys for persistence
+
 const STORAGE_KEYS = {
     TRACKS: "sonami-library-tracks",
     VOLUME: "sonami-volume",
@@ -115,12 +115,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const seekTarget = useRef<{ time: number, timestamp: number } | null>(null);
 
 
-    // Persist tracks to localStorage
+    
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.TRACKS, JSON.stringify(tracks));
     }, [tracks]);
 
-    // Persist settings
+    
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
     }, [volume]);
@@ -150,12 +150,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 try {
                     const info = await invoke<PlaybackInfo>("get_playback_info");
 
-                    // Only update current time if NOT seeking (or if latch condition met)
+                    
                     if (seekTarget.current) {
                         const diff = Math.abs(info.position - seekTarget.current.time);
                         const elapsed = Date.now() - seekTarget.current.timestamp;
 
-                        // Latch if backend matches target (within 0.5s) OR timeout (2s)
+                        
                         if (diff < 0.5 || elapsed > 2000) {
                             seekTarget.current = null;
                             setCurrentTime(info.position);
@@ -190,7 +190,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    // Initial sync
+    
     useEffect(() => {
         const syncState = async () => {
             try {
@@ -228,7 +228,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
 
-    // Playlist Methods [NEW]
+    
     const refreshPlaylists = async () => {
         try {
             const list = await invoke<Playlist[]>("get_playlists");
@@ -240,8 +240,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const createPlaylist = async (name: string) => {
         try {
-            // Optimistic update done in refresh? Or just wait.
-            // Wait for backend to return the new playlist
+            
+            
             const newPlaylist = await invoke<Playlist>("create_playlist", { name });
             setPlaylists(prev => [...prev, newPlaylist]);
         } catch (e) {
@@ -270,7 +270,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const addToPlaylist = async (playlistId: string, track: Track) => {
         try {
             await invoke("add_to_playlist", { playlistId, track });
-            // Ideally backend returns updated playlist, or we re-fetch
+            
             refreshPlaylists();
         } catch (e) {
             console.error("Failed to add to playlist:", e);
@@ -291,7 +291,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         try {
             const newTracks = await invoke<Track[]>("import_music");
             if (newTracks && newTracks.length > 0) {
-                // Deduplicate by path
+                
                 setTracks(prev => {
                     const existingPaths = new Set(prev.map(t => t.path));
                     const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
@@ -307,7 +307,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         try {
             const newTracks = await invoke<Track[]>("import_folder");
             if (newTracks && newTracks.length > 0) {
-                // Deduplicate by path
+                
                 setTracks(prev => {
                     const existingPaths = new Set(prev.map(t => t.path));
                     const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
@@ -321,20 +321,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const playTrack = async (track: Track, contextQueue?: Track[]) => {
         try {
-            // Optimistic update
+            
             setCurrentTrack(track);
             setCurrentTime(0);
             setIsPlaying(true);
             seekTarget.current = null;
 
-            // If a specific context queue is provided (e.g. from playlist), use it.
-            // Otherwise, default to the full library 'tracks'.
+            
+            
             const queueToSet = contextQueue && contextQueue.length > 0 ? contextQueue : tracks;
 
-            // Update backend queue
+            
             await invoke("set_queue", { tracks: queueToSet });
 
-            // Also update frontend queue state to match
+            
             setQueue(queueToSet);
 
             await invoke("play_track", { path: track.path });
@@ -348,7 +348,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             if (isPlaying) {
                 await invoke("pause_track");
             } else {
-                // If no track loaded, verify?
+                
                 await invoke("resume_track");
             }
             setIsPlaying(!isPlaying);
@@ -362,7 +362,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             seekTarget.current = { time, timestamp: Date.now() };
             setCurrentTime(time);
             await invoke("seek_track", { position: time });
-            // Timeout handled by polling loop latch logic now
+            
         } catch (e) {
             console.error("Failed to seek:", e);
             seekTarget.current = null;
@@ -381,7 +381,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const nextTrack = async () => {
         try {
             await invoke("next_track");
-            // The polling/event listener will update UI
+            
         } catch (e) {
             console.error("Failed to skip next:", e);
         }
@@ -406,7 +406,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const toggleRepeat = async () => {
         const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
-        setRepeatMode(nextMode); // Optimistic
+        setRepeatMode(nextMode); 
         try {
             await invoke("set_repeat_mode", { mode: nextMode });
         } catch (e) {
@@ -417,15 +417,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const addToQueue = async (track: Track) => {
         try {
             await invoke("add_to_queue", { track });
-            setQueue(prev => [...prev, track]); // Optimistic
+            setQueue(prev => [...prev, track]); 
         } catch (e) {
             console.error("Failed to add to queue:", e);
         }
     };
 
     const removeFromQueue = (trackId: string) => {
-        // Backend command missing for removing specific item?
-        // TODO: Implement remove_from_queue in backend
+        
+        
         setQueue(prev => prev.filter(t => t.id !== trackId));
     };
 
@@ -443,13 +443,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentTrack(null);
         setQueue([]);
         localStorage.removeItem(STORAGE_KEYS.TRACKS);
-        // Also clear backend queue?
+        
         invoke("set_queue", { tracks: [] });
     };
 
     const queueNextTrack = async (track: Track) => {
-        // Deprecated or alias to addToQueue?
-        // Let's alias to addToQueue for now
+        
+        
         addToQueue(track);
     };
 
@@ -471,7 +471,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     };
 
 
-    // Memoize the main player context value to prevent re-renders when only currentTime changes
+    
     const playerValue = useMemo(() => ({
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
@@ -487,7 +487,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         crossfadeEnabled, crossfadeDuration, playerBarStyle
     ]);
 
-    // Memoize playback progress
+    
     const playbackValue = useMemo(() => ({
         currentTime,
         duration

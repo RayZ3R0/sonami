@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, createContext, useContext, ReactNode } from "react";
 
-// Toast types with semantic meaning
+
 export type ToastType = "success" | "error" | "warning" | "info";
 
 export interface Toast {
@@ -8,7 +8,7 @@ export interface Toast {
     type: ToastType;
     title: string;
     message?: string;
-    duration?: number; // ms, 0 = persistent
+    duration?: number; 
 }
 
 interface ToastContextType {
@@ -20,7 +20,7 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-// Hook for consuming toasts
+
 export const useToast = () => {
     const context = useContext(ToastContext);
     if (!context) {
@@ -29,7 +29,7 @@ export const useToast = () => {
     return context;
 };
 
-// Icons for each toast type
+
 const ToastIcons = {
     success: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -60,18 +60,18 @@ const ToastIcons = {
     ),
 };
 
-// Individual toast component
+
 const ToastItem = ({ toast, onRemove }: { toast: Toast; onRemove: () => void }) => {
     const [isExiting, setIsExiting] = useState(false);
     const [progress, setProgress] = useState(100);
 
     const handleRemove = useCallback(() => {
         setIsExiting(true);
-        setTimeout(onRemove, 300); // Match animation duration
+        setTimeout(onRemove, 300); 
     }, [onRemove]);
 
     useEffect(() => {
-        if (toast.duration === 0) return; // Persistent toast
+        if (toast.duration === 0) return; 
 
         const duration = toast.duration || 4000;
         const interval = 50;
@@ -91,7 +91,7 @@ const ToastItem = ({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
         return () => clearInterval(timer);
     }, [toast.duration, handleRemove]);
 
-    // Color classes based on type
+    
     const typeStyles = {
         success: {
             icon: "text-[var(--theme-success)]",
@@ -190,7 +190,7 @@ const ToastItem = ({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
     );
 };
 
-// Toast container that renders all toasts
+
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => {
     if (toasts.length === 0) return null;
 
@@ -212,7 +212,7 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
     );
 };
 
-// Provider component
+
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -237,7 +237,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
-// Convenience functions for common toast types
+
 export const toast = {
     success: (title: string, message?: string, duration?: number) => ({
         type: "success" as const,
@@ -249,7 +249,7 @@ export const toast = {
         type: "error" as const,
         title,
         message,
-        duration: duration ?? 6000, // Errors stay longer
+        duration: duration ?? 6000, 
     }),
     warning: (title: string, message?: string, duration?: number) => ({
         type: "warning" as const,

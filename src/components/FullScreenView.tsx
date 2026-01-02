@@ -1,7 +1,7 @@
 import { useEffect, useCallback, memo, useMemo, useState, useRef } from 'react';
 import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
 import { MiniPlayerBar } from './MiniPlayerBar';
-// @ts-ignore
+
 import ColorThief from 'colorthief';
 
 interface FullScreenViewProps {
@@ -9,13 +9,13 @@ interface FullScreenViewProps {
     onClose: () => void;
 }
 
-// CONFIGURATION VARIABLES - Tweak these to adjust layout
-const LYRICS_X_OFFSET = 1200; // Pixels to push lyrics to the right
-const GRADIENT_WIDTH_PERCENT = 230; // Percentage of screen covered by the gradient from the right
+
+const LYRICS_X_OFFSET = 1200; 
+const GRADIENT_WIDTH_PERCENT = 230; 
 
 
 
-// Memoized lyrics line component for performance
+
 const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
     text: string;
     isActive: boolean;
@@ -44,7 +44,7 @@ const LyricLine = memo(({ text, isActive, isPast, lineRef }: {
 
 LyricLine.displayName = 'LyricLine';
 
-// Main component wrapped in memo for performance
+
 export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) => {
     const { currentTrack, isPlaying } = usePlayer();
     const { currentTime } = usePlaybackProgress();
@@ -59,7 +59,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const lastScrolledIndexRef = useRef<number>(-1);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Draggable mini player state
+    
     const STORAGE_KEY_MINI_PLAYER_POS = 'spotist-fullscreen-mini-player-position';
     
     const getDefaultPosition = useCallback(() => ({
@@ -67,18 +67,18 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         y: Math.max(32, window.innerHeight - 200)
     }), []);
     
-    // Initialize states together with proper dependencies
+    
     const [isFullWidth, setIsFullWidth] = useState(false);
     const [miniPlayerPosition, setMiniPlayerPosition] = useState(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_MINI_PLAYER_POS);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                // Handle legacy format (just {x, y}) and new format ({x, y, isFullWidth})
+                
                 const x = typeof parsed.x === 'number' ? parsed.x : 32;
                 const y = typeof parsed.y === 'number' ? parsed.y : Math.max(32, window.innerHeight - 200);
                 
-                // Validate the saved position more thoroughly
+                
                 if (!isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y) &&
                     x >= 0 && y >= 0 && 
                     x < window.innerWidth - 280 && 
@@ -97,7 +97,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const [isInSnapZone, setIsInSnapZone] = useState(false);
     const miniPlayerRef = useRef<HTMLDivElement>(null);
 
-    // Handle saved full-width mode on initial load
+    
     useEffect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_MINI_PLAYER_POS);
@@ -113,14 +113,14 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, []);
 
-    // Handle ESC key to close
+    
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape') {
             onClose();
         }
     }, [onClose]);
 
-    // Pre-extract colors when track changes (for instant display)
+    
     useEffect(() => {
         if (currentTrack?.cover_image && currentTrack.cover_image !== lastExtractedImageRef.current) {
             extractColors(currentTrack.cover_image);
@@ -128,7 +128,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, [currentTrack]);
 
-    // Handle isOpen state for keyboard and overflow
+    
     useEffect(() => {
         if (isOpen) {
             document.addEventListener('keydown', handleKeyDown);
@@ -173,7 +173,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                         `
                     };
 
-                    // Update layer styles
+                    
                     setLayerStyles({ solid: solidStyle, shadow: shadowStyle });
                 }
             } catch (e) {
@@ -187,7 +187,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
     const [isSynced, setIsSynced] = useState(false);
     const [hasLyrics, setHasLyrics] = useState(false);
 
-    // Fetch Lyrics
+    
     useEffect(() => {
         if (!currentTrack) {
             setLyrics([]);
@@ -197,7 +197,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
 
         const fetchLyrics = async () => {
             try {
-                // @ts-ignore
+                
                 const result = await import('@tauri-apps/api/core').then(mod => mod.invoke<{ synced: boolean, lines: { time: number, text: string }[] } | null>("get_lyrics", { path: currentTrack.path }));
 
                 if (result && result.lines.length > 0) {
@@ -205,9 +205,9 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                         setLyrics(result.lines);
                         setIsSynced(true);
                     } else {
-                        // Handle unsynced: Split by lines if it's one big chunk (backend returns entire content in first line for txt/USLT)
-                        // Or if backend returns multiple lines with 0 time.
-                        // Our backend logic: "lines: vec![LyricLine { time: 0.0, text: content }]" for txt/USLT.
+                        
+                        
+                        
                         const rawText = result.lines[0].text;
                         const splitLines = rawText.split(/\r?\n/).map(line => ({ time: 0, text: line }));
                         setLyrics(splitLines);
@@ -216,7 +216,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                     setHasLyrics(true);
                 } else {
                     setLyrics([{ time: 0, text: "No lyrics found." }]);
-                    setHasLyrics(false); // Keeps "Instrumental" look or simple message
+                    setHasLyrics(false); 
                 }
             } catch (e) {
                 console.error("Failed to fetch lyrics:", e);
@@ -228,24 +228,24 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         fetchLyrics();
     }, [currentTrack]);
 
-    // Fallback if no lyrics found: Show Instrumental
+    
     useEffect(() => {
         if (!hasLyrics && lyrics.length <= 1 && lyrics[0]?.text === "No lyrics found.") {
-            // Maybe use PLACEHOLDER_LYRICS for demo? Or "Instrumental"?
-            // User wants "properly grab lyrics", so let's check instrumental.
-            // For now, let's just stick to what we set above.
+            
+            
+            
         }
     }, [hasLyrics, lyrics]);
 
 
-    // Calculate which lyric is currently active based on playback time
+    
     const activeLyricIndex = useMemo(() => {
-        if (!isSynced || !hasLyrics) return -1; // No active highlighting for unsynced
+        if (!isSynced || !hasLyrics) return -1; 
 
         let activeIdx = -1;
-        // Logic: active is the *last* lyric that has time <= currentTime
-        // But we want to ensure we don't highlight future ones.
-        // Actually the previous logic was: find first where currentTime >= time? No loop was reversed.
+        
+        
+        
 
         for (let i = lyrics.length - 1; i >= 0; i--) {
             if (currentTime >= lyrics[i].time) {
@@ -256,17 +256,17 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         return activeIdx;
     }, [currentTime, lyrics, isSynced, hasLyrics]);
 
-    // Auto-scroll to active lyric - simplified for performance
+    
     useEffect(() => {
-        // Only scroll when the active lyric index actually changes AND we are synced
+        
         if (!isSynced || activeLyricIndex === -1 || activeLyricIndex === lastScrolledIndexRef.current) return;
 
-        // Clear any pending scroll
+        
         if (scrollTimeoutRef.current) {
             clearTimeout(scrollTimeoutRef.current);
         }
 
-        // Simplified scroll timing for better performance
+        
         scrollTimeoutRef.current = setTimeout(() => {
             if (activeLyricRef.current && lyricsContainerRef.current) {
                 const container = lyricsContainerRef.current;
@@ -275,10 +275,10 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 const containerRect = container.getBoundingClientRect();
                 const lineRect = activeLine.getBoundingClientRect();
 
-                // Calculate target scroll position (center the active lyric)
+                
                 const targetScrollTop = activeLine.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
 
-                // Simple smooth scroll
+                
                 container.scrollTo({
                     top: Math.max(0, targetScrollTop),
                     behavior: 'smooth'
@@ -286,7 +286,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
 
                 lastScrolledIndexRef.current = activeLyricIndex;
             }
-        }, 75); // Optimized timing
+        }, 75); 
 
         return () => {
             if (scrollTimeoutRef.current) {
@@ -295,43 +295,43 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         };
     }, [activeLyricIndex, isSynced]);
 
-    // Dragging handlers for mini player
+    
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (!miniPlayerRef.current) return;
         
-        // Only allow drag from dedicated drag areas
+        
         const target = e.target as HTMLElement;
         
-        // For mini mode: only drag from drag handle area
+        
         if (!isFullWidth && !target.closest('.drag-handle-area')) {
             return;
         }
         
-        // For full-width mode: only drag from left drag indicator
+        
         if (isFullWidth && !target.closest('.full-width-drag-indicator')) {
             return;
         }
         
-        // Mini player dimensions for offset calculation
+        
         const MINI_PLAYER_WIDTH = 300;
         const MINI_PLAYER_HEIGHT = 100;
         
-        // If in full-width mode, we need to calculate offset for the new mini player position
+        
         if (isFullWidth) {
-            // Set offset to center of mini player so it follows cursor naturally
+            
             const offsetX = MINI_PLAYER_WIDTH / 2;
             const offsetY = MINI_PLAYER_HEIGHT / 2;
             
             setDragOffset({ x: offsetX, y: offsetY });
             setIsFullWidth(false);
             
-            // Position mini player centered under cursor
+            
             setMiniPlayerPosition({ 
                 x: Math.max(16, Math.min(e.clientX - offsetX, window.innerWidth - MINI_PLAYER_WIDTH - 16)), 
                 y: Math.max(32, Math.min(e.clientY - offsetY, window.innerHeight - MINI_PLAYER_HEIGHT - 16))
             });
         } else {
-            // Normal mini mode - calculate offset from current position
+            
             const rect = miniPlayerRef.current.getBoundingClientRect();
             setDragOffset({
                 x: e.clientX - rect.left,
@@ -345,7 +345,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         e.stopPropagation();
     }, [isFullWidth]);
 
-    // Double-click to reset position
+    
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -369,7 +369,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         const newX = e.clientX - dragOffset.x;
         const newY = e.clientY - dragOffset.y;
         
-        // More precise constraints based on actual mini player dimensions
+        
         const MINI_PLAYER_WIDTH = 300;
         const MINI_PLAYER_HEIGHT = 100;
         const MARGIN = 16;
@@ -377,8 +377,8 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         const constrainedX = Math.max(MARGIN, Math.min(newX, window.innerWidth - MINI_PLAYER_WIDTH - MARGIN));
         const constrainedY = Math.max(MARGIN, Math.min(newY, window.innerHeight - MINI_PLAYER_HEIGHT - MARGIN));
         
-        // Simplified snap zone detection - just check if we're near the bottom
-        const snapTriggerY = window.innerHeight - 120; // 120px from bottom
+        
+        const snapTriggerY = window.innerHeight - 120; 
         const inSnapZone = constrainedY >= snapTriggerY;
         
         console.log('Drag Y:', constrainedY, 'Snap trigger:', snapTriggerY, 'In zone:', inSnapZone);
@@ -395,18 +395,18 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
             let newIsFullWidth = isFullWidth;
             let newPosition = miniPlayerPosition;
             
-            // Switch to full-width mode if released in snap zone
+            
             if (isInSnapZone) {
                 console.log('Switching to full-width mode!');
                 newIsFullWidth = true;
-                newPosition = { x: 0, y: window.innerHeight - 64 }; // Reduced height for compact design
+                newPosition = { x: 0, y: window.innerHeight - 64 }; 
                 setIsFullWidth(true);
                 setMiniPlayerPosition(newPosition);
             }
             
             setIsInSnapZone(false);
             
-            // Save position to localStorage with the correct state
+            
             try {
                 localStorage.setItem(STORAGE_KEY_MINI_PLAYER_POS, JSON.stringify({
                     ...newPosition,
@@ -419,7 +419,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, [isDragging, isInSnapZone, miniPlayerPosition, isFullWidth]);
 
-    // Add global mouse event listeners for dragging
+    
     useEffect(() => {
         if (isDragging) {
             document.addEventListener('mousemove', handleMouseMove);
@@ -432,7 +432,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, [isDragging, handleMouseMove, handleMouseUp]);
 
-    // Reset position on window resize to prevent it going off-screen
+    
     useEffect(() => {
         const handleResize = () => {
             setMiniPlayerPosition(prev => {
@@ -444,7 +444,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                 const constrainedY = Math.max(MARGIN, Math.min(prev.y, window.innerHeight - MINI_PLAYER_HEIGHT - MARGIN));
                 const newPosition = { x: constrainedX, y: constrainedY };
                 
-                // Only save if position actually changed
+                
                 if (newPosition.x !== prev.x || newPosition.y !== prev.y) {
                     try {
                         localStorage.setItem(STORAGE_KEY_MINI_PLAYER_POS, JSON.stringify(newPosition));
@@ -463,7 +463,7 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
         }
     }, [isOpen]);
 
-    // Only render when open
+    
     if (!isOpen || !currentTrack) return null;
 
     return (
@@ -559,13 +559,13 @@ export const FullScreenView = memo(({ isOpen, onClose }: FullScreenViewProps) =>
                                     text={lyric.text}
                                     isActive={isSynced && index === activeLyricIndex}
                                     isPast={isSynced && index < activeLyricIndex}
-                                    // If unsynced, render as 'future' (white/50) or specific style?
-                                    // Use 'future' style for unsynced for now, or maybe opacity-80.
+                                    
+                                    
                                     lineRef={isSynced && index === activeLyricIndex ? activeLyricRef : undefined}
                                 />
                             ))
                         ) : (
-                            // Show simple message or instrumental
+                            
                             <div className="flex flex-col items-center justify-center h-64 opacity-50 space-y-4">
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                     <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />

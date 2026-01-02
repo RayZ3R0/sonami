@@ -70,7 +70,7 @@ pub async fn create_playlist(
     };
 
     playlists.push(new_playlist.clone());
-    drop(playlists); // Unlock before saving to avoid deadlocks (though save doesn't lock write, it reads)
+    drop(playlists);
 
     state.save()?;
     Ok(new_playlist)

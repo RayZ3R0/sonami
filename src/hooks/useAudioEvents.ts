@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useToast } from "../components/Toast";
 
-// Event payloads from backend
+
 interface AudioError {
     code: string;
     title: string;
@@ -20,7 +20,7 @@ export const useAudioEvents = () => {
     const { addToast } = useToast();
 
     useEffect(() => {
-        // Listen for audio errors
+        
         const unlistenError = listen<AudioError>("audio-error", (event) => {
             const { title, message, code } = event.payload;
             console.error(`[Audio Error] ${code}: ${title} - ${message}`);
@@ -29,11 +29,11 @@ export const useAudioEvents = () => {
                 type: "error",
                 title,
                 message,
-                duration: code === "NO_DEVICE" ? 0 : 6000, // Persistent for no device
+                duration: code === "NO_DEVICE" ? 0 : 6000, 
             });
         });
 
-        // Listen for device changes
+        
         const unlistenDevice = listen<DeviceChanged>("device-changed", (event) => {
             const { device_name } = event.payload;
             console.log(`[Audio] Device changed to: ${device_name}`);
@@ -46,9 +46,9 @@ export const useAudioEvents = () => {
             });
         });
 
-        // Listen for track ended (optional - could show "Up next" notification)
+        
         const unlistenTrackEnded = listen("track-ended", () => {
-            // Silent - track change notification is handled by PlayerContext
+            
         });
 
         return () => {
