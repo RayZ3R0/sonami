@@ -16,7 +16,7 @@ impl FileSource {
         let path = path.as_ref();
         let file = File::open(path)?;
         let size = file.metadata()?.len();
-        
+
         Ok(Self {
             file,
             path: path.to_owned(),
@@ -45,7 +45,7 @@ impl MediaSource for FileSource {
     fn is_seekable(&self) -> bool {
         true
     }
-    
+
     fn byte_len(&self) -> Option<u64> {
         Some(self.size)
     }

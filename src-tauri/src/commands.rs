@@ -1,5 +1,7 @@
 use tauri::{AppHandle, Emitter, State};
 
+pub mod library;
+
 use crate::audio::AudioManager;
 use base64::{engine::general_purpose, Engine as _};
 use lofty::picture::MimeType;
@@ -142,13 +144,36 @@ pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
     }
 }
 
+async fn resolve_path(
+    path: &str,
+    tidal_state: &crate::tidal::TidalClient,
+) -> Result<String, String> {
+    if path.starts_with("tidal:") {
+        let id_str = path.trim_start_matches("tidal:");
+        let id = id_str.parse::<u64>().map_err(|_| "Invalid Tidal ID")?;
+
+        let quality = crate::tidal::Quality::LOSSLESS;
+        let stream_info = tidal_state
+            .get_track(id, quality)
+            .await
+            .map_err(|e| format!("Failed to resolve Tidal track: {}", e))?;
+
+        Ok(stream_info.url)
+    } else {
+        Ok(path.to_string())
+    }
+}
+
 #[tauri::command]
 pub async fn play_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
     path: String,
 ) -> Result<(), String> {
-    state.play(path.clone());
+    let play_path = resolve_path(&path, &tidal_state).await?;
+
+    state.play(play_path);
 
     let track = {
         let q = state.queue.read();
@@ -244,14 +269,22 @@ pub async fn set_repeat_mode(
 }
 
 #[tauri::command]
-pub async fn next_track(app: AppHandle, state: State<'_, AudioManager>) -> Result<(), String> {
+pub async fn next_track(
+    app: AppHandle,
+    state: State<'_, AudioManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
+) -> Result<(), String> {
     let next_track = {
         let mut q = state.queue.write();
         q.get_next_track(true)
     };
 
     if let Some(ref track) = next_track {
-        state.play(track.path.clone());
+        match resolve_path(&track.path, &tidal_state).await {
+            Ok(play_path) => state.play(play_path),
+            Err(e) => return Err(e),
+        }
+
         let _ = app.emit("track-changed", track.clone());
         state
             .media_controls
@@ -262,14 +295,22 @@ pub async fn next_track(app: AppHandle, state: State<'_, AudioManager>) -> Resul
 }
 
 #[tauri::command]
-pub async fn prev_track(app: AppHandle, state: State<'_, AudioManager>) -> Result<(), String> {
+pub async fn prev_track(
+    app: AppHandle,
+    state: State<'_, AudioManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
+) -> Result<(), String> {
     let prev_track = {
         let mut q = state.queue.write();
         q.get_prev_track()
     };
 
     if let Some(ref track) = prev_track {
-        state.play(track.path.clone());
+        match resolve_path(&track.path, &tidal_state).await {
+            Ok(play_path) => state.play(play_path),
+            Err(e) => return Err(e),
+        }
+
         let _ = app.emit("track-changed", track.clone());
         state
             .media_controls
@@ -361,21 +402,18 @@ pub async fn play_stream(
         let mut q = state.queue.write();
         q.add_to_queue(track.clone());
     }
-    
+
     state.play(url);
     let _ = app.emit("track-changed", track);
     Ok(())
 }
-
-// Tidal API Commands
 
 #[tauri::command]
 pub async fn tidal_search_tracks(
     state: State<'_, crate::tidal::TidalClient>,
     query: String,
 ) -> Result<crate::tidal::SearchResponse<crate::tidal::Track>, String> {
-    state.search_tracks(&query).await
-        .map_err(|e| e.to_string())
+    state.search_tracks(&query).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -383,8 +421,7 @@ pub async fn tidal_search_albums(
     state: State<'_, crate::tidal::TidalClient>,
     query: String,
 ) -> Result<crate::tidal::SearchResponse<crate::tidal::Album>, String> {
-    state.search_albums(&query).await
-        .map_err(|e| e.to_string())
+    state.search_albums(&query).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -392,7 +429,9 @@ pub async fn tidal_search_artists(
     state: State<'_, crate::tidal::TidalClient>,
     query: String,
 ) -> Result<crate::tidal::SearchResponse<crate::tidal::Artist>, String> {
-    state.search_artists(&query).await
+    state
+        .search_artists(&query)
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -409,13 +448,15 @@ pub async fn play_tidal_track(
     cover_url: Option<String>,
     quality: String,
 ) -> Result<(), String> {
-    let quality = quality.parse::<crate::tidal::Quality>()
+    let quality = quality
+        .parse::<crate::tidal::Quality>()
         .unwrap_or(crate::tidal::Quality::LOSSLESS);
-    
-    // Get stream info
-    let stream_info = tidal_state.get_track(track_id, quality).await
+
+    let stream_info = tidal_state
+        .get_track(track_id, quality)
+        .await
         .map_err(|e| e.to_string())?;
-    
+
     let track = Track {
         id: track_id.to_string(),
         title,
@@ -425,12 +466,12 @@ pub async fn play_tidal_track(
         cover_image: cover_url,
         path: stream_info.url.clone(),
     };
-    
+
     {
         let mut q = audio_state.queue.write();
         q.add_to_queue(track.clone());
     }
-    
+
     audio_state.play(stream_info.url);
     let _ = app.emit("track-changed", track);
     Ok(())
@@ -442,12 +483,15 @@ pub async fn get_tidal_stream_url(
     track_id: u64,
     quality: String,
 ) -> Result<String, String> {
-    let quality = quality.parse::<crate::tidal::Quality>()
+    let quality = quality
+        .parse::<crate::tidal::Quality>()
         .unwrap_or(crate::tidal::Quality::LOSSLESS);
-    
-    let stream_info = state.get_track(track_id, quality).await
+
+    let stream_info = state
+        .get_track(track_id, quality)
+        .await
         .map_err(|e| e.to_string())?;
-    
+
     Ok(stream_info.url)
 }
 
@@ -455,8 +499,5 @@ pub async fn get_tidal_stream_url(
 pub async fn refresh_tidal_cache(
     _state: State<'_, crate::tidal::TidalClient>,
 ) -> Result<(), String> {
-    // Note: This requires mutable access, which Tauri State doesn't allow
-    // We'll need to use interior mutability in TidalClient for this
-    // For now, return an informational message
     Ok(())
 }

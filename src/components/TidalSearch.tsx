@@ -4,8 +4,8 @@ import { invoke } from '@tauri-apps/api/core';
 interface SearchTrack {
     id: number;
     title: string;
-    artist?: { name: string };
-    album?: { title: string; cover?: string };
+    artist?: { id?: number; name: string };
+    album?: { id?: number; title: string; cover?: string };
     duration?: number;
     audioQuality?: string;
     audio_quality?: string;
@@ -141,6 +141,40 @@ export const TidalSearch = () => {
                                     className="px-6 py-2 bg-theme-accent text-white rounded-full hover:scale-105 transition-transform opacity-0 group-hover:opacity-100"
                                 >
                                     Play
+                                </button>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const coverUrl = track.album?.cover
+                                            ? `https://resources.tidal.com/images/${track.album.cover.replace(/-/g, '/')}/640x640.jpg`
+                                            : undefined;
+                                        try {
+                                            // Construct the full TidalTrack object expected by backend
+                                            const backendTrack = {
+                                                id: track.id,
+                                                title: track.title,
+                                                artist: track.artist ? { id: track.artist.id || 0, name: track.artist.name } : undefined,
+                                                album: track.album ? { id: track.album.id || 0, title: track.album.title, cover: track.album.cover } : undefined,
+                                                duration: track.duration,
+                                                audioQuality: track.audioQuality || track.audio_quality,
+                                                cover: track.album?.cover
+                                            };
+                                            await import('../api/library').then(m => m.addTidalTrack(backendTrack, coverUrl));
+
+                                            // Simple feedback (could be improved with toast)
+                                            const btn = e.currentTarget;
+                                            btn.innerText = "✓ Added";
+                                            btn.disabled = true;
+                                            setTimeout(() => {
+                                                btn.innerText = "Add"; // Reset if needed, though typically one-way
+                                            }, 2000);
+                                        } catch (err) {
+                                            console.error("Failed to add:", err);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-theme-surface hover:bg-theme-surface-active text-theme-primary rounded-full transition-colors opacity-0 group-hover:opacity-100 ml-2 text-sm border border-theme-border"
+                                >
+                                    Add
                                 </button>
                             </div>
                         ))}

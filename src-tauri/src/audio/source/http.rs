@@ -1,6 +1,6 @@
-use std::io::{self, Read, Seek, SeekFrom};
 use reqwest::blocking::Client;
-use reqwest::header::{CONTENT_LENGTH, ACCEPT_RANGES, CONTENT_TYPE, RANGE};
+use reqwest::header::{ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_TYPE, RANGE};
+use std::io::{self, Read, Seek, SeekFrom};
 
 use super::{MediaSource, SourceMetadata, SourceType};
 
@@ -20,36 +20,36 @@ impl HttpSource {
             .build()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        // Perform HEAD request to get metadata
-        let resp = client.head(url)
+        let resp = client
+            .head(url)
             .send()
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
         if !resp.status().is_success() {
             return Err(io::Error::new(
-                io::ErrorKind::NotFound, 
-                format!("HTTP error: {}", resp.status())
+                io::ErrorKind::NotFound,
+                format!("HTTP error: {}", resp.status()),
             ));
         }
 
-        let total_size = resp.headers()
+        let total_size = resp
+            .headers()
             .get(CONTENT_LENGTH)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok());
-            
-        let content_type = resp.headers()
+
+        let content_type = resp
+            .headers()
             .get(CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
 
-        let accept_ranges = resp.headers()
+        let accept_ranges = resp
+            .headers()
             .get(ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
             .map(|v| v == "bytes")
             .unwrap_or(false);
-
-        // If server implies it doesn't support ranges, we might have trouble seeking
-        // but for now we assume modern servers do.
 
         Ok(Self {
             url: url.to_string(),
@@ -60,8 +60,7 @@ impl HttpSource {
             content_type,
         })
     }
-    
-    // Helper to sleep with backoff
+
     fn backoff(attempt: u32) {
         let delay = std::time::Duration::from_millis(100 * (2_u64.pow(attempt - 1)));
         std::thread::sleep(delay);
@@ -73,18 +72,19 @@ impl HttpSource {
         }
 
         let mut req = self.client.get(&self.url);
-        
+
         if self.position > 0 {
-             req = req.header(RANGE, format!("bytes={}-", self.position));
+            req = req.header(RANGE, format!("bytes={}-", self.position));
         }
 
-        let resp = req.send()
+        let resp = req
+            .send()
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
         if !resp.status().is_success() {
-             return Err(io::Error::new(
-                io::ErrorKind::Other, 
-                format!("HTTP stream error: {}", resp.status())
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("HTTP stream error: {}", resp.status()),
             ));
         }
 
@@ -99,21 +99,24 @@ impl Read for HttpSource {
         let mut attempts = 0;
 
         loop {
-            // 1. Ensure connection
             match self.ensure_reader() {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     attempts += 1;
                     if attempts > max_retries {
                         return Err(e);
                     }
-                    log::warn!("Connection failed (attempt {}/{}): {}. Retrying...", attempts, max_retries, e);
+                    log::warn!(
+                        "Connection failed (attempt {}/{}): {}. Retrying...",
+                        attempts,
+                        max_retries,
+                        e
+                    );
                     HttpSource::backoff(attempts);
                     continue;
                 }
             }
 
-            // 2. Read from stream
             let reader = self.reader.as_mut().unwrap();
             match reader.read(buf) {
                 Ok(n) => {
@@ -121,14 +124,17 @@ impl Read for HttpSource {
                     return Ok(n);
                 }
                 Err(e) => {
-                    // Check if it's a transient error or fatal
-                    // Interrupted is usually transient. ConnectionReset/TimedOut definitely need retry.
                     attempts += 1;
                     if attempts > max_retries {
                         return Err(e);
                     }
-                    log::warn!("Read error (attempt {}/{}): {}. Reconnecting...", attempts, max_retries, e);
-                    self.reader = None; // Invalid stream, force reconnect
+                    log::warn!(
+                        "Read error (attempt {}/{}): {}. Reconnecting...",
+                        attempts,
+                        max_retries,
+                        e
+                    );
+                    self.reader = None;
                     HttpSource::backoff(attempts);
                 }
             }
@@ -145,8 +151,8 @@ impl Seek for HttpSource {
                     (len as i64 + p) as u64
                 } else {
                     return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput, 
-                        "Cannot seek from end: unknown size"
+                        io::ErrorKind::InvalidInput,
+                        "Cannot seek from end: unknown size",
                     ));
                 }
             }
@@ -155,7 +161,7 @@ impl Seek for HttpSource {
 
         if new_pos != self.position {
             self.position = new_pos;
-            self.reader = None; // Invalidate current stream, need new Range request
+            self.reader = None;
         }
 
         Ok(self.position)
@@ -164,9 +170,9 @@ impl Seek for HttpSource {
 
 impl MediaSource for HttpSource {
     fn is_seekable(&self) -> bool {
-        true // Optimistic
+        true
     }
-    
+
     fn byte_len(&self) -> Option<u64> {
         self.total_size
     }

@@ -19,7 +19,7 @@ impl Quality {
 
 impl std::str::FromStr for Quality {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "LOSSLESS" => Ok(Quality::LOSSLESS),
@@ -96,7 +96,10 @@ pub struct SearchResponse<T> {
 // Helper function to build cover art URLs
 pub fn get_cover_url(cover_id: &str, size: u32) -> String {
     let normalized = cover_id.replace("-", "/");
-    format!("https://resources.tidal.com/images/{}/{}x{}.jpg", normalized, size, size)
+    format!(
+        "https://resources.tidal.com/images/{}/{}x{}.jpg",
+        normalized, size, size
+    )
 }
 
 #[derive(Debug, Clone, Copy)]

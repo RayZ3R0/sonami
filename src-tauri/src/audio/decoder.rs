@@ -81,68 +81,68 @@ pub fn decoder_thread(
                 DecoderCommand::Load(path) => {
                     let source_res = resolve_source(&path).map_err(|e| e.to_string());
                     match source_res.and_then(|src| load_track(src)) {
-                    Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
-                        buffer_a.clear();
-                        buffer_b.clear();
-                        input_accumulator.clear();
-                        next_input_accumulator.clear();
-                        state.position_samples.store(0, Ordering::Relaxed);
-                        state
-                            .duration_samples
-                            .store(duration_samples, Ordering::Relaxed);
-                        state
-                            .sample_rate
-                            .store(sample_rate as u64, Ordering::Relaxed);
-                        state.is_playing.store(true, Ordering::Relaxed);
-                        crossfade_active.store(false, Ordering::Relaxed);
-                        current_decoder = Some((reader, decoder, track_id));
-                        next_decoder = None;
-                        next_track_info = None;
-                        sample_buf = None;
-                        next_sample_buf = None;
-                        crossfade_state = CrossfadeState::Idle;
+                        Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
+                            buffer_a.clear();
+                            buffer_b.clear();
+                            input_accumulator.clear();
+                            next_input_accumulator.clear();
+                            state.position_samples.store(0, Ordering::Relaxed);
+                            state
+                                .duration_samples
+                                .store(duration_samples, Ordering::Relaxed);
+                            state
+                                .sample_rate
+                                .store(sample_rate as u64, Ordering::Relaxed);
+                            state.is_playing.store(true, Ordering::Relaxed);
+                            crossfade_active.store(false, Ordering::Relaxed);
+                            current_decoder = Some((reader, decoder, track_id));
+                            next_decoder = None;
+                            next_track_info = None;
+                            sample_buf = None;
+                            next_sample_buf = None;
+                            crossfade_state = CrossfadeState::Idle;
 
-                        let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-                        if device_rate != 0 && device_rate != sample_rate {
-                            let params = SincInterpolationParameters {
-                                sinc_len: 256,
-                                f_cutoff: 0.95,
-                                interpolation: SincInterpolationType::Linear,
-                                window: WindowFunction::BlackmanHarris2,
-                                oversampling_factor: 128,
-                            };
-                            if let Ok(r) = SincFixedIn::<f32>::new(
-                                device_rate as f64 / sample_rate as f64,
-                                2.0,
-                                params,
-                                1024,
-                                2,
-                            ) {
-                                resampler = Some(r);
-                                resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                            if device_rate != 0 && device_rate != sample_rate {
+                                let params = SincInterpolationParameters {
+                                    sinc_len: 256,
+                                    f_cutoff: 0.95,
+                                    interpolation: SincInterpolationType::Linear,
+                                    window: WindowFunction::BlackmanHarris2,
+                                    oversampling_factor: 128,
+                                };
+                                if let Ok(r) = SincFixedIn::<f32>::new(
+                                    device_rate as f64 / sample_rate as f64,
+                                    2.0,
+                                    params,
+                                    1024,
+                                    2,
+                                ) {
+                                    resampler = Some(r);
+                                    resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                                } else {
+                                    resampler = None;
+                                }
                             } else {
                                 resampler = None;
                             }
-                        } else {
-                            resampler = None;
+                        }
+                        Err(e) => {
+                            let filename = Path::new(&path)
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or(&path);
+                            let _ = app_handle.emit(
+                                "audio-error",
+                                AudioError {
+                                    code: "DECODE_ERROR".to_string(),
+                                    title: "Failed to Load Track".to_string(),
+                                    message: format!("Could not play \"{}\": {}", filename, e),
+                                },
+                            );
                         }
                     }
-                    Err(e) => {
-                        let filename = Path::new(&path)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or(&path);
-                        let _ = app_handle.emit(
-                            "audio-error",
-                            AudioError {
-                                code: "DECODE_ERROR".to_string(),
-                                title: "Failed to Load Track".to_string(),
-                                message: format!("Could not play \"{}\": {}", filename, e),
-                            },
-                        );
-                    }
                 }
-                },
                 DecoderCommand::Seek(seconds) => {
                     if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
                         let sample_rate = state.sample_rate.load(Ordering::Relaxed) as u32;
@@ -574,7 +574,7 @@ fn handle_track_end(
 
         let source_res = resolve_source(&next_path).map_err(|e| e.to_string());
         if let Ok(source) = source_res {
-             if let Ok((r, d, tid, dur, sr)) = load_track(source) {
+            if let Ok((r, d, tid, dur, sr)) = load_track(source) {
                 state.position_samples.store(0, Ordering::Relaxed);
                 state.duration_samples.store(dur, Ordering::Relaxed);
                 state.sample_rate.store(sr as u64, Ordering::Relaxed);
@@ -593,9 +593,13 @@ fn handle_track_end(
                         window: WindowFunction::BlackmanHarris2,
                         oversampling_factor: 128,
                     };
-                    if let Ok(r) =
-                        SincFixedIn::<f32>::new(device_rate as f64 / sr as f64, 2.0, params, 1024, 2)
-                    {
+                    if let Ok(r) = SincFixedIn::<f32>::new(
+                        device_rate as f64 / sr as f64,
+                        2.0,
+                        params,
+                        1024,
+                        2,
+                    ) {
                         *resampler = Some(r);
                         *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
                     } else {
@@ -609,8 +613,8 @@ fn handle_track_end(
                 *current_decoder = None;
             }
         } else {
-             state.is_playing.store(false, Ordering::Relaxed);
-             *current_decoder = None;
+            state.is_playing.store(false, Ordering::Relaxed);
+            *current_decoder = None;
         }
     } else {
         state.is_playing.store(false, Ordering::Relaxed);
@@ -638,7 +642,7 @@ pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
     let mut hint = Hint::new();
     // Hint based on content type or extension from metadata could go here
     // For now we rely on Symphonia probing
-    
+
     let format_opts = FormatOptions {
         enable_gapless: true,
         ..Default::default()

@@ -1,7 +1,9 @@
 pub mod audio;
 pub mod commands;
-pub mod dsp;
+pub mod database;
 pub mod download;
+pub mod dsp;
+pub mod library;
 pub mod lyrics;
 pub mod media_controls;
 pub mod playlist;
@@ -23,7 +25,7 @@ pub fn run() {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
             let playlist_manager = PlaylistManager::new(&handle);
-            
+
             // Initialize Tidal client (spawn in async task)
             let handle_clone = handle.clone();
             tauri::async_runtime::spawn(async move {
@@ -38,6 +40,24 @@ pub fn run() {
                 }
             });
 
+            // Initialize Database & Library
+            let handle_clone_db = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                match database::DatabaseManager::new(&handle_clone_db).await {
+                    Ok(db) => {
+                        let pool = db.pool.clone();
+                        handle_clone_db.manage(db);
+
+                        let lib = library::LibraryManager::new(pool);
+                        handle_clone_db.manage(lib);
+
+                        log::info!("Database & Library initialized successfully");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to initialize database: {}", e);
+                    }
+                }
+            });
             let state_for_controls = audio_manager.state.clone();
             let queue_for_controls = audio_manager.queue.clone();
             let cmd_tx = audio_manager.command_tx_clone();
@@ -121,7 +141,9 @@ pub fn run() {
             commands::tidal_search_artists,
             commands::play_tidal_track,
             commands::get_tidal_stream_url,
-            commands::refresh_tidal_cache
+            commands::refresh_tidal_cache,
+            commands::library::get_library_tracks,
+            commands::library::add_tidal_track
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
