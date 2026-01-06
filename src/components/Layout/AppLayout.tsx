@@ -7,7 +7,6 @@ import { useAudioEvents } from "../../hooks/useAudioEvents";
 import { useState } from "react";
 
 export const AppLayout = () => {
-    // Listen for audio events (errors, device changes) and show toasts
     useAudioEvents();
 
     const [activeTab, setActiveTab] = useState('home');

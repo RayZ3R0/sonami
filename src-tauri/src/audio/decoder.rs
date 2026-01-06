@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::fs::File;
+
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
@@ -78,7 +78,9 @@ pub fn decoder_thread(
 
         if let Some(cmd) = command {
             match cmd {
-                DecoderCommand::Load(path) => match load_track(&path) {
+                DecoderCommand::Load(path) => {
+                    let source_res = resolve_source(&path).map_err(|e| e.to_string());
+                    match source_res.and_then(|src| load_track(src)) {
                     Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
                         buffer_a.clear();
                         buffer_b.clear();
@@ -139,6 +141,7 @@ pub fn decoder_thread(
                             },
                         );
                     }
+                }
                 },
                 DecoderCommand::Seek(seconds) => {
                     if let Some((ref mut reader, ref mut decoder, _)) = current_decoder {
@@ -210,43 +213,46 @@ pub fn decoder_thread(
                 };
 
                 if let Some(track) = next_track_opt {
-                    if let Ok((r, d, tid, _dur, sr)) = load_track(&track.path) {
-                        next_decoder = Some((r, d, tid));
-                        next_track_info = Some(track);
-                        next_sample_buf = None;
-                        next_input_accumulator.clear();
-                        buffer_b.clear();
+                    let source_res = resolve_source(&track.path).map_err(|e| e.to_string());
+                    if let Ok(source) = source_res {
+                        if let Ok((r, d, tid, _dur, sr)) = load_track(source) {
+                            next_decoder = Some((r, d, tid));
+                            next_track_info = Some(track);
+                            next_sample_buf = None;
+                            next_input_accumulator.clear();
+                            buffer_b.clear();
 
-                        let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-                        if device_rate != 0 && device_rate != sr {
-                            let params = SincInterpolationParameters {
-                                sinc_len: 256,
-                                f_cutoff: 0.95,
-                                interpolation: SincInterpolationType::Linear,
-                                window: WindowFunction::BlackmanHarris2,
-                                oversampling_factor: 128,
-                            };
-                            if let Ok(r) = SincFixedIn::<f32>::new(
-                                device_rate as f64 / sr as f64,
-                                2.0,
-                                params,
-                                1024,
-                                2,
-                            ) {
-                                next_resampler = Some(r);
-                                next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                            if device_rate != 0 && device_rate != sr {
+                                let params = SincInterpolationParameters {
+                                    sinc_len: 256,
+                                    f_cutoff: 0.95,
+                                    interpolation: SincInterpolationType::Linear,
+                                    window: WindowFunction::BlackmanHarris2,
+                                    oversampling_factor: 128,
+                                };
+                                if let Ok(r) = SincFixedIn::<f32>::new(
+                                    device_rate as f64 / sr as f64,
+                                    2.0,
+                                    params,
+                                    1024,
+                                    2,
+                                ) {
+                                    next_resampler = Some(r);
+                                    next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                                } else {
+                                    next_resampler = None;
+                                }
                             } else {
                                 next_resampler = None;
                             }
-                        } else {
-                            next_resampler = None;
-                        }
 
-                        crossfade_state = CrossfadeState::Prebuffering;
-                        debug_cf!(
-                            "DECODER: Started prebuffering next track: {:?}",
-                            next_track_info.as_ref().map(|t| &t.path)
-                        );
+                            crossfade_state = CrossfadeState::Prebuffering;
+                            debug_cf!(
+                                "DECODER: Started prebuffering next track: {:?}",
+                                next_track_info.as_ref().map(|t| &t.path)
+                            );
+                        }
                     }
                 }
             }
@@ -566,39 +572,45 @@ fn handle_track_end(
         *state.current_path.write() = Some(next_path.clone());
         let _ = app_handle.emit("track-changed", track);
 
-        if let Ok((r, d, tid, dur, sr)) = load_track(&next_path) {
-            state.position_samples.store(0, Ordering::Relaxed);
-            state.duration_samples.store(dur, Ordering::Relaxed);
-            state.sample_rate.store(sr as u64, Ordering::Relaxed);
-            *current_decoder = Some((r, d, tid));
-            *sample_buf = None;
-            input_accumulator.clear();
-            buffer_a.clear();
-            buffer_b.clear();
+        let source_res = resolve_source(&next_path).map_err(|e| e.to_string());
+        if let Ok(source) = source_res {
+             if let Ok((r, d, tid, dur, sr)) = load_track(source) {
+                state.position_samples.store(0, Ordering::Relaxed);
+                state.duration_samples.store(dur, Ordering::Relaxed);
+                state.sample_rate.store(sr as u64, Ordering::Relaxed);
+                *current_decoder = Some((r, d, tid));
+                *sample_buf = None;
+                input_accumulator.clear();
+                buffer_a.clear();
+                buffer_b.clear();
 
-            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-            if device_rate != 0 && device_rate != sr {
-                let params = SincInterpolationParameters {
-                    sinc_len: 256,
-                    f_cutoff: 0.95,
-                    interpolation: SincInterpolationType::Linear,
-                    window: WindowFunction::BlackmanHarris2,
-                    oversampling_factor: 128,
-                };
-                if let Ok(r) =
-                    SincFixedIn::<f32>::new(device_rate as f64 / sr as f64, 2.0, params, 1024, 2)
-                {
-                    *resampler = Some(r);
-                    *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                if device_rate != 0 && device_rate != sr {
+                    let params = SincInterpolationParameters {
+                        sinc_len: 256,
+                        f_cutoff: 0.95,
+                        interpolation: SincInterpolationType::Linear,
+                        window: WindowFunction::BlackmanHarris2,
+                        oversampling_factor: 128,
+                    };
+                    if let Ok(r) =
+                        SincFixedIn::<f32>::new(device_rate as f64 / sr as f64, 2.0, params, 1024, 2)
+                    {
+                        *resampler = Some(r);
+                        *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                    } else {
+                        *resampler = None;
+                    }
                 } else {
                     *resampler = None;
                 }
             } else {
-                *resampler = None;
+                state.is_playing.store(false, Ordering::Relaxed);
+                *current_decoder = None;
             }
         } else {
-            state.is_playing.store(false, Ordering::Relaxed);
-            *current_decoder = None;
+             state.is_playing.store(false, Ordering::Relaxed);
+             *current_decoder = None;
         }
     } else {
         state.is_playing.store(false, Ordering::Relaxed);
@@ -609,16 +621,24 @@ fn handle_track_end(
     crossfade_active.store(false, Ordering::Relaxed);
 }
 
-pub fn load_track(path: &str) -> LoadTrackResult {
-    let path = Path::new(path);
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+use super::source::{file::FileSource, http::HttpSource, prefetch::PrefetchSource, MediaSource};
+
+fn resolve_source(uri: &str) -> std::io::Result<Box<dyn MediaSource>> {
+    if uri.starts_with("http://") || uri.starts_with("https://") {
+        let http = HttpSource::new(uri)?;
+        Ok(Box::new(PrefetchSource::new(Box::new(http))))
+    } else {
+        Ok(Box::new(FileSource::new(uri)?))
+    }
+}
+
+pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
+    let mss = MediaSourceStream::new(source, Default::default());
 
     let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-
+    // Hint based on content type or extension from metadata could go here
+    // For now we rely on Symphonia probing
+    
     let format_opts = FormatOptions {
         enable_gapless: true,
         ..Default::default()

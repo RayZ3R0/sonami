@@ -1,10 +1,12 @@
 pub mod audio;
 pub mod commands;
 pub mod dsp;
+pub mod download;
 pub mod lyrics;
 pub mod media_controls;
 pub mod playlist;
 pub mod queue;
+pub mod tidal;
 
 use audio::AudioManager;
 use playlist::PlaylistManager;
@@ -21,6 +23,20 @@ pub fn run() {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
             let playlist_manager = PlaylistManager::new(&handle);
+            
+            // Initialize Tidal client (spawn in async task)
+            let handle_clone = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                match tidal::TidalClient::new().await {
+                    Ok(client) => {
+                        handle_clone.manage(client);
+                        log::info!("Tidal client initialized successfully");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to initialize Tidal client: {}", e);
+                    }
+                }
+            });
 
             let state_for_controls = audio_manager.state.clone();
             let queue_for_controls = audio_manager.queue.clone();
@@ -97,9 +113,15 @@ pub fn run() {
             commands::get_shuffle_mode,
             commands::get_repeat_mode,
             commands::get_crossfade_duration,
-            commands::get_crossfade_duration,
             commands::set_crossfade_duration,
-            commands::get_lyrics
+            commands::get_lyrics,
+            commands::play_stream,
+            commands::tidal_search_tracks,
+            commands::tidal_search_albums,
+            commands::tidal_search_artists,
+            commands::play_tidal_track,
+            commands::get_tidal_stream_url,
+            commands::refresh_tidal_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -340,3 +340,123 @@ use crate::lyrics;
 pub async fn get_lyrics(path: String) -> Result<Option<lyrics::LyricsResult>, String> {
     Ok(lyrics::get_lyrics_for_track(&path))
 }
+
+#[tauri::command]
+pub async fn play_stream(
+    app: AppHandle,
+    state: State<'_, AudioManager>,
+    url: String,
+) -> Result<(), String> {
+    let track = Track {
+        id: "stream".to_string(),
+        title: "Network Stream".to_string(),
+        artist: "Tidal".to_string(),
+        album: "Unknown".to_string(),
+        duration: 0,
+        cover_image: None,
+        path: url.clone(),
+    };
+
+    {
+        let mut q = state.queue.write();
+        q.add_to_queue(track.clone());
+    }
+    
+    state.play(url);
+    let _ = app.emit("track-changed", track);
+    Ok(())
+}
+
+// Tidal API Commands
+
+#[tauri::command]
+pub async fn tidal_search_tracks(
+    state: State<'_, crate::tidal::TidalClient>,
+    query: String,
+) -> Result<crate::tidal::SearchResponse<crate::tidal::Track>, String> {
+    state.search_tracks(&query).await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_search_albums(
+    state: State<'_, crate::tidal::TidalClient>,
+    query: String,
+) -> Result<crate::tidal::SearchResponse<crate::tidal::Album>, String> {
+    state.search_albums(&query).await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_search_artists(
+    state: State<'_, crate::tidal::TidalClient>,
+    query: String,
+) -> Result<crate::tidal::SearchResponse<crate::tidal::Artist>, String> {
+    state.search_artists(&query).await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn play_tidal_track(
+    app: AppHandle,
+    audio_state: State<'_, AudioManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
+    track_id: u64,
+    title: String,
+    artist: String,
+    album: String,
+    duration: u64,
+    cover_url: Option<String>,
+    quality: String,
+) -> Result<(), String> {
+    let quality = quality.parse::<crate::tidal::Quality>()
+        .unwrap_or(crate::tidal::Quality::LOSSLESS);
+    
+    // Get stream info
+    let stream_info = tidal_state.get_track(track_id, quality).await
+        .map_err(|e| e.to_string())?;
+    
+    let track = Track {
+        id: track_id.to_string(),
+        title,
+        artist,
+        album,
+        duration,
+        cover_image: cover_url,
+        path: stream_info.url.clone(),
+    };
+    
+    {
+        let mut q = audio_state.queue.write();
+        q.add_to_queue(track.clone());
+    }
+    
+    audio_state.play(stream_info.url);
+    let _ = app.emit("track-changed", track);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_tidal_stream_url(
+    state: State<'_, crate::tidal::TidalClient>,
+    track_id: u64,
+    quality: String,
+) -> Result<String, String> {
+    let quality = quality.parse::<crate::tidal::Quality>()
+        .unwrap_or(crate::tidal::Quality::LOSSLESS);
+    
+    let stream_info = state.get_track(track_id, quality).await
+        .map_err(|e| e.to_string())?;
+    
+    Ok(stream_info.url)
+}
+
+#[tauri::command]
+pub async fn refresh_tidal_cache(
+    _state: State<'_, crate::tidal::TidalClient>,
+) -> Result<(), String> {
+    // Note: This requires mutable access, which Tauri State doesn't allow
+    // We'll need to use interior mutability in TidalClient for this
+    // For now, return an informational message
+    Ok(())
+}

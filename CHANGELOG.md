@@ -18,6 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1-alpha.1] - 2026-01-07
+
+### Added
+- **Tidal Integration**: Full support for playing Tidal tracks, ensuring high fidelity playback.
+  - Implemented Tidal search (Tracks, Albums, Artists).
+  - Robust playback with automatic stream extraction (handling base64 manifests).
+- **Resilient Streaming**:
+  - Implemented `ResilientSource` with automatic retry logic for network interruptions.
+  - Added `PrefetchSource` (Smart Buffering) to download audio ahead of time, ensuring smooth playback even if connection drops.
+  - **Smart Seek**: Optimized seeking to be instant if target is within currently buffered range.
+
+### Fixed
+- Fixed Tidal playback failures by correctly handling API responses and manifests.
+
+---
+
 ## [0.1.0-alpha.13] - 2024-12-29
 
 ### Added

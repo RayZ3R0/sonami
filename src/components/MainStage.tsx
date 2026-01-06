@@ -2,6 +2,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useState } from "react";
 import { Track } from "../types";
 import { PlaylistView } from "./PlaylistView";
+import { TidalSearch } from "./TidalSearch";
 
 interface ContextMenuState {
     x: number;
@@ -13,6 +14,11 @@ export const MainStage = ({ activeTab }: { activeTab: string }) => {
     const { tracks, playTrack, addToQueue, currentTrack, playlists, addToPlaylist } = usePlayer();
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
     const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+
+    // Search View
+    if (activeTab === 'search') {
+        return <TidalSearch />;
+    }
 
     // If activeTab is a playlist
     if (activeTab.startsWith('playlist:')) {
