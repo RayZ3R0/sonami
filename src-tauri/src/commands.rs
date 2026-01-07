@@ -387,8 +387,14 @@ pub async fn set_crossfade_duration(
 use crate::lyrics;
 
 #[tauri::command]
-pub async fn get_lyrics(path: String) -> Result<Option<lyrics::LyricsResult>, String> {
-    Ok(lyrics::get_lyrics_for_track(&path))
+pub async fn get_lyrics(
+    path: String,
+    title: String,
+    artist: String,
+    album: String,
+    duration: f64,
+) -> Result<Option<lyrics::LyricsResult>, String> {
+    Ok(lyrics::get_lyrics(if path.is_empty() { None } else { Some(path) }, &title, &artist, &album, duration).await)
 }
 
 #[tauri::command]

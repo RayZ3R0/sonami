@@ -27,24 +27,26 @@ const LyricLine = memo(
     <p
       ref={lineRef}
       className={`
-            lyric-line leading-relaxed
-            ${
-              isActive
-                ? "text-white text-4xl font-bold lyric-active"
-                : isPast
-                  ? "text-white/40 text-2xl font-medium lyric-past"
-                  : "text-white/50 text-2xl font-medium lyric-future"
-            }
-            ${text === "" ? "h-8" : "py-1"}
+            lyric-line leading-relaxed transition-all duration-500 ease-out
+            ${text === "" ? "h-8" : "py-2"}
         `}
-      style={
-        isActive
-          ? {
-              textShadow:
-                "0 0 10px rgba(255, 255, 255, 0.4), 0 0 20px rgba(255, 255, 255, 0.25), 0 0 35px rgba(255, 255, 255, 0.15), 0 0 50px rgba(255, 255, 255, 0.08)",
-            }
-          : undefined
-      }
+      style={{
+        fontSize: isActive ? "2.25rem" : "1.5rem",
+        fontWeight: isActive ? 700 : 500,
+        color: isActive
+          ? "rgba(255, 255, 255, 1)"
+          : isPast
+            ? "rgba(255, 255, 255, 0.4)"
+            : "rgba(255, 255, 255, 0.5)",
+        transform: isActive ? "scale(1.05)" : "scale(1)",
+        filter: isActive ? "blur(0px)" : "blur(0.5px)",
+        textShadow: isActive
+          ? "0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.15)"
+          : "none",
+        transition:
+          "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s ease-out, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        willChange: "transform, font-size, color, filter",
+      }}
     >
       {text || "\u00A0"}
     </p>
@@ -278,13 +280,29 @@ export const FullScreenView = memo(
     const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
     const [isSynced, setIsSynced] = useState(false);
     const [hasLyrics, setHasLyrics] = useState(false);
+    const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+
+    const lastFetchedTrackId = useRef<string | null>(null);
 
     useEffect(() => {
       if (!currentTrack) {
         setLyrics([]);
         setHasLyrics(false);
+        setIsLoadingLyrics(false);
+        lastFetchedTrackId.current = null;
         return;
       }
+
+      // Prevent duplicate fetches for the same track
+      if (lastFetchedTrackId.current === currentTrack.id) {
+        return;
+      }
+
+      // Clear previous lyrics immediately and show loading
+      setLyrics([]);
+      setHasLyrics(false);
+      setIsLoadingLyrics(true);
+      lastFetchedTrackId.current = currentTrack.id;
 
       const fetchLyrics = async () => {
         try {
@@ -292,7 +310,13 @@ export const FullScreenView = memo(
             mod.invoke<{
               synced: boolean;
               lines: { time: number; text: string }[];
-            } | null>("get_lyrics", { path: currentTrack.path }),
+            } | null>("get_lyrics", {
+              path: currentTrack.path,
+              title: currentTrack.title,
+              artist: currentTrack.artist,
+              album: currentTrack.album,
+              duration: currentTrack.duration,
+            }),
           );
 
           if (result && result.lines.length > 0) {
@@ -309,13 +333,15 @@ export const FullScreenView = memo(
             }
             setHasLyrics(true);
           } else {
-            setLyrics([{ time: 0, text: "No lyrics found." }]);
+            setLyrics([]);
             setHasLyrics(false);
           }
         } catch (e) {
           console.error("Failed to fetch lyrics:", e);
-          setLyrics([{ time: 0, text: "Error loading lyrics." }]);
+          setLyrics([]);
           setHasLyrics(false);
+        } finally {
+          setIsLoadingLyrics(false);
         }
       };
 
@@ -334,10 +360,14 @@ export const FullScreenView = memo(
     const activeLyricIndex = useMemo(() => {
       if (!isSynced || !hasLyrics) return -1;
 
+      // Offset to adjust timing (negative = lyrics appear earlier, positive = later)
+      const LYRICS_OFFSET = -0.3; // Adjust this value if lyrics feel delayed
+      const adjustedTime = currentTime + LYRICS_OFFSET;
+
       let activeIdx = -1;
 
       for (let i = lyrics.length - 1; i >= 0; i--) {
-        if (currentTime >= lyrics[i].time) {
+        if (adjustedTime >= lyrics[i].time) {
           activeIdx = i;
           break;
         }
@@ -346,12 +376,7 @@ export const FullScreenView = memo(
     }, [currentTime, lyrics, isSynced, hasLyrics]);
 
     useEffect(() => {
-      if (
-        !isSynced ||
-        activeLyricIndex === -1 ||
-        activeLyricIndex === lastScrolledIndexRef.current
-      )
-        return;
+      if (!isSynced || activeLyricIndex === -1) return;
 
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
@@ -374,10 +399,8 @@ export const FullScreenView = memo(
             top: Math.max(0, targetScrollTop),
             behavior: "smooth",
           });
-
-          lastScrolledIndexRef.current = activeLyricIndex;
         }
-      }, 75);
+      }, 0);
 
       return () => {
         if (scrollTimeoutRef.current) {
@@ -718,7 +741,9 @@ export const FullScreenView = memo(
                   <circle cx="6" cy="18" r="3" />
                   <circle cx="18" cy="16" r="3" />
                 </svg>
-                <p className="text-xl font-medium">Instrumental / No Lyrics</p>
+                <p className="text-xl font-medium">
+                  {isLoadingLyrics ? "Loading lyrics..." : "Instrumental / No Lyrics"}
+                </p>
               </div>
             )}
           </div>
@@ -739,10 +764,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                  left: `${miniPlayerPosition.x}px`,
-                  top: `${miniPlayerPosition.y}px`,
-                  userSelect: "none",
-                }
+                left: `${miniPlayerPosition.x}px`,
+                top: `${miniPlayerPosition.y}px`,
+                userSelect: "none",
+              }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}
