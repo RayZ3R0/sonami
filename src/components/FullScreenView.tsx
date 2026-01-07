@@ -72,8 +72,7 @@ export const FullScreenView = memo(
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
     const activeLyricRef = useRef<HTMLParagraphElement>(null);
     const lastExtractedImageRef = useRef<string | null>(null);
-    const lastScrolledIndexRef = useRef<number>(-1);
-    const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
     const STORAGE_KEY_MINI_PLAYER_POS =
       "spotist-fullscreen-mini-player-position";
@@ -378,35 +377,23 @@ export const FullScreenView = memo(
     useEffect(() => {
       if (!isSynced || activeLyricIndex === -1) return;
 
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+      if (activeLyricRef.current && lyricsContainerRef.current) {
+        const container = lyricsContainerRef.current;
+        const activeLine = activeLyricRef.current;
+
+        const containerRect = container.getBoundingClientRect();
+        const lineRect = activeLine.getBoundingClientRect();
+
+        const targetScrollTop =
+          activeLine.offsetTop -
+          containerRect.height / 2 +
+          lineRect.height / 2;
+
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: "smooth",
+        });
       }
-
-      scrollTimeoutRef.current = setTimeout(() => {
-        if (activeLyricRef.current && lyricsContainerRef.current) {
-          const container = lyricsContainerRef.current;
-          const activeLine = activeLyricRef.current;
-
-          const containerRect = container.getBoundingClientRect();
-          const lineRect = activeLine.getBoundingClientRect();
-
-          const targetScrollTop =
-            activeLine.offsetTop -
-            containerRect.height / 2 +
-            lineRect.height / 2;
-
-          container.scrollTo({
-            top: Math.max(0, targetScrollTop),
-            behavior: "smooth",
-          });
-        }
-      }, 0);
-
-      return () => {
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-      };
     }, [activeLyricIndex, isSynced]);
 
     const handleMouseDown = useCallback(
