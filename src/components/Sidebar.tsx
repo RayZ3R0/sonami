@@ -77,159 +77,156 @@ const icons = {
 
 export const Sidebar = ({
     activeTab,
-    setActiveTab
+    setActiveTab,
+    isCollapsed = false,
+    onToggleCollapse
 }: {
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
 }) => {
     const { importMusic, importFolder, playlists } = usePlayer();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
     const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
-    const NavButton = ({
-        id,
-        icon,
-        label
-    }: {
-        id: string;
-        icon: React.ReactNode;
-        label: string;
-    }) => {
-        const isActive = activeTab === id;
-        return (
-            <button
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
-                    ? 'bg-theme-accent text-theme-inverse'
-                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
-                    }`}
-            >
-                <Icon>{icon}</Icon>
-                <span className={`text-[13px] font-medium ${TOP_NAV_TEXT_OFFSET}`}>{label}</span>
-            </button>
-        );
-    };
-
-    const QuickAccessButton = ({
-        id,
-        icon,
-        label
-    }: {
-        id: string;
-        icon: React.ReactNode;
-        label: string;
-    }) => {
-        const isActive = activeTab === id;
-        return (
-            <button
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 ${isActive
-                    ? 'bg-theme-surface-active text-theme-primary'
-                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
-                    }`}
-            >
-                <Icon>{icon}</Icon>
-                <span className={`text-[13px] ${TOP_NAV_TEXT_OFFSET}`}>{label}</span>
-            </button>
-        );
-    };
-
     const openSettings = (tab: "appearance" | "playback") => {
         setSettingsTab(tab);
         setIsSettingsOpen(true);
     };
 
+    // Sidebar Connector Curve SVG
+    // This creates the smooth rounded internal corner connecting Sidebar top-right to Titlebar bottom-left
+    const SidebarConnector = () => (
+        <div className="absolute -top-[20px] -right-[20px] z-10 w-5 h-5 pointer-events-none">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                {/* The shape draws a curve that matches the MainStage border/radius */}
+                <path d="M0 20C11.0457 20 20 11.0457 20 0V20H0Z" fill="var(--theme-background-secondary)" />
+                {/* Note: Fill should match the MainStage background */}
+            </svg>
+        </div>
+    );
+
     return (
         <>
             <div
-                className="flex flex-col h-full z-20 relative py-4 px-3 flex-shrink-0"
-                style={{ width: "var(--sidebar-w)", background: "transparent" }}
+                className={`flex flex-col h-full z-20 relative pt-2 px-2 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isCollapsed ? 'w-[72px]' : 'w-[260px]'}`}
+                style={{
+                    background: "transparent",
+                }}
             >
-                {/* Main Navigation */}
-                <nav className="flex flex-col gap-1 mb-6">
-                    <NavButton id="home" icon={icons.home} label="Home" />
-                </nav>
+                {/* Main Navigation (Quick Access items promoted to top since Home is gone) */}
+                <div className="mb-6 mt-2">
+                    {!isCollapsed && (
+                        <div className="px-3 mb-2 flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Library</span>
+                            {onToggleCollapse && (
+                                <button onClick={onToggleCollapse} className="text-theme-muted hover:text-white transition-colors">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {isCollapsed && onToggleCollapse && (
+                        <div className="flex justify-center mb-4">
+                            <button onClick={onToggleCollapse} className="p-2 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-white transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                            </button>
+                        </div>
+                    )}
 
-                {/* Quick Access */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-between px-3 mb-2">
-                        <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Quick Access</span>
-                    </div>
-                    <nav className="flex flex-col gap-0.5">
-                        <QuickAccessButton id="favorites" icon={icons.heart} label="Liked Songs" />
-                        <QuickAccessButton id="recent" icon={icons.clock} label="Recently Played" />
+                    <nav className="flex flex-col gap-1">
+                        <button
+                            onClick={() => setActiveTab("favorites")}
+                            className={`flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
+                                    ? 'bg-theme-surface-active text-theme-primary'
+                                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                }`}
+                            title="Liked Songs"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                            {!isCollapsed && <span className="text-[13px] font-medium">Liked Songs</span>}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("recent")}
+                            className={`flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} rounded-xl transition-all duration-200 group ${activeTab === "recent"
+                                    ? 'bg-theme-surface-active text-theme-primary'
+                                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                }`}
+                            title="Recently Played"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {!isCollapsed && <span className="text-[13px] font-medium">Recently Played</span>}
+                        </button>
                     </nav>
                 </div>
 
                 {/* Playlists */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                    <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
-                        <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Playlists</span>
-                        <button
-                            className={`w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors ${PLUS_ICON_OFFSET}`}
-                            onClick={() => setIsCreatePlaylistOpen(true)}
-                        >
-                            {icons.plusSmall}
-                        </button>
-                    </div>
+                    {!isCollapsed && (
+                        <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
+                            <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">Playlists</span>
+                            <button
+                                className={`w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors ${PLUS_ICON_OFFSET}`}
+                                onClick={() => setIsCreatePlaylistOpen(true)}
+                            >
+                                {icons.plusSmall}
+                            </button>
+                        </div>
+                    )}
                     <div className="flex flex-col gap-0.5 overflow-y-auto no-scrollbar flex-1 pr-1">
                         {playlists.map((pl) => (
                             <button
                                 key={pl.id}
                                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
-                                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
+                                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
                                     ? 'bg-theme-surface-active text-theme-primary'
                                     : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                                     }`}
+                                title={pl.name}
                             >
-                                <span className={`w-8 h-8 rounded-md bg-theme-surface flex items-center justify-center flex-shrink-0 shadow-sm text-theme-muted`}>
+                                <span className={`w-5 h-5 flex items-center justify-center flex-shrink-0 text-theme-muted`}>
                                     {icons.music}
                                 </span>
-                                <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.name}</span>
+                                {!isCollapsed && <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.name}</span>}
                             </button>
                         ))}
-                        {playlists.length === 0 && (
-                            <div className="px-3 py-4 text-center">
-                                <p className="text-xs text-theme-muted mb-2">No playlists yet</p>
-                                <button
-                                    onClick={() => setIsCreatePlaylistOpen(true)}
-                                    className="text-xs text-theme-accent hover:underline"
-                                >
-                                    Create one
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="pt-4 mt-auto flex flex-col gap-2">
-                    {/* Import Buttons Row */}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={importMusic}
-                            className="flex-1 btn-primary"
-                            title="Add single file"
-                        >
+                <div className="pt-4 mt-auto flex flex-col gap-2 pb-2">
+                    {/* Import Buttons */}
+                    <div className={`flex gap-2 ${isCollapsed ? 'flex-col' : ''}`}>
+                        <button onClick={importMusic} className={`flex-1 btn-primary ${isCollapsed ? 'p-2' : ''}`} title="Add File">
                             {icons.plus}
-                            <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>File</span>
+                            {!isCollapsed && <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>File</span>}
                         </button>
-                        <button
-                            onClick={importFolder}
-                            className="flex-1 btn-primary"
-                            title="Add folder"
-                        >
+                        <button onClick={importFolder} className={`flex-1 btn-primary ${isCollapsed ? 'p-2' : ''}`} title="Add Folder">
                             {icons.folder}
-                            <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>Folder</span>
+                            {!isCollapsed && <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>Folder</span>}
                         </button>
                     </div>
 
                     {/* Settings Row */}
-                    <div className="flex items-center justify-end px-1 gap-1">
-                        <ThemeButton onClick={() => openSettings("appearance")} />
-                        <SettingsButton onClick={() => openSettings("playback")} />
-                    </div>
+                    {!isCollapsed ? (
+                        <div className="flex items-center justify-between px-1 gap-1">
+                            <div className="flex gap-1">
+                                <ThemeButton onClick={() => openSettings("appearance")} />
+                                <SettingsButton onClick={() => openSettings("playback")} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2 items-center">
+                            <SettingsButton onClick={() => openSettings("playback")} />
+                        </div>
+                    )}
                 </div>
             </div>
 

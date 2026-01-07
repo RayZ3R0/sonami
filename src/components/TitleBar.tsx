@@ -23,10 +23,11 @@ const XIcon = () => (
 
 interface TitleBarProps {
     onSearchClick?: () => void;
+    activeTab?: string;
+    setActiveTab?: (tab: string) => void;
 }
 
-export const TitleBar = ({ onSearchClick }: TitleBarProps) => {
-
+export const TitleBar = ({ onSearchClick, activeTab, setActiveTab }: TitleBarProps) => {
 
 
     const [osType, setOsType] = useState<string>("windows");
@@ -57,34 +58,52 @@ export const TitleBar = ({ onSearchClick }: TitleBarProps) => {
             className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between select-none"
             style={{
                 height: "var(--titlebar-h)",
-                backgroundColor: "var(--theme-overlay-light)",
-                backdropFilter: "blur(0px)"
+                backgroundColor: "transparent",
+                // We make it transparent here because Sidebar curve will handle the corner visual.
+                // Or we keep background but distinct. User said "seamless join".
+                // Let's keep transparent or consistent bg.
             }}
             data-tauri-drag-region
         >
-            {/* Left Section (Mac Controls or Title) */}
-            <div className="flex items-center pl-4 h-full pointer-events-none" style={{ width: '200px' }}>
+            {/* Left Section (Mac Controls & Home) */}
+            <div className="flex items-center pl-4 h-full pointer-events-none gap-4" style={{ width: '240px' }}>
                 {isMac && (
-                    <div className="flex gap-2 pointer-events-auto no-drag">
+                    <div className="flex gap-2 pointer-events-auto no-drag mr-2">
                         {/* Mac Traffic Lights */}
                         <div onClick={close} className="traffic-light traffic-light-close" />
                         <div onClick={minimize} className="traffic-light traffic-light-minimize" />
                         <div onClick={maximize} className="traffic-light traffic-light-maximize" />
                     </div>
                 )}
-                {!isMac && <div className="text-xs font-semibold tracking-wide text-theme-muted ml-2">SONAMI</div>}
+
+                {/* Home Button moved here */}
+                {setActiveTab && (
+                    <button
+                        onClick={() => setActiveTab('home')}
+                        className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === 'home'
+                            ? 'bg-theme-surface-active text-theme-primary'
+                            : 'text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
+                            }`}
+                        title="Home"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                    </button>
+                )}
             </div>
 
             {/* Center Section - Search Button */}
-            <div className="flex-1 flex items-center justify-center pointer-events-none">
+            <div className="flex-1 flex items-center justify-center pointer-events-none px-4 pl-32">
                 <button
                     onClick={onSearchClick}
-                    className="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-theme-surface/50 hover:bg-theme-surface/70 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all pointer-events-auto no-drag cursor-pointer group min-w-[280px] shadow-sm"
+                    className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-theme-surface/60 hover:bg-theme-surface/80 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all pointer-events-auto no-drag cursor-pointer group w-full max-w-xl shadow-lg hover:shadow-xl hover:scale-[1.01]"
                 >
                     <svg className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <span className="text-sm flex-1 text-left text-theme-muted group-hover:text-theme-primary transition-colors pt-[4px]">Search music...</span>
+                    <span className="text-sm flex-1 text-left text-theme-muted group-hover:text-theme-primary transition-colors pt-[2px]">Search music...</span>
                     <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-theme-background/30 text-[11px] font-mono text-theme-muted/70">
                         {isMac ? '⌘' : 'Ctrl'}+K
                     </kbd>
