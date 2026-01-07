@@ -52,3 +52,20 @@ pub struct UnifiedTrack {
     pub local_path: Option<String>,
     pub tidal_id: Option<u64>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
+pub struct LibraryAlbum {
+    pub id: String,
+    pub title: String,
+    pub artist: String,
+    pub cover_image: Option<String>,
+    pub tidal_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
+pub struct LibraryArtist {
+    pub id: String,
+    pub name: String,
+    pub cover_image: Option<String>,
+    pub tidal_id: Option<i64>,
+}

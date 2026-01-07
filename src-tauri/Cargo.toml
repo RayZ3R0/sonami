@@ -48,4 +48,5 @@ log = "0.4.29"
 env_logger = "0.11"
 tokio = { version = "1", features = ["sync"] }
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls", "macros"] }
+walkdir = "2.5.0"
 

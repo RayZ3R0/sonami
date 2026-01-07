@@ -149,8 +149,6 @@ export const Sidebar = ({
                 {/* Main Navigation */}
                 <nav className="flex flex-col gap-1 mb-6">
                     <NavButton id="home" icon={icons.home} label="Home" />
-                    <NavButton id="search" icon={icons.search} label="Search" />
-                    <NavButton id="library" icon={icons.library} label="Your Library" />
                 </nav>
 
                 {/* Quick Access */}

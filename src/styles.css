@@ -10,7 +10,7 @@
     /* Layout dimensions */
     --sidebar-w: 260px;
     --player-h: 88px;
-    --titlebar-h: 38px;
+    --titlebar-h: 48px;
 
     /* Theme colors - defaults (overridden by ThemeContext) */
     --theme-background: #121212;

@@ -143,7 +143,11 @@ pub fn run() {
             commands::get_tidal_stream_url,
             commands::refresh_tidal_cache,
             commands::library::get_library_tracks,
-            commands::library::add_tidal_track
+            commands::library::get_library_albums,
+            commands::library::get_library_artists,
+            commands::library::search_library,
+            commands::library::add_tidal_track,
+            commands::library::rebuild_search_index
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
