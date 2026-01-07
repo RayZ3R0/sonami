@@ -39,14 +39,58 @@ impl PlaylistManager {
     }
 
     pub async fn get_playlists(&self) -> Result<Vec<Playlist>, String> {
-        sqlx::query_as::<_, Playlist>("SELECT * FROM playlists ORDER BY created_at DESC")
+        sqlx::query_as::<_, Playlist>(
+            r#"
+            SELECT 
+                p.id, 
+                p.title, 
+                p.description, 
+                COALESCE(p.cover_url, (
+                    SELECT GROUP_CONCAT(img, '|') FROM (
+                        SELECT DISTINCT al.cover_url as img
+                        FROM playlist_tracks pt 
+                        JOIN tracks t ON pt.track_id = t.id 
+                        LEFT JOIN albums al ON t.album_id = al.id 
+                        WHERE pt.playlist_id = p.id AND al.cover_url IS NOT NULL
+                        ORDER BY pt.position ASC 
+                        LIMIT 4
+                    )
+                )) as cover_url,
+                p.created_at, 
+                p.updated_at
+            FROM playlists p
+            ORDER BY p.created_at DESC
+            "#
+        )
             .fetch_all(&self.pool)
             .await
             .map_err(|e| e.to_string())
     }
 
     pub async fn get_playlist_details(&self, playlist_id: &str) -> Result<PlaylistDetails, String> {
-        let playlist = sqlx::query_as::<_, Playlist>("SELECT * FROM playlists WHERE id = ?")
+        let playlist = sqlx::query_as::<_, Playlist>(
+            r#"
+            SELECT 
+                p.id, 
+                p.title, 
+                p.description, 
+                COALESCE(p.cover_url, (
+                    SELECT GROUP_CONCAT(img, '|') FROM (
+                        SELECT DISTINCT al.cover_url as img
+                        FROM playlist_tracks pt 
+                        JOIN tracks t ON pt.track_id = t.id 
+                        LEFT JOIN albums al ON t.album_id = al.id 
+                        WHERE pt.playlist_id = p.id AND al.cover_url IS NOT NULL
+                        ORDER BY pt.position ASC 
+                        LIMIT 4
+                    )
+                )) as cover_url,
+                p.created_at, 
+                p.updated_at
+            FROM playlists p
+            WHERE p.id = ?
+            "#
+        )
             .bind(playlist_id)
             .fetch_one(&self.pool)
             .await

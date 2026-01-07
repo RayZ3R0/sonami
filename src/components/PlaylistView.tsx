@@ -30,12 +30,24 @@ const mapToTrack = (track: Track): Track => {
 };
 
 // Dynamic Cover Art Component
-const PlaylistCover = ({ tracks }: { tracks: Track[] }) => {
-    // Get up to 4 covers from tracks that have images
-    const covers = tracks
-        .filter(t => t.cover_image)
-        .slice(0, 4)
-        .map(t => t.cover_image!);
+const PlaylistCover = ({ tracks, coverUrl }: { tracks: Track[], coverUrl?: string | null }) => {
+    // Priority: 
+    // 1. coverUrl (if present, splits by pipe)
+    // 2. tracks (generate from first 4)
+
+    let covers: string[] = [];
+
+    if (coverUrl) {
+        covers = coverUrl.split('|');
+    }
+
+    // Fallback to tracks if no coverUrl or if coverUrl was empty
+    if (covers.length === 0 && tracks.length > 0) {
+        covers = tracks
+            .filter(t => t.cover_image)
+            .slice(0, 4)
+            .map(t => t.cover_image!);
+    }
 
     if (covers.length === 0) {
         return (
@@ -45,44 +57,25 @@ const PlaylistCover = ({ tracks }: { tracks: Track[] }) => {
         );
     }
 
-    if (covers.length === 1) {
-        return (
-            <img src={covers[0]} alt="Playlist Cover" className="w-52 h-52 object-cover rounded-xl shadow-2xl" />
-        );
-    }
-
-    if (covers.length === 2) {
+    if (covers.length >= 4) {
         return (
             <div className="w-52 h-52 grid grid-cols-2 bg-theme-surface rounded-xl overflow-hidden shadow-2xl">
-                <img src={covers[0]} className="w-full h-full object-cover" />
-                <img src={covers[1]} className="w-full h-full object-cover" />
+                {covers.slice(0, 4).map((src, i) => (
+                    <img key={i} src={src} className="w-full h-full object-cover" />
+                ))}
             </div>
         );
     }
 
-    if (covers.length === 3) {
-        return (
-            <div className="w-52 h-52 grid grid-cols-2 grid-rows-2 bg-theme-surface rounded-xl overflow-hidden shadow-2xl">
-                <img src={covers[0]} className="w-full h-full object-cover" />
-                <img src={covers[1]} className="w-full h-full object-cover" />
-                <img src={covers[2]} className="w-full h-full object-cover col-span-2" />
-            </div>
-        );
-    }
-
-    // 4 or more
     return (
-        <div className="w-52 h-52 grid grid-cols-2 grid-rows-2 bg-theme-surface rounded-xl overflow-hidden shadow-2xl">
-            <img src={covers[0]} className="w-full h-full object-cover" />
-            <img src={covers[1]} className="w-full h-full object-cover" />
-            <img src={covers[2]} className="w-full h-full object-cover" />
-            <img src={covers[3]} className="w-full h-full object-cover" />
-        </div>
+        <img src={covers[0]} alt="Playlist Cover" className="w-52 h-52 object-cover rounded-xl shadow-2xl" />
     );
 };
 
+
+
 export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
-    const { playTrack, currentTrack, removeFromPlaylist, deletePlaylist, renamePlaylist, shuffle, toggleShuffle } = usePlayer();
+    const { playTrack, currentTrack, removeFromPlaylist, deletePlaylist, renamePlaylist, shuffle, toggleShuffle, isPlaying } = usePlayer();
 
     // Local state for full playlist details
     const [details, setDetails] = useState<PlaylistDetails | null>(null);
@@ -249,7 +242,8 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
             <div className="px-8 py-6 bg-gradient-to-b from-indigo-900/30 to-transparent">
                 <div className="flex items-end gap-6">
                     {/* Dynamic Cover */}
-                    <PlaylistCover tracks={tracks} />
+
+                    <PlaylistCover tracks={tracks} coverUrl={details.playlist.cover_url} />
 
                     {/* Info */}
                     <div className="flex-1 pb-2 min-w-0">
@@ -291,7 +285,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                     <button
                         onClick={handlePlayAll}
                         disabled={tracks.length === 0}
-                        className="flex items-center gap-2 px-6 py-3 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
@@ -301,7 +295,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                     <button
                         onClick={handleShufflePlay}
                         disabled={tracks.length === 0}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
                             ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
                             : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
                             }`}
@@ -349,19 +343,43 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                                     : 'hover:bg-theme-surface-hover text-theme-secondary hover:text-white'
                                     }`}
                             >
-                                <div className="flex items-center text-xs font-medium">
-                                    {isCurrentTrack ? (
-                                        <div className="w-3 h-3 relative flex items-center justify-center">
-                                            <div className="absolute w-full h-[2px] bg-theme-accent animate-music-bar-1"></div>
-                                            <div className="absolute w-full h-[2px] bg-theme-accent animate-music-bar-2"></div>
-                                            <div className="absolute w-full h-[2px] bg-theme-accent animate-music-bar-3"></div>
+                                <div className="flex items-center text-xs font-medium justify-center">
+                                    {isCurrentTrack && isPlaying ? (
+                                        <div className="flex gap-0.5 items-end h-4">
+                                            <div className="w-1 bg-theme-accent animate-equalizer rounded-t-sm" style={{ height: '60%', animationDelay: '0s' }} />
+                                            <div className="w-1 bg-theme-accent animate-equalizer rounded-t-sm" style={{ height: '100%', animationDelay: '0.2s' }} />
+                                            <div className="w-1 bg-theme-accent animate-equalizer rounded-t-sm" style={{ height: '40%', animationDelay: '0.4s' }} />
                                         </div>
                                     ) : (
-                                        <span className="opacity-60">{index + 1}</span>
+                                        <>
+                                            <span className={`group-hover:hidden ${isCurrentTrack ? 'text-theme-accent' : 'opacity-60'}`}>
+                                                {index + 1}
+                                            </span>
+                                            <svg
+                                                className="w-4 h-4 hidden group-hover:block text-white"
+                                                fill="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M8 5v14l11-7z" />
+                                            </svg>
+                                        </>
                                     )}
                                 </div>
 
-                                <div className="flex items-center min-w-0">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    {track.cover_image ? (
+                                        <img
+                                            src={track.cover_image}
+                                            alt={track.album}
+                                            className="w-10 h-10 rounded object-cover shadow-sm"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center">
+                                            <svg className="w-5 h-5 opacity-20" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                            </svg>
+                                        </div>
+                                    )}
                                     <span className={`truncate font-medium ${isCurrentTrack ? 'text-theme-accent' : 'text-white'}`}>
                                         {track.title}
                                     </span>

@@ -121,6 +121,7 @@ pub fn run() {
             // commands::playlist::rename_playlist, // Removed for now or need implement
             commands::playlist::get_playlist_details,
             commands::playlist::add_tidal_track_to_playlist,
+            commands::playlist::add_to_playlist,
             // Favorites commands
             commands::favorites::add_favorite,
             commands::favorites::remove_favorite,

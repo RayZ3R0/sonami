@@ -59,6 +59,15 @@ export default {
         'theme-subtle': 'var(--theme-border-subtle)',
         'theme-focus': 'var(--theme-border-focus)',
       },
+      keyframes: {
+        equalizer: {
+          '0%, 100%': { height: '40%' },
+          '50%': { height: '100%' },
+        }
+      },
+      animation: {
+        equalizer: 'equalizer 0.5s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

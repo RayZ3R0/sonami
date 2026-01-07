@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { getLibraryTracks, getLibraryAlbums, getLibraryArtists, UnifiedTrack, LibraryAlbum, LibraryArtist } from "../api/library";
 import { usePlayer } from "../context/PlayerContext";
+import { useContextMenu } from "../context/ContextMenuContext";
+import { Track } from "../types";
 
-// Image with fallback component
-const ImageWithFallback = ({ src, alt, className, iconType = 'music' }: { 
-    src?: string; 
-    alt: string; 
+// ... (ImageWithFallback component remains unchanged)
+const ImageWithFallback = ({ src, alt, className, iconType = 'music' }: {
+    src?: string;
+    alt: string;
     className?: string;
     iconType?: 'music' | 'album' | 'artist';
 }) => {
@@ -51,16 +53,19 @@ const ImageWithFallback = ({ src, alt, className, iconType = 'music' }: {
 };
 
 // Track Card Component
-const TrackCard = ({ track, isPlaying, onPlay }: {
+const TrackCard = ({ track, isPlaying, onPlay, onContextMenu }: {
     track: UnifiedTrack;
     isPlaying: boolean;
     onPlay: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
 }) => {
     return (
         <div
             onClick={onPlay}
+            onContextMenu={onContextMenu}
             className="group cursor-pointer p-3 rounded-xl hover:bg-theme-highlight/40 transition-all duration-200"
         >
+            {/* Same structure as before */}
             <div className="relative aspect-square w-full rounded-lg overflow-hidden shadow-lg mb-3 bg-theme-secondary">
                 <ImageWithFallback
                     src={track.cover_image}
@@ -93,6 +98,7 @@ const TrackCard = ({ track, isPlaying, onPlay }: {
     );
 };
 
+// ... (AlbumCard/ArtistCard/Section/CardSkeleton same as before)
 // Album Card Component
 const AlbumCard = ({ album }: { album: LibraryAlbum }) => {
     return (
@@ -163,14 +169,17 @@ const CardSkeleton = ({ count = 6, isArtist = false }: { count?: number; isArtis
     </div>
 );
 
+
 export const HomeView = () => {
-    const { playTrack, currentTrack } = usePlayer();
+    const { playTrack, currentTrack, addToPlaylist, playlists, toggleFavorite, favorites } = usePlayer();
+    const { showMenu } = useContextMenu();
     const [loading, setLoading] = useState(true);
     const [tracks, setTracks] = useState<UnifiedTrack[]>([]);
     const [albums, setAlbums] = useState<LibraryAlbum[]>([]);
     const [artists, setArtists] = useState<LibraryArtist[]>([]);
 
     const loadData = useCallback(async () => {
+        // ... (load logic remains unchanged)
         setLoading(true);
         try {
             const [tracksData, albumsData, artistsData] = await Promise.all([
@@ -193,10 +202,38 @@ export const HomeView = () => {
     }, [loadData]);
 
     const handlePlayTrack = useCallback((track: UnifiedTrack) => {
-        playTrack(track as any, tracks as any);
+        playTrack(track as unknown as Track, tracks as unknown as Track[]);
     }, [playTrack, tracks]);
 
-    // Get greeting based on time of day
+    const handleContextMenu = (e: React.MouseEvent, track: UnifiedTrack) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const trackAsTrack = track as unknown as Track;
+        // Simple heuristic - if it's in favorites array (needs simpler check in reality)
+        // For now, toggleFavorite handles logic, we just label "Toggle Like" or specific
+        // We'll stick to a generic "Add to Playlist" for now.
+
+        showMenu([
+            {
+                label: 'Play',
+                action: () => handlePlayTrack(track),
+            },
+            {
+                label: 'Add to Liked Songs',
+                action: () => toggleFavorite({ ...trackAsTrack, id: track.id || track.tidal_id?.toString() || '' }), // best effort id
+            },
+            {
+                label: 'Add to Playlist',
+                submenu: playlists.map(pl => ({
+                    label: pl.title,
+                    action: () => addToPlaylist(pl.id, trackAsTrack),
+                })),
+            },
+        ], { x: e.clientX, y: e.clientY });
+    };
+
+    // ... (rest of render logic)
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return "Good morning";
@@ -208,6 +245,7 @@ export const HomeView = () => {
 
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
+            {/* ... (render logic) */}
             <div className="flex-1 overflow-y-auto px-6 pb-32">
                 {/* Header */}
                 <div className="pt-8 pb-6">
@@ -231,7 +269,7 @@ export const HomeView = () => {
                         </Section>
                     </div>
                 ) : isEmpty ? (
-                    /* Empty State */
+                    /* ... (Empty state logic same as before) ... */
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="w-32 h-32 rounded-full bg-theme-secondary/50 flex items-center justify-center mb-8">
                             <svg className="w-16 h-16 text-theme-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -262,6 +300,7 @@ export const HomeView = () => {
                                         track={track}
                                         isPlaying={currentTrack?.id === track.id}
                                         onPlay={() => handlePlayTrack(track)}
+                                        onContextMenu={(e) => handleContextMenu(e, track)}
                                     />
                                 ))}
                             </div>

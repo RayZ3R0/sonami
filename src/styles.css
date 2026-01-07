@@ -510,6 +510,7 @@ body {
     0% {
         transform: translateX(-100%);
     }
+
     100% {
         transform: translateX(100%);
     }
@@ -776,7 +777,7 @@ body {
     -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(0.9);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 
+    box-shadow:
         0 8px 25px rgba(0, 0, 0, 0.3),
         0 4px 12px rgba(0, 0, 0, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -800,7 +801,7 @@ body {
     -webkit-backdrop-filter: blur(40px) saturate(160%) brightness(1.1);
     border: none;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 
+    box-shadow:
         0 -2px 10px rgba(0, 0, 0, 0.2),
         0 -1px 4px rgba(0, 0, 0, 0.1);
     animation: none;
@@ -852,13 +853,11 @@ body {
     content: '';
     width: 5px;
     height: 20px;
-    background: repeating-linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.6) 0px,
-        rgba(255, 255, 255, 0.6) 3px,
-        transparent 3px,
-        transparent 6px
-    );
+    background: repeating-linear-gradient(to bottom,
+            rgba(255, 255, 255, 0.6) 0px,
+            rgba(255, 255, 255, 0.6) 3px,
+            transparent 3px,
+            transparent 6px);
     border-radius: 2px;
     margin-right: 4px;
 }
@@ -867,13 +866,11 @@ body {
     content: '';
     width: 5px;
     height: 20px;
-    background: repeating-linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.6) 0px,
-        rgba(255, 255, 255, 0.6) 3px,
-        transparent 3px,
-        transparent 6px
-    );
+    background: repeating-linear-gradient(to bottom,
+            rgba(255, 255, 255, 0.6) 0px,
+            rgba(255, 255, 255, 0.6) 3px,
+            transparent 3px,
+            transparent 6px);
     border-radius: 2px;
 }
 
@@ -915,7 +912,7 @@ body {
 }
 
 /* Progress bar adjustments for horizontal layout */
-.draggable-mini-player-container.full-width .progress-section > div:first-child {
+.draggable-mini-player-container.full-width .progress-section>div:first-child {
     margin-bottom: 6px !important;
 }
 
@@ -931,10 +928,10 @@ body {
     left: 0;
     right: 0;
     height: 80px;
-    background: linear-gradient(to top, 
-        rgba(255, 255, 255, 0.2) 0%, 
-        rgba(255, 255, 255, 0.08) 60%, 
-        transparent 100%);
+    background: linear-gradient(to top,
+            rgba(255, 255, 255, 0.2) 0%,
+            rgba(255, 255, 255, 0.08) 60%,
+            transparent 100%);
     border-top: 2px solid rgba(255, 255, 255, 0.4);
     pointer-events: none;
     opacity: 0;
@@ -952,17 +949,18 @@ body {
 @keyframes snap-zone-pulse {
     0% {
         border-top-color: rgba(255, 255, 255, 0.5);
-        background: linear-gradient(to top, 
-            rgba(255, 255, 255, 0.3) 0%, 
-            rgba(255, 255, 255, 0.1) 50%, 
-            transparent 100%);
+        background: linear-gradient(to top,
+                rgba(255, 255, 255, 0.3) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                transparent 100%);
     }
+
     100% {
         border-top-color: rgba(255, 255, 255, 0.8);
-        background: linear-gradient(to top, 
-            rgba(255, 255, 255, 0.5) 0%, 
-            rgba(255, 255, 255, 0.2) 50%, 
-            transparent 100%);
+        background: linear-gradient(to top,
+                rgba(255, 255, 255, 0.5) 0%,
+                rgba(255, 255, 255, 0.2) 50%,
+                transparent 100%);
     }
 }
 
@@ -974,7 +972,7 @@ body {
 /* Hover/active effects only for mini mode, not full-width */
 .draggable-mini-player-container:not(.full-width):hover {
     transform: translateY(-2px);
-    box-shadow: 
+    box-shadow:
         0 12px 30px rgba(0, 0, 0, 0.25),
         0 6px 15px rgba(0, 0, 0, 0.15);
 }
@@ -1006,7 +1004,7 @@ body {
     backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
     -webkit-backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
     border: 2px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 
+    box-shadow:
         0 15px 40px rgba(0, 0, 0, 0.4),
         0 8px 20px rgba(0, 0, 0, 0.3),
         inset 0 2px 0 rgba(255, 255, 255, 0.15);
@@ -1199,4 +1197,21 @@ body {
 
 .player-album-art-clickable:active {
     transform: scale(0.98);
+}
+
+@keyframes equalizer {
+
+    0%,
+    100% {
+        height: 40%;
+    }
+
+    50% {
+        height: 100%;
+    }
+}
+
+.animate-equalizer {
+    animation: equalizer 0.6s ease-in-out infinite;
+    transform-origin: bottom;
 }

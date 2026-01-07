@@ -4,7 +4,7 @@ import { Settings, SettingsButton, ThemeButton } from "./Settings";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Manual offsets for vertical alignment
-const PLAYLIST_TEXT_OFFSET = "mt-[5px]";
+
 const PLUS_ICON_OFFSET = "mt-[-8px]";
 const IMPORT_BUTTON_TEXT_OFFSET = "mt-[4.6px]";
 
@@ -175,10 +175,28 @@ export const Sidebar = ({
                                     }`}
                                 title={pl.title}
                             >
-                                <span className={`w-5 h-5 flex items-center justify-center flex-shrink-0 text-theme-muted`}>
-                                    {icons.music}
-                                </span>
-                                {!isCollapsed && <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.title}</span>}
+                                <div className={`w-8 h-8 flex items-center justify-center flex-shrink-0 overflow-hidden rounded-[4px] bg-white/5`}>
+                                    {pl.cover_url ? (
+                                        (() => {
+                                            const covers = pl.cover_url!.split('|');
+                                            if (covers.length >= 4) {
+                                                return (
+                                                    <div className="w-full h-full grid grid-cols-2 grid-rows-2">
+                                                        {covers.slice(0, 4).map((cover, i) => (
+                                                            <img key={i} src={cover} alt="" className="w-full h-full object-cover" />
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+                                            return <img src={covers[0]} alt="" className="w-full h-full object-cover" />;
+                                        })()
+                                    ) : (
+                                        <span className="text-theme-muted scale-75 opacity-70">
+                                            {icons.music}
+                                        </span>
+                                    )}
+                                </div>
+                                {!isCollapsed && <span className="text-[13px] truncate font-medium">{pl.title}</span>}
                             </button>
                         ))}
                     </div>

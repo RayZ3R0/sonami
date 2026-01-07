@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useRef, useM
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Track, Playlist } from "../types";
+import { UnifiedTrack } from "../api/library";
 
 interface PlaybackInfo {
     position: number;
@@ -60,6 +61,9 @@ interface PlayerContextType {
 
     playerBarStyle: "floating" | "classic";
     setPlayerBarStyle: (style: "floating" | "classic") => void;
+
+    favorites: Set<string>;
+    toggleFavorite: (track: Track) => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -469,6 +473,44 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
 
 
+    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+    // Sync favorites on load
+    useEffect(() => {
+        const syncFavorites = async () => {
+            try {
+                const favs = await invoke<UnifiedTrack[]>("get_favorites");
+                setFavorites(new Set(favs.map(t => t.id)));
+            } catch (e) {
+                console.error("Failed to sync favorites:", e);
+            }
+        };
+        syncFavorites();
+    }, []);
+
+    const toggleFavorite = async (track: Track) => {
+        const id = track.id;
+        try {
+            if (favorites.has(id)) {
+                await invoke("remove_favorite", { trackId: id });
+                setFavorites(prev => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+            } else {
+                await invoke("add_favorite", { trackId: id });
+                setFavorites(prev => {
+                    const next = new Set(prev);
+                    next.add(id);
+                    return next;
+                });
+            }
+        } catch (e) {
+            console.error("Failed to toggle favorite:", e);
+        }
+    };
+
     const playerValue = useMemo(() => ({
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
@@ -477,11 +519,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         queueNextTrack, addToQueue, removeFromQueue, clearQueue, clearLibrary,
         createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
         crossfadeEnabled, crossfadeDuration, setCrossfade,
-        playerBarStyle, setPlayerBarStyle
+        playerBarStyle, setPlayerBarStyle,
+        favorites, toggleFavorite
     }), [
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen,
-        crossfadeEnabled, crossfadeDuration, playerBarStyle
+        crossfadeEnabled, crossfadeDuration, playerBarStyle, favorites
     ]);
 
 
