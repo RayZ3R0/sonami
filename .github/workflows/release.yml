@@ -48,10 +48,11 @@ jobs:
             | Windows x64 | `.exe` (NSIS installer) |
             | macOS Intel | `.dmg` |
             | macOS Apple Silicon | `.dmg` |
-            | Linux x64 | `.deb` `.rpm` `.AppImage` `.tar.gz` |
+            | Linux x64 | `.deb` `.rpm` `.AppImage` |
             
-            ### Linux tar.gz
-            Extract and run: `tar -xzf sonami_*.tar.gz && ./sonami`
+            ### Installation Notes
+            - **Linux**: Use `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), or `.AppImage` (universal)
+            - **AppImage**: Make executable with `chmod +x` and run
           draft: true
           prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
 
@@ -64,7 +65,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: nsis
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             bundles: dmg
           - os: macos-latest

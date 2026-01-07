@@ -531,7 +531,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
               <div
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
-                onDoubleClick={() => handlePlayTrack(track)}
+                onClick={() => handlePlayTrack(track)}
                 className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
                   isCurrentTrack
                     ? "bg-theme-surface-active text-theme-accent"
