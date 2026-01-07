@@ -94,3 +94,11 @@ Cargo.lock
 .parcel-cache/
 .turbo/
 test-music
+
+
+
+# ===========================
+# Custom Ignores
+# ===========================
+commaro.md
+extracto.py

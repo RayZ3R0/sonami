@@ -7,6 +7,6 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
  * PlaybackProgressContext and re-render frequently (which is fine since it has no DOM).
  */
 export const InputController = () => {
-    useKeyboardShortcuts();
-    return null;
+  useKeyboardShortcuts();
+  return null;
 };

@@ -51,7 +51,7 @@ pub struct UnifiedTrack {
 
     pub local_path: Option<String>,
     pub tidal_id: Option<u64>,
-    
+
     // For favorites - when this track was liked
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liked_at: Option<i64>,

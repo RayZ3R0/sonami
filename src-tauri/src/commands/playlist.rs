@@ -1,5 +1,5 @@
-use crate::library::LibraryManager;
 use crate::library::models::UnifiedTrack;
+use crate::library::LibraryManager;
 use crate::playlist::manager::PlaylistManager;
 use crate::playlist::models::{Playlist, PlaylistDetails};
 use crate::tidal::models::Track as TidalTrack;
@@ -58,8 +58,6 @@ pub async fn add_tidal_track_to_playlist(
     }
 }
 
-
-
 #[command]
 pub async fn remove_from_playlist(
     manager: State<'_, PlaylistManager>,
@@ -77,7 +75,11 @@ pub async fn add_to_playlist(
     track: UnifiedTrack,
 ) -> Result<(), String> {
     // 1. Try to add direct if it's already a valid DB ID
-    if playlist.add_track_entry(&playlist_id, &track.id).await.is_ok() {
+    if playlist
+        .add_track_entry(&playlist_id, &track.id)
+        .await
+        .is_ok()
+    {
         return Ok(());
     }
 
@@ -91,11 +93,11 @@ pub async fn add_to_playlist(
 
         // 3. Import from Tidal
         // Reconstruct basic TidalTrack
-         let tidal_track = TidalTrack {
+        let tidal_track = TidalTrack {
             id: tidal_id,
             title: track.title.clone(),
             artist: Some(crate::tidal::models::Artist {
-                id: 0, 
+                id: 0,
                 name: track.artist.clone(),
                 picture: None,
             }),
@@ -112,7 +114,9 @@ pub async fn add_to_playlist(
             track_number: None,
         };
 
-        library.import_tidal_track(&tidal_track, track.cover_image.clone()).await?;
+        library
+            .import_tidal_track(&tidal_track, track.cover_image.clone())
+            .await?;
 
         // 4. Get new ID and add
         if let Ok(Some(new_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
@@ -123,7 +127,7 @@ pub async fn add_to_playlist(
 
     // If source is local and first attempt failed, it means local track is gone?
     // Or weird state.
-    
+
     Err("Failed to add track to playlist".to_string())
 }
 

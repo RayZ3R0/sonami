@@ -1,9 +1,9 @@
 use super::models::{Playlist, PlaylistDetails};
 use crate::library::models::{TrackSource, UnifiedTrack};
 use crate::tidal::models::Track as TidalTrack;
+use chrono::Utc;
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
-use chrono::Utc;
 
 pub struct PlaylistManager {
     pool: Pool<Sqlite>,
@@ -61,11 +61,11 @@ impl PlaylistManager {
                 p.updated_at
             FROM playlists p
             ORDER BY p.created_at DESC
-            "#
+            "#,
         )
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| e.to_string())
     }
 
     pub async fn get_playlist_details(&self, playlist_id: &str) -> Result<PlaylistDetails, String> {
@@ -90,12 +90,12 @@ impl PlaylistManager {
                 p.updated_at
             FROM playlists p
             WHERE p.id = ?
-            "#
+            "#,
         )
-            .bind(playlist_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        .bind(playlist_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
         // Join playlist_tracks -> tracks -> artists/albums
         // Similar to library generic search/get queries
@@ -148,7 +148,7 @@ impl PlaylistManager {
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
                 liked_at: None,
-                added_at, 
+                added_at,
             });
         }
 
@@ -202,7 +202,11 @@ impl PlaylistManager {
         Ok(())
     }
 
-    pub async fn remove_track_entry(&self, playlist_id: &str, track_id: &str) -> Result<(), String> {
+    pub async fn remove_track_entry(
+        &self,
+        playlist_id: &str,
+        track_id: &str,
+    ) -> Result<(), String> {
         sqlx::query("DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?")
             .bind(playlist_id)
             .bind(track_id)
@@ -223,12 +227,16 @@ impl PlaylistManager {
         Ok(row.map(|r| r.get("id")))
     }
 
-    pub async fn get_playlists_containing_track(&self, track_id: &str) -> Result<Vec<String>, String> {
-        let rows = sqlx::query("SELECT DISTINCT playlist_id FROM playlist_tracks WHERE track_id = ?")
-            .bind(track_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+    pub async fn get_playlists_containing_track(
+        &self,
+        track_id: &str,
+    ) -> Result<Vec<String>, String> {
+        let rows =
+            sqlx::query("SELECT DISTINCT playlist_id FROM playlist_tracks WHERE track_id = ?")
+                .bind(track_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
         let playlist_ids = rows.iter().map(|r| r.get("playlist_id")).collect();
         Ok(playlist_ids)

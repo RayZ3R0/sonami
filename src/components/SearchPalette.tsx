@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { searchLibrary, UnifiedTrack, addTidalTrack } from '../api/library';
-import { addFavorite } from '../api/favorites'; // removed removeFavorite as it's unused directly
+import { addFavorite } from '../api/favorites';
 import { usePlayer } from '../context/PlayerContext';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 
@@ -216,8 +216,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [addedTracks, setAddedTracks] = useState<Set<number>>(new Set());
 
-    // Internal context menu state for SearchPalette
-    // Internal context menu state for SearchPalette
     const [contextMenu, setContextMenu] = useState<{
         isOpen: boolean;
         items: ContextMenuItem[];
@@ -231,27 +229,22 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
 
     const debouncedQuery = useDebounce(query, 150);
 
-    // Track the current search request to prevent race conditions
     const currentQueryRef = useRef(query);
 
-    // Get tidal IDs that exist in local results (for deduplication)
     const localTidalIds = useMemo(() =>
         new Set(localResults.filter(r => r.tidalId).map(r => r.tidalId)),
         [localResults]
     );
 
-    // Filter out tidal results that are already in library
     const filteredTidalResults = useMemo(() =>
         tidalResults.filter(r => !localTidalIds.has(r.tidalId)),
         [tidalResults, localTidalIds]
     );
 
-    // All results combined for keyboard navigation
     const allResults = useMemo(() => {
         return [...localResults, ...filteredTidalResults];
     }, [localResults, filteredTidalResults]);
 
-    // Reset state when opening
     useEffect(() => {
         if (isOpen) {
             setQuery('');
@@ -259,12 +252,10 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
             setTidalResults([]);
             setSelectedIndex(0);
             setAddedTracks(new Set());
-            // Focus input after a small delay for animation
             setTimeout(() => inputRef.current?.focus(), 50);
         }
     }, [isOpen]);
 
-    // Search local library using FTS5
     useEffect(() => {
         const activeQuery = debouncedQuery;
         currentQueryRef.current = activeQuery;
@@ -314,10 +305,8 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         searchLocal();
     }, [debouncedQuery]);
 
-    // Search Tidal (slower, parallel) - runs independently
     useEffect(() => {
         const activeQuery = debouncedQuery;
-        // Note: We use the same currentQueryRef since both searches trigger on the same debouncedQuery
 
         if (!activeQuery || activeQuery.length < 2) {
             setTidalResults([]);
@@ -366,17 +355,14 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
             }
         };
 
-        // Slight delay for Tidal to let local results come first
         const timer = setTimeout(searchTidal, 200);
         return () => clearTimeout(timer);
     }, [debouncedQuery]);
 
-    // Reset selection when results change
     useEffect(() => {
         setSelectedIndex(0);
     }, [allResults.length]);
 
-    // Scroll selected item into view
     useEffect(() => {
         if (resultsRef.current && allResults.length > 0) {
             const selectedElement = resultsRef.current.querySelector(`[data-index="${selectedIndex}"]`);
@@ -384,14 +370,11 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         }
     }, [selectedIndex, allResults.length]);
 
-    // Close internal context menu and refocus input
     const closeContextMenu = useCallback(() => {
         setContextMenu(prev => ({ ...prev, isOpen: false, items: [], position: { x: 0, y: 0 } }));
-        // Refocus the input so keyboard navigation continues working
         setTimeout(() => inputRef.current?.focus(), 0);
     }, []);
 
-    // Close context menu on scroll in results area
     useEffect(() => {
         if (!contextMenu || !resultsRef.current) return;
 
@@ -406,17 +389,13 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         };
     }, [contextMenu, closeContextMenu]);
 
-    // Handle keyboard navigation - blocked when context menu is open
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-        // If context menu is open, let it handle keyboard events
-        // Only close it on Escape, don't let other keys through
         if (contextMenu) {
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
                 closeContextMenu();
             }
-            // Block all other navigation keys when context menu is open
             if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -445,7 +424,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 break;
             case 'Tab':
                 e.preventDefault();
-                // Tab cycles through results
                 if (e.shiftKey) {
                     setSelectedIndex(prev => (prev - 1 + allResults.length) % allResults.length);
                 } else {
@@ -455,21 +433,18 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         }
     }, [allResults, selectedIndex, onClose, contextMenu, closeContextMenu]);
 
-    // Handle click outside
     const handleOverlayClick = useCallback((e: React.MouseEvent) => {
         if (e.target === overlayRef.current) {
             onClose();
         }
     }, [onClose]);
 
-    // Play a track
     const handlePlay = async (result: SearchResult) => {
         if (result.type === 'local') {
             const track = result.track as UnifiedTrack;
             playTrack(track as any, [track] as any);
             onClose();
         } else {
-            // Play Tidal track
             const track = result.track as TidalTrack;
             try {
                 const coverUrl = track.album?.cover
@@ -492,7 +467,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         }
     };
 
-    // Add Tidal track to Liked Songs (first adds to library, then to favorites)
     const handleAddToLikedSongs = async (result: SearchResult, e: React.MouseEvent) => {
         e.stopPropagation();
         if (result.type !== 'tidal' || !result.tidalId) return;
@@ -513,17 +487,13 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 cover: track.album?.cover
             };
 
-            // First, add to library database
             await addTidalTrack(backendTrack, coverUrl);
 
-            // Then, mark as favorite (we need to get the track ID from the library)
-            // For now, we'll use a simple approach: search for the track by tidal_id
             const libraryTracks = await searchLibrary(track.title);
             const addedTrack = libraryTracks.find(t => t.tidal_id === track.id);
 
             if (addedTrack) {
                 await addFavorite(addedTrack.id);
-                // Trigger refresh so other views update
                 await refreshFavorites();
             }
 
@@ -533,22 +503,19 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         }
     };
 
-    // Format duration
     const formatDuration = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Helper to get play-ready track from result for Context Menu
     const getTrackFromResult = (result: SearchResult) => {
         if (result.type === 'local') {
             return result.track as UnifiedTrack;
         }
         const t = result.track as TidalTrack;
-        // Construct a Track-like object for Tidal
         return {
-            id: `tidal-${t.id}`, // Temporary ID for frontend
+            id: `tidal-${t.id}`,
             title: t.title,
             artist: t.artist?.name || 'Unknown',
             album: t.album?.title || 'Unknown',
@@ -567,7 +534,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         const track = getTrackFromResult(result);
         const isLocal = result.type === 'local';
 
-        // Use internal context menu state instead of global
         setContextMenu({
             isOpen: true,
             items: [
@@ -581,7 +547,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                         if (isLocal) {
                             toggleFavorite(track);
                         } else {
-                            handleAddToLikedSongs(result, e); // Re-use existing logic for Tidal import+like
+                            handleAddToLikedSongs(result, e);
                         }
                     }
                 },
@@ -617,7 +583,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 style={{ backgroundColor: 'var(--theme-background-secondary, #1a1a20)' }}
                 onClick={(e) => {
                     e.stopPropagation();
-                    // Close context menu if clicking anywhere in the palette
                     if (contextMenu) {
                         closeContextMenu();
                     }
@@ -665,7 +630,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                         </div>
                     )}
 
-                    {/* Initial loading state - show skeletons while searching */}
                     {hasQuery && !hasResults && isLoading && (
                         <>
                             {loadingLocal && (
@@ -679,7 +643,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                         </>
                     )}
 
-                    {/* No Results - only show when done loading */}
                     {hasQuery && !hasResults && !isLoading && (
                         <div className="flex flex-col items-center justify-center py-16 text-theme-muted">
                             <svg className="w-12 h-12 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -742,7 +705,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                         </div>
                     )}
 
-                    {/* Loading indicator for Tidal when local is done */}
                     {hasQuery && loadingTidal && filteredTidalResults.length === 0 && (
                         <div className={`py-2 ${localResults.length > 0 ? 'border-t border-white/5' : ''}`}>
                             <SkeletonSection title="Searching Tidal..." color="bg-blue-500" count={4} />
@@ -750,7 +712,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                     )}
                 </div>
 
-                {/* Footer */}
                 {hasResults && (
                     <div className="flex items-center justify-between px-6 py-3 border-t border-white/5 bg-black/20 text-xs text-theme-muted/80">
                         <div className="flex items-center gap-4 pt-[2px]">
@@ -767,7 +728,6 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                     </div>
                 )}
 
-                {/* Internal Context Menu - constrained to palette bounds */}
                 {contextMenu.isOpen && (
                     <ContextMenu
                         items={contextMenu.items}
