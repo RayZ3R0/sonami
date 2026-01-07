@@ -81,10 +81,7 @@ fn download_worker(
         .build()
         .map_err(io::Error::other)?;
 
-    let mut response = client
-        .get(&url)
-        .send()
-        .map_err(io::Error::other)?;
+    let mut response = client.get(&url).send().map_err(io::Error::other)?;
 
     if !response.status().is_success() {
         return Err(io::Error::other(format!("HTTP {}", response.status())));

@@ -58,13 +58,11 @@ impl LibraryManager {
         log::info!("Rebuilding search index...");
         let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
 
-        // Clear index
         sqlx::query("DELETE FROM search_index")
             .execute(&mut *tx)
             .await
             .map_err(|e| e.to_string())?;
 
-        // Re-populate
         let rows = sqlx::query(
             r#"
             SELECT t.id, t.title, a.name as artist, al.title as album
@@ -106,7 +104,6 @@ impl LibraryManager {
     pub async fn search_library(&self, query: &str) -> Result<Vec<UnifiedTrack>, String> {
         log::info!("Searching library for: '{}'", query);
 
-        // Check if search_index is in sync with tracks table
         let index_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM search_index")
             .fetch_one(&self.pool)
             .await
@@ -123,7 +120,6 @@ impl LibraryManager {
             tracks_count.0
         );
 
-        // If index is out of sync, rebuild it
         if index_count.0 != tracks_count.0 {
             log::warn!("search_index out of sync! Rebuilding...");
             if let Err(e) = self.rebuild_index().await {
@@ -133,16 +129,13 @@ impl LibraryManager {
             }
         }
 
-        // Build FTS5 query: each word gets a prefix wildcard, joined with spaces (implicit AND)
-        // Example: "bot bakka" -> "bot* bakka*"
         let fts_query = query
             .split_whitespace()
             .map(|word| {
-                // Keep only alphanumeric chars for each word
                 let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
                 format!("{}*", clean)
             })
-            .filter(|w| w.len() > 1) // Skip empty or single-char wildcards
+            .filter(|w| w.len() > 1)
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -239,7 +232,6 @@ impl LibraryManager {
             );
             let local_path: Option<String> = row.try_get("file_path").ok();
 
-            // Compute the compatible 'path' field for the frontend player
             let path = match source {
                 TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
@@ -271,7 +263,6 @@ impl LibraryManager {
     ) -> Result<(), String> {
         let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
 
-        // Extract Artist Name safely
         let artist_name = track
             .artist
             .as_ref()
@@ -284,7 +275,6 @@ impl LibraryManager {
             .and_then(|a| a.picture.as_ref())
             .map(|p| get_cover_url(p, CoverSize::Medium.px()));
 
-        // 1. Check if Artist Exists
         let artist_id = if let Some(row) = sqlx::query("SELECT id FROM artists WHERE name = ?")
             .bind(&artist_name)
             .fetch_optional(&mut *tx)
@@ -305,7 +295,6 @@ impl LibraryManager {
             new_id
         };
 
-        // 2. Check if Album Exists
         let mut album_id = None;
         let mut album_name = String::new();
         if let Some(album) = &track.album {
@@ -338,10 +327,8 @@ impl LibraryManager {
             }
         }
 
-        // 3. Insert Track
         let tidal_id_i64 = track.id as i64;
 
-        // Check existing
         let exists = sqlx::query("SELECT id FROM tracks WHERE tidal_id = ?")
             .bind(tidal_id_i64)
             .fetch_optional(&mut *tx)
@@ -373,12 +360,6 @@ impl LibraryManager {
             new_id
         };
 
-        // 4. Update Search Index
-        // Try to delete existing entry first to avoid dupes if re-importing (though ID is random UUID for new...)
-        // Actually since we check for existence, we only reach here if new, OR if we want to support updates?
-        // Let's just insert OR REPLACE into search index if possible,
-        // but FTS5 doesn't support ON CONFLICT the same way always.
-        // We'll just do a delete then insert for safety if we had the track ID.
         sqlx::query("DELETE FROM search_index WHERE track_id = ?")
             .bind(&track_id)
             .execute(&mut *tx)

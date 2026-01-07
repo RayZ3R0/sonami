@@ -66,9 +66,6 @@ export const TitleBar = ({
       style={{
         height: "var(--titlebar-h)",
         backgroundColor: "transparent",
-        // We make it transparent here because Sidebar curve will handle the corner visual.
-        // Or we keep background but distinct. User said "seamless join".
-        // Let's keep transparent or consistent bg.
       }}
       data-tauri-drag-region
     >

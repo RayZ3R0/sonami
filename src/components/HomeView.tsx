@@ -11,7 +11,6 @@ import { usePlayer } from "../context/PlayerContext";
 import { useContextMenu } from "../context/ContextMenuContext";
 import { Track } from "../types";
 
-// ... (ImageWithFallback component remains unchanged)
 const ImageWithFallback = ({
   src,
   alt,
@@ -91,7 +90,6 @@ const ImageWithFallback = ({
   );
 };
 
-// Track Card Component
 const TrackCard = ({
   track,
   isPlaying,
@@ -157,8 +155,6 @@ const TrackCard = ({
   );
 };
 
-// ... (AlbumCard/ArtistCard/Section/CardSkeleton same as before)
-// Album Card Component
 const AlbumCard = ({ album }: { album: LibraryAlbum }) => {
   return (
     <div className="group cursor-pointer p-3 rounded-xl hover:bg-theme-highlight/40 transition-all duration-200">
@@ -189,7 +185,6 @@ const AlbumCard = ({ album }: { album: LibraryAlbum }) => {
   );
 };
 
-// Artist Card Component
 const ArtistCard = ({ artist }: { artist: LibraryArtist }) => {
   return (
     <div className="group cursor-pointer p-3 rounded-xl hover:bg-theme-highlight/40 transition-all duration-200 text-center">
@@ -208,7 +203,6 @@ const ArtistCard = ({ artist }: { artist: LibraryArtist }) => {
   );
 };
 
-// Section Component
 const Section = ({
   title,
   children,
@@ -229,7 +223,6 @@ const Section = ({
   );
 };
 
-// Loading skeleton
 const CardSkeleton = ({
   count = 6,
   isArtist = false,
@@ -260,7 +253,6 @@ export const HomeView = () => {
   const [artists, setArtists] = useState<LibraryArtist[]>([]);
 
   const loadData = useCallback(async () => {
-    // ... (load logic remains unchanged)
     setLoading(true);
     try {
       const [tracksData, albumsData, artistsData] = await Promise.all([
@@ -294,9 +286,6 @@ export const HomeView = () => {
     e.stopPropagation();
 
     const trackAsTrack = track as unknown as Track;
-    // Simple heuristic - if it's in favorites array (needs simpler check in reality)
-    // For now, toggleFavorite handles logic, we just label "Toggle Like" or specific
-    // We'll stick to a generic "Add to Playlist" for now.
 
     showMenu(
       [
@@ -310,7 +299,7 @@ export const HomeView = () => {
             toggleFavorite({
               ...trackAsTrack,
               id: track.id || track.tidal_id?.toString() || "",
-            }), // best effort id
+            }),
         },
         {
           label: "Add to Playlist",
@@ -324,7 +313,6 @@ export const HomeView = () => {
     );
   };
 
-  // ... (rest of render logic)
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -362,7 +350,6 @@ export const HomeView = () => {
             </Section>
           </div>
         ) : isEmpty ? (
-          /* ... (Empty state logic same as before) ... */
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-32 h-32 rounded-full bg-theme-secondary/50 flex items-center justify-center mb-8">
               <svg
@@ -397,7 +384,6 @@ export const HomeView = () => {
             </div>
           </div>
         ) : (
-          /* Content */
           <>
             {/* Recent Tracks */}
             <Section title="Recent Tracks" isEmpty={tracks.length === 0}>

@@ -25,9 +25,9 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
-            let _playlist_manager_placeholder = (); // Delayed init dependency on DB
+            let _playlist_manager_placeholder = ();
 
-            // Initialize Tidal client (spawn in async task)
+
             let handle_clone = handle.clone();
             tauri::async_runtime::spawn(async move {
                 match tidal::TidalClient::new().await {
@@ -41,7 +41,7 @@ pub fn run() {
                 }
             });
 
-            // Initialize Database, Library & Playlist
+
             let handle_clone_db = handle.clone();
             tauri::async_runtime::spawn(async move {
                 match database::DatabaseManager::new(&handle_clone_db).await {
@@ -110,30 +110,30 @@ pub fn run() {
                 });
 
             app.manage(audio_manager);
-            // Playlist manager is now managed inside the async block once DB is ready
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::playlist::get_playlists,
             commands::playlist::create_playlist,
             commands::playlist::delete_playlist,
-            // commands::playlist::rename_playlist, // Removed for now or need implement
+
             commands::playlist::get_playlist_details,
             commands::playlist::add_tidal_track_to_playlist,
             commands::playlist::add_to_playlist,
             commands::playlist::remove_from_playlist,
             commands::playlist::get_playlists_containing_track,
-            // Favorites commands
+
             commands::favorites::add_favorite,
             commands::favorites::remove_favorite,
             commands::favorites::is_favorited,
             commands::favorites::get_favorites,
-            // History commands
+
             commands::history::record_play,
             commands::history::update_play_completion,
             commands::history::get_recent_plays,
             commands::history::get_play_count,
-            // Old playlist cmds replaced
+
             commands::import_music,
             commands::import_folder,
             commands::play_track,

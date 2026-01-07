@@ -43,11 +43,8 @@ pub async fn add_tidal_track_to_playlist(
     track: TidalTrack,
     cover_url: Option<String>,
 ) -> Result<(), String> {
-    // 1. Ensure track is in library
     library.import_tidal_track(&track, cover_url).await?;
 
-    // 2. Get local Track ID
-    // We can assume import worked, checking ID via tidal_id lookup
     let track_id_opt = playlist.find_track_id_by_tidal_id(track.id).await?;
 
     if let Some(track_id) = track_id_opt {
@@ -74,7 +71,6 @@ pub async fn add_to_playlist(
     playlist_id: String,
     track: UnifiedTrack,
 ) -> Result<(), String> {
-    // 1. Try to add direct if it's already a valid DB ID
     if playlist
         .add_track_entry(&playlist_id, &track.id)
         .await
@@ -83,16 +79,12 @@ pub async fn add_to_playlist(
         return Ok(());
     }
 
-    // 2. If valid DB ID failed (FK error), and it's Tidal, we might need to import
     if let Some(tidal_id) = track.tidal_id {
-        // Check if we already have it by tidal_id (maybe partial sync or race)
         if let Ok(Some(existing_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
             playlist.add_track_entry(&playlist_id, &existing_id).await?;
             return Ok(());
         }
 
-        // 3. Import from Tidal
-        // Reconstruct basic TidalTrack
         let tidal_track = TidalTrack {
             id: tidal_id,
             title: track.title.clone(),
@@ -118,15 +110,11 @@ pub async fn add_to_playlist(
             .import_tidal_track(&tidal_track, track.cover_image.clone())
             .await?;
 
-        // 4. Get new ID and add
         if let Ok(Some(new_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
             playlist.add_track_entry(&playlist_id, &new_id).await?;
             return Ok(());
         }
     }
-
-    // If source is local and first attempt failed, it means local track is gone?
-    // Or weird state.
 
     Err("Failed to add track to playlist".to_string())
 }

@@ -174,7 +174,6 @@ export const Sidebar = ({
           background: "transparent",
         }}
       >
-        {/* Main Navigation (Quick Access items promoted to top since Home is gone) */}
         <div className="mb-6 mt-2">
           {!isCollapsed && (
             <div className="px-3 mb-2 flex items-center justify-between">

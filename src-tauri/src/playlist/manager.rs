@@ -28,7 +28,6 @@ impl PlaylistManager {
             .await
             .map_err(|e| e.to_string())?;
 
-        // Fetch back to return
         let playlist = sqlx::query_as::<_, Playlist>("SELECT * FROM playlists WHERE id = ?")
             .bind(&id)
             .fetch_one(&self.pool)
@@ -96,8 +95,6 @@ impl PlaylistManager {
         .await
         .map_err(|e| e.to_string())?;
 
-        // Join playlist_tracks -> tracks -> artists/albums
-        // Similar to library generic search/get queries
         let rows = sqlx::query(
             r#"
             SELECT 
@@ -163,17 +160,7 @@ impl PlaylistManager {
         Ok(())
     }
 
-    // Advanced: Add Tidal Track to Playlist
-    // Needs to ensure track exists in library first.
-    // This duplicates some logic from LibraryManager::import_tidal_track but we can't easily reuse without refactoring.
-    // Ideally LibraryManager exposes a public "ensure_track_exists" or we move that logic to a shared helper?
-    // For now, I will assume we call `import_tidal_track` from command layer OR I replicate the check here.
-    // Actually, best "industry standard" approach:
-    // The Command should call library_manager.import_track(), then playlist_manager.add_track_id().
-    // But here I'll implement a raw `add_track_by_id` and ensuring existence is done before.
-
     pub async fn add_track_entry(&self, playlist_id: &str, track_id: &str) -> Result<(), String> {
-        // Get max position
         let max_pos: (i64,) = sqlx::query_as(
             "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?",
         )
@@ -215,7 +202,6 @@ impl PlaylistManager {
         Ok(())
     }
 
-    // Helper to find track ID by Tidal ID
     pub async fn find_track_id_by_tidal_id(&self, tidal_id: u64) -> Result<Option<String>, String> {
         let row = sqlx::query("SELECT id FROM tracks WHERE tidal_id = ?")
             .bind(tidal_id as i64)

@@ -66,7 +66,6 @@ impl TidalClient {
                         e
                     );
 
-                    // Handle rate limiting - async sleep
                     if let TidalError::NetworkError(ref msg) = e {
                         if msg.contains("429") {
                             log::warn!("Rate limited, sleeping {}ms", RATE_LIMIT_SLEEP_MS);
@@ -92,7 +91,6 @@ impl TidalClient {
         params: &[(&str, &str)],
         operation: &str,
     ) -> Result<Value, TidalError> {
-        // Use Url::parse_with_params to handle parameter encoding safely
         let url = reqwest::Url::parse_with_params(url, params)
             .map_err(|e| TidalError::NetworkError(format!("URL parse error: {}", e)))?;
 
@@ -101,7 +99,6 @@ impl TidalClient {
         let status = response.status();
         let url_debug = response.url().to_string();
 
-        // Read body text eagerly to log errors if needed
         let text = response
             .text()
             .await
@@ -128,14 +125,12 @@ impl TidalClient {
         let mut data: Value = serde_json::from_str(&text)
             .map_err(|e| TidalError::ParseError(format!("JSON error at {}: {}", url_debug, e)))?;
 
-        // Unwrap v2 wrapper if present
         if let Some(obj) = data.as_object() {
             if obj.contains_key("data") && obj.contains_key("version") {
                 data = obj.get("data").unwrap().clone();
             }
         }
 
-        // Validate response is not empty for search operations
         if operation.starts_with("search") {
             if let Some(obj) = data.as_object() {
                 let is_empty = if let Some(items) = obj.get("items").and_then(|v| v.as_array()) {
@@ -178,7 +173,6 @@ impl TidalClient {
         T: serde::de::DeserializeOwned,
     {
         if let Some(obj) = data.as_object() {
-            // Direct items array
             if let Some(items) = obj.get("items").and_then(|v| v.as_array()) {
                 return items
                     .iter()
@@ -186,7 +180,6 @@ impl TidalClient {
                     .collect();
             }
 
-            // Nested in key (e.g., "tracks": {"items": [...]})
             if let Some(nested) = obj.get(key).and_then(|v| v.as_object()) {
                 if let Some(items) = nested.get("items").and_then(|v| v.as_array()) {
                     return items
@@ -248,7 +241,6 @@ impl TidalClient {
             )
             .await?;
 
-        // Extract stream URL
         let url = Self::extract_stream_url(&data)?;
 
         Ok(TrackStreamInfo {
@@ -259,7 +251,6 @@ impl TidalClient {
     }
 
     fn extract_stream_url(data: &Value) -> Result<String, TidalError> {
-        // 1. Try direct URL fields
         if let Some(url) = data
             .get("url")
             .or_else(|| data.get("streamUrl"))
@@ -269,7 +260,6 @@ impl TidalClient {
             return Ok(url.to_string());
         }
 
-        // 2. Try manifest
         if let Some(manifest) = data.get("manifest").and_then(|v| v.as_str()) {
             use base64::Engine;
             let decoded_bytes = base64::engine::general_purpose::STANDARD
@@ -279,7 +269,6 @@ impl TidalClient {
             let decoded = String::from_utf8(decoded_bytes)
                 .map_err(|e| TidalError::ParseError(format!("Invalid UTF-8 manifest: {}", e)))?;
 
-            // Try parsing as JSON
             if let Ok(manifest_json) = serde_json::from_str::<Value>(&decoded) {
                 if let Some(urls) = manifest_json.get("urls").and_then(|v| v.as_array()) {
                     if let Some(url) = urls.first().and_then(|v| v.as_str()) {
@@ -297,7 +286,6 @@ impl TidalClient {
     }
 
     pub async fn get_track_metadata(&self, track_id: u64) -> Result<Track, TidalError> {
-        // Search for the track by ID to get full metadata
         let result = self.search_tracks(&track_id.to_string()).await?;
 
         result
