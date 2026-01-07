@@ -150,6 +150,9 @@ jobs:
           mkdir -p dist/sonami
           cp src-tauri/target/x86_64-unknown-linux-gnu/release/sonami dist/sonami/
           cp README.md LICENSE dist/sonami/ 2>/dev/null || true
+          # Copy icon and desktop file
+          cp src-tauri/icons/icon.png dist/sonami/sonami.png
+          cp aur/sonami.desktop dist/sonami/
           cd dist
           tar -czvf "sonami_${VERSION}_linux_x86_64.tar.gz" sonami
 
@@ -167,3 +170,40 @@ jobs:
         with:
           tag_name: v${{ needs.create-release.outputs.version }}
           draft: false
+
+  release-aur:
+    needs: [create-release, publish-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifact
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          version: tags/v${{ needs.create-release.outputs.version }}
+          file: sonami_${{ needs.create-release.outputs.version }}_linux_x86_64.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update PKGBUILD
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          SHA256=$(sha256sum sonami_${VERSION}_linux_x86_64.tar.gz | awk '{print $1}')
+          
+          # Update PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" aur/PKGBUILD
+          sed -i "s/sha256sums=.*/sha256sums=('${SHA256}')/" aur/PKGBUILD
+          
+          # Print for debugging
+          cat aur/PKGBUILD
+          
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: sonami-bin
+          pkgbuild: ./aur/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_PRIVATE_KEY }}
+          commit_message: "Update to v${{ needs.create-release.outputs.version }}"
+          ssh_keyscan_types: rsa,dsa,ecdsa,ed25519
+
