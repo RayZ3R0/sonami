@@ -102,3 +102,4 @@ test-music
 # ===========================
 commaro.md
 extracto.py
+scripts/publish_aur_manual.sh
