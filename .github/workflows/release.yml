@@ -131,7 +131,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           version: tags/v${{ needs.create-release.outputs.version }}
-          file: sonami_${{ needs.create-release.outputs.version }}_amd64.deb
+          file: Sonami_${{ needs.create-release.outputs.version }}_amd64.deb
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update PKGBUILD
@@ -140,7 +140,7 @@ jobs:
           # Arch Linux pkgver cannot contain hyphens. Replace with underscores.
           ARCH_VERSION="${VERSION//-/_}"
           
-          SHA256=$(sha256sum sonami_${VERSION}_amd64.deb | awk '{print $1}')
+          SHA256=$(sha256sum Sonami_${VERSION}_amd64.deb | awk '{print $1}')
           
           # Update PKGBUILD
           sed -i "s/pkgver=.*/pkgver=${ARCH_VERSION}/" aur/PKGBUILD

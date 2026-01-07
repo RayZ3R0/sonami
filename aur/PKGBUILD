@@ -10,11 +10,10 @@ license=('AGPL3')
 provides=('sonami')
 conflicts=('sonami')
 depends=('webkit2gtk-4.1' 'gtk3' 'openssl' 'alsa-lib' 'libappindicator-gtk3')
-source=("${pkgname}-${pkgver}.deb::https://github.com/RayZ3R0/sonami/releases/download/v${_upstream_ver}/sonami_${_upstream_ver}_amd64.deb")
+source=("${pkgname}-${pkgver}.deb::https://github.com/RayZ3R0/sonami/releases/download/v${_upstream_ver}/Sonami_${_upstream_ver}_amd64.deb")
 sha256sums=('SKIP') # This will be updated by the CI
 
 package() {
-    
     cd "${srcdir}"
     tar -xf data.tar.* -C "${pkgdir}"
 }
