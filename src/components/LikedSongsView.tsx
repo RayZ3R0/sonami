@@ -42,6 +42,22 @@ const formatTotalDuration = (seconds: number): string => {
     return `${mins} min`;
 };
 
+// Format relative date
+const formatRelativeDate = (timestamp?: number): string => {
+    if (!timestamp) return '';
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
+
+    // For older dates, show simple date
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString();
+};
+
 export const LikedSongsView = () => {
     const { currentTrack, playTrack, shuffle, toggleShuffle, isPlaying } = usePlayer();
 
@@ -68,14 +84,13 @@ export const LikedSongsView = () => {
 
     // Sorted favorites
     const sortedFavorites = useMemo(() => {
-        if (sortBy === 'date_added') {
-            // Default order from API (already sorted by liked_at DESC)
-            return sortDirection === 'desc' ? favorites : [...favorites].reverse();
-        }
-
         return [...favorites].sort((a, b) => {
             let comparison = 0;
             switch (sortBy) {
+                case 'date_added':
+                    // Default to 0 if undefined to push to bottom/top consistently
+                    comparison = (a.liked_at || 0) - (b.liked_at || 0);
+                    break;
                 case 'title':
                     comparison = a.title.localeCompare(b.title);
                     break;
@@ -104,7 +119,8 @@ export const LikedSongsView = () => {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
             setSortBy(column);
-            setSortDirection('asc');
+            // Default desc for date_added, asc for others
+            setSortDirection(column === 'date_added' ? 'desc' : 'asc');
         }
     };
 
@@ -249,6 +265,12 @@ export const LikedSongsView = () => {
                                     Artist <SortIndicator column="artist" />
                                 </th>
                                 <th
+                                    className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
+                                    onClick={() => handleSort('date_added')}
+                                >
+                                    Date Added <SortIndicator column="date_added" />
+                                </th>
+                                <th
                                     className="py-3 px-4 w-20 cursor-pointer hover:text-white transition-colors text-right"
                                     onClick={() => handleSort('duration')}
                                 >
@@ -311,9 +333,14 @@ export const LikedSongsView = () => {
                                                         </svg>
                                                     </div>
                                                 )}
-                                                <span className={`font-medium truncate ${isCurrentTrack ? 'text-pink-500' : 'text-white'}`}>
-                                                    {track.title}
-                                                </span>
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className={`font-medium truncate ${isCurrentTrack ? 'text-pink-500' : 'text-white'}`}>
+                                                        {track.title}
+                                                    </span>
+                                                    <span className="text-xs text-theme-muted truncate md:hidden">
+                                                        {track.artist}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </td>
 
@@ -325,6 +352,11 @@ export const LikedSongsView = () => {
                                         {/* Artist */}
                                         <td className="py-3 px-4 text-sm text-theme-muted truncate max-w-[150px]">
                                             {track.artist}
+                                        </td>
+
+                                        {/* Date Added */}
+                                        <td className="py-3 px-4 text-sm text-theme-muted truncate">
+                                            {formatRelativeDate(track.liked_at)}
                                         </td>
 
                                         {/* Duration */}

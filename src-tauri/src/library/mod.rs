@@ -204,6 +204,7 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                liked_at: None,
             });
         }
 
@@ -254,6 +255,7 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                liked_at: None,
             });
         }
 

@@ -73,7 +73,8 @@ impl FavoritesManager {
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
                 a.name as artist_name,
                 COALESCE(al.title, '') as album_title,
-                COALESCE(al.cover_url, a.cover_url) as cover_url
+                COALESCE(al.cover_url, a.cover_url) as cover_url,
+                f.liked_at
             FROM user_favorites f
             JOIN tracks t ON f.track_id = t.id
             JOIN artists a ON t.artist_id = a.id
@@ -109,6 +110,7 @@ impl FavoritesManager {
                     .ok()
                     .flatten()
                     .map(|v| v as u64),
+                liked_at: row.try_get("liked_at").ok(),
             });
         }
 

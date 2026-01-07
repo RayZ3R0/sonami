@@ -99,6 +99,7 @@ impl PlaylistManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                liked_at: None,
             });
         }
 

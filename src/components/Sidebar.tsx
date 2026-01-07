@@ -173,12 +173,12 @@ export const Sidebar = ({
                                     ? 'bg-theme-surface-active text-theme-primary'
                                     : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                                     }`}
-                                title={pl.name}
+                                title={pl.title}
                             >
                                 <span className={`w-5 h-5 flex items-center justify-center flex-shrink-0 text-theme-muted`}>
                                     {icons.music}
                                 </span>
-                                {!isCollapsed && <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.name}</span>}
+                                {!isCollapsed && <span className={`text-[13px] truncate ${PLAYLIST_TEXT_OFFSET}`}>{pl.title}</span>}
                             </button>
                         ))}
                     </div>

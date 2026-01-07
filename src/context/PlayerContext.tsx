@@ -23,8 +23,8 @@ interface PlayerContextType {
     tracks: Track[];
     currentTrack: Track | null;
     isPlaying: boolean;
-    
-    
+
+
     volume: number;
     shuffle: boolean;
     repeatMode: RepeatMode;
@@ -47,7 +47,7 @@ interface PlayerContextType {
     removeFromQueue: (trackId: string) => void;
     clearQueue: () => void;
     clearLibrary: () => void;
-    createPlaylist: (name: string) => Promise<void>;
+    createPlaylist: (name: string, description?: string) => Promise<void>;
     deletePlaylist: (id: string) => Promise<void>;
     renamePlaylist: (id: string, newName: string) => Promise<void>;
     addToPlaylist: (playlistId: string, track: Track) => Promise<void>;
@@ -115,12 +115,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const seekTarget = useRef<{ time: number, timestamp: number } | null>(null);
 
 
-    
+
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.TRACKS, JSON.stringify(tracks));
     }, [tracks]);
 
-    
+
     useEffect(() => {
         localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
     }, [volume]);
@@ -150,12 +150,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 try {
                     const info = await invoke<PlaybackInfo>("get_playback_info");
 
-                    
+
                     if (seekTarget.current) {
                         const diff = Math.abs(info.position - seekTarget.current.time);
                         const elapsed = Date.now() - seekTarget.current.timestamp;
 
-                        
+
                         if (diff < 0.5 || elapsed > 2000) {
                             seekTarget.current = null;
                             setCurrentTime(info.position);
@@ -190,7 +190,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    
+
     useEffect(() => {
         const syncState = async () => {
             try {
@@ -228,7 +228,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
 
-    
+
     const refreshPlaylists = async () => {
         try {
             const list = await invoke<Playlist[]>("get_playlists");
@@ -238,11 +238,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const createPlaylist = async (name: string) => {
+    const createPlaylist = async (name: string, description?: string) => {
         try {
-            
-            
-            const newPlaylist = await invoke<Playlist>("create_playlist", { name });
+            const newPlaylist = await invoke<Playlist>("create_playlist", { name, description });
             setPlaylists(prev => [...prev, newPlaylist]);
         } catch (e) {
             console.error("Failed to create playlist:", e);
@@ -270,7 +268,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const addToPlaylist = async (playlistId: string, track: Track) => {
         try {
             await invoke("add_to_playlist", { playlistId, track });
-            
             refreshPlaylists();
         } catch (e) {
             console.error("Failed to add to playlist:", e);
@@ -291,7 +288,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         try {
             const newTracks = await invoke<Track[]>("import_music");
             if (newTracks && newTracks.length > 0) {
-                
+
                 setTracks(prev => {
                     const existingPaths = new Set(prev.map(t => t.path));
                     const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
@@ -307,7 +304,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         try {
             const newTracks = await invoke<Track[]>("import_folder");
             if (newTracks && newTracks.length > 0) {
-                
+
                 setTracks(prev => {
                     const existingPaths = new Set(prev.map(t => t.path));
                     const uniqueNew = newTracks.filter(t => !existingPaths.has(t.path));
@@ -321,20 +318,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const playTrack = async (track: Track, contextQueue?: Track[]) => {
         try {
-            
+
             setCurrentTrack(track);
             setCurrentTime(0);
             setIsPlaying(true);
             seekTarget.current = null;
 
-            
-            
+
+
             const queueToSet = contextQueue && contextQueue.length > 0 ? contextQueue : tracks;
 
-            
+
             await invoke("set_queue", { tracks: queueToSet });
 
-            
+
             setQueue(queueToSet);
 
             await invoke("play_track", { path: track.path });
@@ -348,7 +345,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             if (isPlaying) {
                 await invoke("pause_track");
             } else {
-                
+
                 await invoke("resume_track");
             }
             setIsPlaying(!isPlaying);
@@ -362,7 +359,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             seekTarget.current = { time, timestamp: Date.now() };
             setCurrentTime(time);
             await invoke("seek_track", { position: time });
-            
+
         } catch (e) {
             console.error("Failed to seek:", e);
             seekTarget.current = null;
@@ -381,7 +378,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const nextTrack = async () => {
         try {
             await invoke("next_track");
-            
+
         } catch (e) {
             console.error("Failed to skip next:", e);
         }
@@ -406,7 +403,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const toggleRepeat = async () => {
         const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
-        setRepeatMode(nextMode); 
+        setRepeatMode(nextMode);
         try {
             await invoke("set_repeat_mode", { mode: nextMode });
         } catch (e) {
@@ -417,15 +414,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const addToQueue = async (track: Track) => {
         try {
             await invoke("add_to_queue", { track });
-            setQueue(prev => [...prev, track]); 
+            setQueue(prev => [...prev, track]);
         } catch (e) {
             console.error("Failed to add to queue:", e);
         }
     };
 
     const removeFromQueue = (trackId: string) => {
-        
-        
+
+
         setQueue(prev => prev.filter(t => t.id !== trackId));
     };
 
@@ -443,13 +440,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentTrack(null);
         setQueue([]);
         localStorage.removeItem(STORAGE_KEYS.TRACKS);
-        
+
         invoke("set_queue", { tracks: [] });
     };
 
     const queueNextTrack = async (track: Track) => {
-        
-        
+
+
         addToQueue(track);
     };
 
@@ -471,7 +468,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     };
 
 
-    
+
     const playerValue = useMemo(() => ({
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen, setIsQueueOpen,
@@ -487,7 +484,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         crossfadeEnabled, crossfadeDuration, playerBarStyle
     ]);
 
-    
+
     const playbackValue = useMemo(() => ({
         currentTime,
         duration
