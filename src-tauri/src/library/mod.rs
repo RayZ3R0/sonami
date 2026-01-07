@@ -1,5 +1,6 @@
 pub mod models;
 
+use crate::tidal::models::{CoverSize, get_cover_url};
 use models::{LibraryAlbum, LibraryArtist, TrackSource, UnifiedTrack};
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
@@ -258,6 +259,12 @@ impl LibraryManager {
             .map(|a| a.name.clone())
             .unwrap_or_else(|| "Unknown Artist".to_string());
 
+        let artist_cover_url = track
+            .artist
+            .as_ref()
+            .and_then(|a| a.picture.as_ref())
+            .map(|p| get_cover_url(p, CoverSize::Medium.px()));
+
         // 1. Check if Artist Exists
         let artist_id = if let Some(row) = sqlx::query("SELECT id FROM artists WHERE name = ?")
             .bind(&artist_name)
@@ -268,10 +275,11 @@ impl LibraryManager {
             row.try_get::<String, _>("id").unwrap_or_default()
         } else {
             let new_id = Uuid::new_v4().to_string();
-            sqlx::query("INSERT INTO artists (id, name, tidal_id) VALUES (?, ?, ?)")
+            sqlx::query("INSERT INTO artists (id, name, tidal_id, cover_url) VALUES (?, ?, ?, ?)")
                 .bind(&new_id)
                 .bind(&artist_name)
                 .bind(0i64)
+                .bind(&artist_cover_url)
                 .execute(&mut *tx)
                 .await
                 .map_err(|e| e.to_string())?;

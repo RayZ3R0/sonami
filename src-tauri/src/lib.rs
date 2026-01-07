@@ -24,7 +24,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
-            let playlist_manager = PlaylistManager::new(&handle);
+            let playlist_manager_placeholder = (); // Delayed init dependency on DB
 
             // Initialize Tidal client (spawn in async task)
             let handle_clone = handle.clone();
@@ -40,7 +40,7 @@ pub fn run() {
                 }
             });
 
-            // Initialize Database & Library
+            // Initialize Database, Library & Playlist
             let handle_clone_db = handle.clone();
             tauri::async_runtime::spawn(async move {
                 match database::DatabaseManager::new(&handle_clone_db).await {
@@ -48,10 +48,13 @@ pub fn run() {
                         let pool = db.pool.clone();
                         handle_clone_db.manage(db);
 
-                        let lib = library::LibraryManager::new(pool);
+                        let lib = library::LibraryManager::new(pool.clone());
                         handle_clone_db.manage(lib);
 
-                        log::info!("Database & Library initialized successfully");
+                        let pl_manager = playlist::PlaylistManager::new(pool);
+                        handle_clone_db.manage(pl_manager);
+
+                        log::info!("Database, Library & Playlist Manager initialized successfully");
                     }
                     Err(e) => {
                         log::error!("Failed to initialize database: {}", e);
@@ -100,16 +103,17 @@ pub fn run() {
                 });
 
             app.manage(audio_manager);
-            app.manage(playlist_manager);
+            // Playlist manager is now managed inside the async block once DB is ready
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            playlist::get_playlists,
-            playlist::create_playlist,
-            playlist::delete_playlist,
-            playlist::rename_playlist,
-            playlist::add_to_playlist,
-            playlist::remove_from_playlist,
+            commands::playlist::get_playlists,
+            commands::playlist::create_playlist,
+            commands::playlist::delete_playlist,
+            // commands::playlist::rename_playlist, // Removed for now or need implement
+            commands::playlist::get_playlist_details, 
+            commands::playlist::add_tidal_track_to_playlist,
+            // Old playlist cmds replaced
             commands::import_music,
             commands::import_folder,
             commands::play_track,

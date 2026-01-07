@@ -6,7 +6,7 @@ import { usePlayer } from '../context/PlayerContext';
 interface TidalTrack {
     id: number;
     title: string;
-    artist?: { id?: number; name: string };
+    artist?: { id?: number; name: string; picture?: string };
     album?: { id?: number; title: string; cover?: string };
     duration?: number;
     audioQuality?: string;
@@ -262,7 +262,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
             const backendTrack = {
                 id: track.id,
                 title: track.title,
-                artist: track.artist ? { id: track.artist.id || 0, name: track.artist.name } : undefined,
+                artist: track.artist ? { id: track.artist.id || 0, name: track.artist.name, picture: track.artist.picture } : undefined,
                 album: track.album ? { id: track.album.id || 0, title: track.album.title, cover: track.album.cover } : undefined,
                 duration: track.duration,
                 audioQuality: track.audioQuality || track.audio_quality,
@@ -311,7 +311,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                         onChange={e => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Search your library and Tidal..."
-                        className="flex-1 bg-transparent text-lg text-theme-primary placeholder:text-theme-muted/60 focus:outline-none pt-[3px]"
+                        className="flex-1 bg-transparent text-lg text-theme-primary placeholder:text-theme-muted/60 focus:outline-none pt-[5px]"
                         autoComplete="off"
                         autoCorrect="off"
                         spellCheck={false}
