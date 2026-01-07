@@ -1,12 +1,12 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::queue::Track;
 
@@ -79,18 +79,15 @@ fn download_worker(
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(300)) // 5 minute timeout for large files
         .build()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
 
     let mut response = client
         .get(&url)
         .send()
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
+        .map_err(io::Error::other)?;
 
     if !response.status().is_success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("HTTP {}", response.status()),
-        ));
+        return Err(io::Error::other(format!("HTTP {}", response.status())));
     }
 
     let total_size = response.content_length().unwrap_or(0);

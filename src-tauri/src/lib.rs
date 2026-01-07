@@ -13,7 +13,6 @@ pub mod queue;
 pub mod tidal;
 
 use audio::AudioManager;
-use playlist::PlaylistManager;
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -26,7 +25,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());
-            let playlist_manager_placeholder = (); // Delayed init dependency on DB
+            let _playlist_manager_placeholder = (); // Delayed init dependency on DB
 
             // Initialize Tidal client (spawn in async task)
             let handle_clone = handle.clone();

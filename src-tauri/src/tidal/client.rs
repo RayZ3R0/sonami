@@ -51,13 +51,13 @@ impl TidalClient {
                 url
             );
 
-            match self.try_endpoint(&endpoint, &url, params, operation).await {
+            match self.try_endpoint(endpoint, &url, params, operation).await {
                 Ok(data) => {
-                    self.endpoint_manager.record_success(&endpoint);
+                    self.endpoint_manager.record_success(endpoint);
                     return Ok(data);
                 }
                 Err(e) => {
-                    self.endpoint_manager.record_failure(&endpoint);
+                    self.endpoint_manager.record_failure(endpoint);
                     log::warn!(
                         "[{}/{}] {} failed: {}",
                         idx + 1,
@@ -144,22 +144,22 @@ impl TidalClient {
                     obj.get("tracks")
                         .and_then(|t| t.get("items"))
                         .and_then(|i| i.as_array())
-                        .map_or(true, |a| a.is_empty())
+                        .is_none_or(|a| a.is_empty())
                 } else if operation.contains("albums") {
                     obj.get("albums")
                         .and_then(|t| t.get("items"))
                         .and_then(|i| i.as_array())
-                        .map_or(true, |a| a.is_empty())
+                        .is_none_or(|a| a.is_empty())
                 } else if operation.contains("artists") {
                     obj.get("artists")
                         .and_then(|t| t.get("items"))
                         .and_then(|i| i.as_array())
-                        .map_or(true, |a| a.is_empty())
+                        .is_none_or(|a| a.is_empty())
                 } else if operation.contains("playlists") {
                     obj.get("playlists")
                         .and_then(|t| t.get("items"))
                         .and_then(|i| i.as_array())
-                        .map_or(true, |a| a.is_empty())
+                        .is_none_or(|a| a.is_empty())
                 } else {
                     false
                 };
@@ -282,7 +282,7 @@ impl TidalClient {
             // Try parsing as JSON
             if let Ok(manifest_json) = serde_json::from_str::<Value>(&decoded) {
                 if let Some(urls) = manifest_json.get("urls").and_then(|v| v.as_array()) {
-                    if let Some(url) = urls.get(0).and_then(|v| v.as_str()) {
+                    if let Some(url) = urls.first().and_then(|v| v.as_str()) {
                         return Ok(url.to_string());
                     }
                 }

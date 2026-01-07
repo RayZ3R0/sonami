@@ -2,8 +2,6 @@ pub mod file;
 pub mod http;
 pub mod prefetch;
 
-use std::io::{self, Read, Seek, SeekFrom};
-
 pub use symphonia::core::io::MediaSource;
 
 #[derive(Clone, Debug, PartialEq)]

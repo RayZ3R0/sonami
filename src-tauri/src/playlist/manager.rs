@@ -1,6 +1,5 @@
 use super::models::{Playlist, PlaylistDetails};
 use crate::library::models::{TrackSource, UnifiedTrack};
-use crate::tidal::models::Track as TidalTrack;
 use chrono::Utc;
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;

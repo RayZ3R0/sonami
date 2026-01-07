@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use super::{MediaSource, SourceMetadata, SourceType};
+use super::MediaSource;
 
 pub struct FileSource {
     file: File,
-    path: PathBuf,
+    _path: PathBuf,
     size: u64,
     position: u64,
 }
@@ -19,7 +19,7 @@ impl FileSource {
 
         Ok(Self {
             file,
-            path: path.to_owned(),
+            _path: path.to_owned(),
             size,
             position: 0,
         })

@@ -80,7 +80,7 @@ pub fn decoder_thread(
             match cmd {
                 DecoderCommand::Load(path) => {
                     let source_res = resolve_source(&path).map_err(|e| e.to_string());
-                    match source_res.and_then(|src| load_track(src)) {
+                    match source_res.and_then(load_track) {
                         Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
                             buffer_a.clear();
                             buffer_b.clear();
@@ -639,7 +639,7 @@ fn resolve_source(uri: &str) -> std::io::Result<Box<dyn MediaSource>> {
 pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
     let mss = MediaSourceStream::new(source, Default::default());
 
-    let mut hint = Hint::new();
+    let hint = Hint::new();
     // Hint based on content type or extension from metadata could go here
     // For now we rely on Symphonia probing
 

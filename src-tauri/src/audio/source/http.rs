@@ -2,7 +2,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_TYPE, RANGE};
 use std::io::{self, Read, Seek, SeekFrom};
 
-use super::{MediaSource, SourceMetadata, SourceType};
+use super::MediaSource;
 
 pub struct HttpSource {
     url: String,
@@ -10,7 +10,7 @@ pub struct HttpSource {
     position: u64,
     reader: Option<Box<dyn Read + Send + Sync>>,
     client: Client,
-    content_type: Option<String>,
+    _content_type: Option<String>,
 }
 
 impl HttpSource {
@@ -18,7 +18,7 @@ impl HttpSource {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            .map_err(io::Error::other)?;
 
         let resp = client
             .head(url)
@@ -38,13 +38,13 @@ impl HttpSource {
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok());
 
-        let content_type = resp
+        let _content_type = resp
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
 
-        let accept_ranges = resp
+        let _accept_ranges = resp
             .headers()
             .get(ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
@@ -57,7 +57,7 @@ impl HttpSource {
             position: 0,
             reader: None,
             client,
-            content_type,
+            _content_type,
         })
     }
 
@@ -82,10 +82,10 @@ impl HttpSource {
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
         if !resp.status().is_success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("HTTP stream error: {}", resp.status()),
-            ));
+            return Err(io::Error::other(format!(
+                "HTTP stream error: {}",
+                resp.status()
+            )));
         }
 
         self.reader = Some(Box::new(resp));

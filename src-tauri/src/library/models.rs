@@ -16,11 +16,11 @@ impl From<String> for TrackSource {
     }
 }
 
-impl ToString for TrackSource {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for TrackSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TrackSource::Tidal => "TIDAL".to_string(),
-            TrackSource::Local => "LOCAL".to_string(),
+            TrackSource::Tidal => write!(f, "TIDAL"),
+            TrackSource::Local => write!(f, "LOCAL"),
         }
     }
 }
