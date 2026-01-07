@@ -284,7 +284,10 @@ pub async fn next_track(
 
     if let Some(ref track) = next_track {
         match resolve_path(&track.path, &tidal_state).await {
-            Ok(play_path) => state.play(play_path),
+            Ok(play_path) => {
+                state.play(play_path);
+                // Decoder will set is_playing=true after buffers are cleared
+            }
             Err(e) => return Err(e),
         }
 
@@ -310,7 +313,10 @@ pub async fn prev_track(
 
     if let Some(ref track) = prev_track {
         match resolve_path(&track.path, &tidal_state).await {
-            Ok(play_path) => state.play(play_path),
+            Ok(play_path) => {
+                state.play(play_path);
+                // Decoder will set is_playing=true after buffers are cleared
+            }
             Err(e) => return Err(e),
         }
 

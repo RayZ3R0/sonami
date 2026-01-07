@@ -161,9 +161,87 @@ export const PlayerBar = () => {
   } = usePlayer();
   const { currentTime, duration } = usePlaybackProgress();
   const seekBarRef = useRef<HTMLDivElement>(null);
+  const volumeBarRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
+  const [isVolumeDragging, setIsVolumeDragging] = useState(false);
+  const [dragVolume, setDragVolume] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!seekBarRef.current) return;
+      const rect = seekBarRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const percent = x / rect.width;
+      setDragPosition(percent * duration);
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (dragPosition !== null) {
+        seek(dragPosition);
+      }
+      setIsDragging(false);
+      setDragPosition(null);
+    };
+
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [isDragging, dragPosition, duration, seek]);
+
+  useEffect(() => {
+    if (!isVolumeDragging) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!volumeBarRef.current) return;
+      const rect = volumeBarRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const newVolume = x / rect.width;
+      setDragVolume(newVolume);
+      setVolume(newVolume);
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsVolumeDragging(false);
+      setDragVolume(null);
+    };
+
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [isVolumeDragging, setVolume]);
+
+  const handleVolumeWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      setVolume(Math.max(0, Math.min(1, volume + delta)));
+    },
+    [volume, setVolume],
+  );
+
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!volumeBarRef.current) return;
+    const rect = volumeBarRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const newVolume = x / rect.width;
+    setVolume(newVolume);
+    setDragVolume(newVolume);
+    setIsVolumeDragging(true);
+  };
 
   const openFullScreen = useCallback(() => {
     setIsFullScreenOpen(true);
@@ -175,30 +253,30 @@ export const PlayerBar = () => {
 
   if (!currentTrack) return null;
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const displayTime =
+    isDragging && dragPosition !== null ? dragPosition : currentTime;
+  const progress = duration > 0 ? (displayTime / duration) * 100 : 0;
 
   const handleSeekStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    setIsDragging(true);
-    handleSeekMove(e);
-  };
-
-  const handleSeekMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
     if (!seekBarRef.current) return;
     const rect = seekBarRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const percent = x / rect.width;
-    setHoverPosition(percent * duration);
-
-    if (isDragging) {
-      seek(percent * duration);
-    }
+    setDragPosition(percent * duration);
+    setIsDragging(true);
   };
 
-  const handleSeekEnd = () => {
-    setIsDragging(false);
+  const handleSeekHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!seekBarRef.current || isDragging) return;
+    const rect = seekBarRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percent = x / rect.width;
+    setHoverPosition(percent * duration);
   };
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDragging) return;
     if (!seekBarRef.current) return;
     const rect = seekBarRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -384,17 +462,21 @@ export const PlayerBar = () => {
                   )}
                 </button>
                 <div
-                  className="w-20 h-1 progress-track overflow-hidden cursor-pointer group-hover:h-1.5 transition-all"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    setVolume(Math.max(0, Math.min(1, x / rect.width)));
-                  }}
+                  ref={volumeBarRef}
+                  className="w-20 h-4 flex items-center cursor-pointer group"
+                  onMouseDown={handleVolumeMouseDown}
+                  onWheel={handleVolumeWheel}
                 >
-                  <div
-                    className="h-full progress-fill"
-                    style={{ width: `${volume * 100}%` }}
-                  />
+                  <div className="w-full h-1 progress-track overflow-hidden group-hover:h-1.5 transition-all relative">
+                    <div
+                      className="h-full progress-fill"
+                      style={{ width: `${volume * 100}%` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-theme-primary rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ left: `calc(${volume * 100}% - 5px)` }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -411,7 +493,7 @@ export const PlayerBar = () => {
           <div className="px-4 pb-3 pt-1">
             <div className="flex items-center gap-3">
               <span className="text-[11px] font-mono text-theme-secondary w-12 text-right tabular-nums">
-                {formatTime(currentTime)}
+                {formatTime(displayTime)}
               </span>
 
               <div
@@ -419,12 +501,8 @@ export const PlayerBar = () => {
                 className="flex-1 h-6 flex items-center cursor-pointer group"
                 onClick={handleSeekClick}
                 onMouseDown={handleSeekStart}
-                onMouseMove={handleSeekMove}
-                onMouseUp={handleSeekEnd}
-                onMouseLeave={() => {
-                  handleSeekEnd();
-                  setHoverPosition(null);
-                }}
+                onMouseMove={handleSeekHover}
+                onMouseLeave={() => setHoverPosition(null)}
               >
                 <div className="w-full h-1 progress-track relative group-hover:h-1.5 transition-all">
                   <div className="absolute inset-0 rounded-full overflow-hidden">
@@ -434,7 +512,7 @@ export const PlayerBar = () => {
                     />
                   </div>
 
-                  {hoverPosition !== null && (
+                  {hoverPosition !== null && !isDragging && (
                     <div
                       className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-theme-surface-active rounded-full"
                       style={{ left: `${(hoverPosition / duration) * 100}%` }}

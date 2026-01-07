@@ -82,10 +82,19 @@ pub fn decoder_thread(
                     let source_res = resolve_source(&path).map_err(|e| e.to_string());
                     match source_res.and_then(load_track) {
                         Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
+                            // Clear buffers while playback is paused (set in AudioManager::play)
                             buffer_a.clear();
                             buffer_b.clear();
                             input_accumulator.clear();
                             next_input_accumulator.clear();
+                            crossfade_active.store(false, Ordering::Relaxed);
+                            next_decoder = None;
+                            next_track_info = None;
+                            sample_buf = None;
+                            next_sample_buf = None;
+                            crossfade_state = CrossfadeState::Idle;
+
+                            // Set up new decoder state
                             state.position_samples.store(0, Ordering::Relaxed);
                             state
                                 .duration_samples
@@ -93,14 +102,7 @@ pub fn decoder_thread(
                             state
                                 .sample_rate
                                 .store(sample_rate as u64, Ordering::Relaxed);
-                            state.is_playing.store(true, Ordering::Relaxed);
-                            crossfade_active.store(false, Ordering::Relaxed);
                             current_decoder = Some((reader, decoder, track_id));
-                            next_decoder = None;
-                            next_track_info = None;
-                            sample_buf = None;
-                            next_sample_buf = None;
-                            crossfade_state = CrossfadeState::Idle;
 
                             let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                             if device_rate != 0 && device_rate != sample_rate {
@@ -126,6 +128,11 @@ pub fn decoder_thread(
                             } else {
                                 resampler = None;
                             }
+
+                            // Memory fence to ensure all setup is complete
+                            std::sync::atomic::fence(Ordering::SeqCst);
+                            // Resume playback with clean buffers and new track loaded
+                            state.is_playing.store(true, Ordering::Release);
                         }
                         Err(e) => {
                             let filename = Path::new(&path)

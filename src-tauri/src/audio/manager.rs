@@ -22,6 +22,8 @@ pub struct AudioManager {
     pub media_controls: Arc<MediaControlsManager>,
     pub crossfade_duration_ms: Arc<AtomicU32>,
     pub crossfade_active: Arc<AtomicBool>,
+    buffer_a: Arc<AudioBuffer>,
+    buffer_b: Arc<AudioBuffer>,
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
     shutdown: Arc<AtomicBool>,
 }
@@ -76,6 +78,8 @@ impl AudioManager {
             media_controls,
             crossfade_duration_ms,
             crossfade_active,
+            buffer_a,
+            buffer_b,
             shutdown,
         }
     }
@@ -85,11 +89,27 @@ impl AudioManager {
     }
 
     pub fn play(&self, path: String) {
+        
+        self.state.is_playing.store(false, Ordering::SeqCst);
+        
+        
+        std::sync::atomic::fence(Ordering::SeqCst);
+        
+        
+        self.buffer_a.clear();
+        self.buffer_b.clear();
+        
+        
+        self.state.position_samples.store(0, Ordering::Relaxed);
+        
+        
         {
             let mut q = self.queue.write();
             q.play_track_by_path(&path);
         }
         *self.state.current_path.write() = Some(path.clone());
+        
+        
         let _ = self.command_tx.send(DecoderCommand::Load(path));
     }
 

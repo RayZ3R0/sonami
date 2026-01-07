@@ -185,7 +185,7 @@ where
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
             let callback_num = debug_callback_count.fetch_add(1, Ordering::Relaxed);
 
-            let is_playing = state.is_playing.load(Ordering::Relaxed);
+            let is_playing = state.is_playing.load(Ordering::Acquire);
             let volume = state.get_volume();
 
             if !is_playing {
