@@ -166,6 +166,7 @@ pub fn run() {
             commands::play_tidal_track,
             commands::get_tidal_stream_url,
             commands::refresh_tidal_cache,
+            commands::fetch_image_as_data_url,
             commands::library::get_library_tracks,
             commands::library::get_library_albums,
             commands::library::get_library_artists,

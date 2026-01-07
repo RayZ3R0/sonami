@@ -505,6 +505,37 @@ pub async fn get_tidal_stream_url(
 }
 
 #[tauri::command]
+pub async fn fetch_image_as_data_url(url: String) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
+
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch image: {}", e))?;
+
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+
+    let base64_data = general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", content_type, base64_data))
+}
+
+#[tauri::command]
 pub async fn refresh_tidal_cache(
     _state: State<'_, crate::tidal::TidalClient>,
 ) -> Result<(), String> {

@@ -53,6 +53,8 @@ const LyricLine = memo(
 
 LyricLine.displayName = "LyricLine";
 
+const imageCache = new Map<string, string>();
+
 export const FullScreenView = memo(
   ({ isOpen, onClose }: FullScreenViewProps) => {
     const { currentTrack, isPlaying } = usePlayer();
@@ -167,50 +169,111 @@ export const FullScreenView = memo(
       };
     }, [isOpen, handleKeyDown]);
 
-    const extractColors = useCallback((imageUrl: string) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = imageUrl;
+    const getDefaultGradient = useCallback(() => {
+      const cDark = [15, 15, 25];
+      const c1 = [40, 40, 60];
+      const c2 = [30, 30, 50];
+      const c3 = [20, 20, 40];
+      return {
+        solid: {
+          background: `
+            radial-gradient(at 0% 0%, rgba(${c2[0]},${c2[1]},${c2[2]},1) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(${c3[0]},${c3[1]},${c3[2]},1) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(${c1[0]},${c1[1]},${c1[2]},1) 0px, transparent 50%),
+            linear-gradient(to right, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1), rgba(${c1[0]},${c1[1]},${c1[2]},1))
+          `,
+        },
+        shadow: {
+          background: `rgb(${cDark[0]}, ${cDark[1]}, ${cDark[2]})`,
+        },
+      };
+    }, []);
 
-      img.onload = () => {
-        try {
-          const colorThief = new ColorThief();
-          const palette = colorThief.getPalette(img, 10);
+    const extractColors = useCallback(
+      (imageUrl: string) => {
+        const processImage = async () => {
+          try {
+            let processableUrl = imageUrl;
 
-          if (palette && palette.length >= 2) {
-            const getLuminance = (rgb: number[]) =>
-              0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-            const darkestColor = [...palette].sort(
-              (a, b) => getLuminance(a) - getLuminance(b),
-            )[0];
+            if (
+              imageUrl.startsWith("http://") ||
+              imageUrl.startsWith("https://")
+            ) {
+              if (imageCache.has(imageUrl)) {
+                processableUrl = imageCache.get(imageUrl)!;
+              } else {
+                const { invoke } = await import("@tauri-apps/api/core");
+                const dataUrl = await invoke<string>(
+                  "fetch_image_as_data_url",
+                  { url: imageUrl },
+                );
+                imageCache.set(imageUrl, dataUrl);
+                processableUrl = dataUrl;
+              }
+            }
 
-            const c1 = palette[0];
-            const c2 = palette[4] || palette[1];
-            const c3 = palette[8] || palette[2];
-            const cDark = darkestColor || [0, 0, 0];
+            const img = new Image();
 
-            const shadowStyle = {
-              background: `rgb(${cDark[0]}, ${cDark[1]}, ${cDark[2]})`,
+            img.onerror = () => {
+              console.warn(
+                "Failed to load image for color extraction, using fallback",
+              );
+              setLayerStyles(getDefaultGradient());
             };
 
-            const solidStyle = {
-              background: `
+            img.onload = () => {
+              try {
+                const colorThief = new ColorThief();
+                const palette = colorThief.getPalette(img, 10);
+
+                if (palette && palette.length >= 2) {
+                  const getLuminance = (rgb: number[]) =>
+                    0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+                  const darkestColor = [...palette].sort(
+                    (a, b) => getLuminance(a) - getLuminance(b),
+                  )[0];
+
+                  const c1 = palette[0];
+                  const c2 = palette[4] || palette[1];
+                  const c3 = palette[8] || palette[2];
+                  const cDark = darkestColor || [0, 0, 0];
+
+                  const shadowStyle = {
+                    background: `rgb(${cDark[0]}, ${cDark[1]}, ${cDark[2]})`,
+                  };
+
+                  const solidStyle = {
+                    background: `
                             radial-gradient(at 0% 0%, rgba(${c2[0]},${c2[1]},${c2[2]},1) 0px, transparent 50%),
                             radial-gradient(at 100% 0%, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1) 0px, transparent 50%),
                             radial-gradient(at 100% 100%, rgba(${c3[0]},${c3[1]},${c3[2]},1) 0px, transparent 50%),
                             radial-gradient(at 0% 100%, rgba(${c1[0]},${c1[1]},${c1[2]},1) 0px, transparent 50%),
                             linear-gradient(to right, rgba(${cDark[0]},${cDark[1]},${cDark[2]},1), rgba(${c1[0]},${c1[1]},${c1[2]},1))
                         `,
+                  };
+
+                  setLayerStyles({ solid: solidStyle, shadow: shadowStyle });
+                } else {
+                  setLayerStyles(getDefaultGradient());
+                }
+              } catch (e) {
+                console.error("Color extraction error:", e);
+                setLayerStyles(getDefaultGradient());
+              }
             };
 
-            setLayerStyles({ solid: solidStyle, shadow: shadowStyle });
+            img.src = processableUrl;
+          } catch (e) {
+            console.error("Failed to fetch image:", e);
+            setLayerStyles(getDefaultGradient());
           }
-        } catch (e) {
-          console.error("Color extraction error:", e);
-          setLayerStyles({ solid: {}, shadow: {} });
-        }
-      };
-    }, []);
+        };
+
+        processImage();
+      },
+      [getDefaultGradient],
+    );
 
     const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
     const [isSynced, setIsSynced] = useState(false);
