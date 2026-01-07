@@ -122,6 +122,8 @@ pub fn run() {
             commands::playlist::get_playlist_details,
             commands::playlist::add_tidal_track_to_playlist,
             commands::playlist::add_to_playlist,
+            commands::playlist::remove_from_playlist,
+            commands::playlist::get_playlists_containing_track,
             // Favorites commands
             commands::favorites::add_favorite,
             commands::favorites::remove_favorite,

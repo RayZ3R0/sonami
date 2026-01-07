@@ -59,14 +59,36 @@ const formatRelativeDate = (timestamp?: number): string => {
 };
 
 export const LikedSongsView = () => {
-    const { currentTrack, playTrack, shuffle, toggleShuffle, isPlaying } = usePlayer();
+    const { currentTrack, playTrack, shuffle, toggleShuffle, isPlaying, dataVersion, refreshFavorites } = usePlayer();
 
     const [favorites, setFavorites] = useState<UnifiedTrack[]>([]);
     const [loading, setLoading] = useState(true);
-    const [sortBy, setSortBy] = useState<SortColumn>('date_added');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-    // Fetch favorites on mount
+    // Sort preferences - persisted in localStorage
+    const sortStorageKey = 'sonami-liked-songs-sort';
+    const [sortBy, setSortBy] = useState<SortColumn>(() => {
+        const saved = localStorage.getItem(sortStorageKey);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.sortBy || 'date_added';
+        }
+        return 'date_added'; // Default: recently added
+    });
+    const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+        const saved = localStorage.getItem(sortStorageKey);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.sortDirection || 'desc';
+        }
+        return 'desc'; // Default: newest first
+    });
+
+    // Save sort preferences
+    useEffect(() => {
+        localStorage.setItem(sortStorageKey, JSON.stringify({ sortBy, sortDirection }));
+    }, [sortBy, sortDirection]);
+
+    // Fetch favorites on mount and when dataVersion changes
     useEffect(() => {
         const fetchFavorites = async () => {
             setLoading(true);
@@ -80,7 +102,7 @@ export const LikedSongsView = () => {
             }
         };
         fetchFavorites();
-    }, []);
+    }, [dataVersion]); // Re-fetch when dataVersion changes
 
     // Sorted favorites
     const sortedFavorites = useMemo(() => {
@@ -158,6 +180,7 @@ export const LikedSongsView = () => {
         try {
             await removeFavorite(trackId);
             setFavorites(prev => prev.filter(t => t.id !== trackId));
+            refreshFavorites(); // Sync context and bump version
         } catch (err) {
             console.error('Failed to unfavorite:', err);
         }
@@ -213,7 +236,7 @@ export const LikedSongsView = () => {
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
-                        Play
+                        <span className="pt-[2px]">Play</span>
                     </button>
                     <button
                         onClick={handleShufflePlay}
@@ -226,12 +249,12 @@ export const LikedSongsView = () => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
                         </svg>
-                        Shuffle
+                        <span className="pt-[2px]">Shuffle</span>
                     </button>
                 </div>
             </div>
 
-            {/* Table */}
+            {/* Track List */}
             {favorites.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-theme-muted">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-16 h-16 mb-4 opacity-30">
@@ -241,146 +264,122 @@ export const LikedSongsView = () => {
                     <p className="text-sm opacity-60 mt-1">Like songs to see them here</p>
                 </div>
             ) : (
-                <div className="flex-1 overflow-auto px-8">
-                    <table className="w-full">
-                        <thead className="sticky top-0 bg-theme-background-secondary z-10">
-                            <tr className="text-left text-xs font-semibold text-theme-muted uppercase tracking-wider border-b border-white/5">
-                                <th className="py-3 px-4 w-12">#</th>
-                                <th
-                                    className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
-                                    onClick={() => handleSort('title')}
-                                >
-                                    Title <SortIndicator column="title" />
-                                </th>
-                                <th
-                                    className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
-                                    onClick={() => handleSort('album')}
-                                >
-                                    Album <SortIndicator column="album" />
-                                </th>
-                                <th
-                                    className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
-                                    onClick={() => handleSort('artist')}
-                                >
-                                    Artist <SortIndicator column="artist" />
-                                </th>
-                                <th
-                                    className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
-                                    onClick={() => handleSort('date_added')}
-                                >
-                                    Date Added <SortIndicator column="date_added" />
-                                </th>
-                                <th
-                                    className="py-3 px-4 w-20 cursor-pointer hover:text-white transition-colors text-right"
-                                    onClick={() => handleSort('duration')}
-                                >
-                                    <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <polyline points="12 6 12 12 16 14" />
-                                    </svg>
-                                    <SortIndicator column="duration" />
-                                </th>
-                                <th className="py-3 px-4 w-12"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedFavorites.map((track, index) => {
-                                const isCurrentTrack = currentTrack?.id === track.id;
-                                return (
-                                    <tr
-                                        key={track.id}
-                                        onClick={() => handlePlayTrack(track)}
-                                        className={`group cursor-pointer transition-colors ${isCurrentTrack
-                                            ? 'bg-pink-500/10'
-                                            : 'hover:bg-white/5'
-                                            }`}
-                                    >
-                                        {/* Number / Playing indicator */}
-                                        <td className="py-3 px-4 text-sm text-theme-muted">
-                                            {isCurrentTrack && isPlaying ? (
-                                                <div className="flex items-center justify-center">
-                                                    <div className="flex gap-0.5 items-end h-4">
-                                                        <div className="w-1 bg-pink-500 animate-[equalizer_0.5s_ease-in-out_infinite]" style={{ height: '60%' }} />
-                                                        <div className="w-1 bg-pink-500 animate-[equalizer_0.5s_ease-in-out_infinite_0.1s]" style={{ height: '100%' }} />
-                                                        <div className="w-1 bg-pink-500 animate-[equalizer_0.5s_ease-in-out_infinite_0.2s]" style={{ height: '40%' }} />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <span className={`group-hover:hidden ${isCurrentTrack ? 'text-pink-500' : ''}`}>
-                                                    {index + 1}
-                                                </span>
-                                            )}
-                                            {!isCurrentTrack && (
-                                                <svg className="w-4 h-4 hidden group-hover:block" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M8 5v14l11-7z" />
-                                                </svg>
-                                            )}
-                                        </td>
+                <div className="flex flex-col flex-1 overflow-auto px-8">
+                    {/* Header Row */}
+                    <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 border-b border-white/5 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+                        <span>#</span>
+                        <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('title')}>
+                            Title <SortIndicator column="title" />
+                        </span>
+                        <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('album')}>
+                            Album <SortIndicator column="album" />
+                        </span>
+                        <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('artist')}>
+                            Artist <SortIndicator column="artist" />
+                        </span>
+                        <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('date_added')}>
+                            Date Added <SortIndicator column="date_added" />
+                        </span>
+                        <span className="text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('duration')}>
+                            Time <SortIndicator column="duration" />
+                        </span>
+                        <span></span>
+                    </div>
 
-                                        {/* Title & Cover */}
-                                        <td className="py-3 px-4">
-                                            <div className="flex items-center gap-3">
-                                                {track.cover_image ? (
-                                                    <img
-                                                        src={track.cover_image}
-                                                        alt={track.album}
-                                                        className="w-10 h-10 rounded object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded bg-theme-surface flex items-center justify-center">
-                                                        <svg className="w-4 h-4 text-theme-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                                                        </svg>
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col min-w-0">
-                                                    <span className={`font-medium truncate ${isCurrentTrack ? 'text-pink-500' : 'text-white'}`}>
-                                                        {track.title}
-                                                    </span>
-                                                    <span className="text-xs text-theme-muted truncate md:hidden">
-                                                        {track.artist}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        {/* Album */}
-                                        <td className="py-3 px-4 text-sm text-theme-muted truncate max-w-[200px]">
-                                            {track.album}
-                                        </td>
-
-                                        {/* Artist */}
-                                        <td className="py-3 px-4 text-sm text-theme-muted truncate max-w-[150px]">
-                                            {track.artist}
-                                        </td>
-
-                                        {/* Date Added */}
-                                        <td className="py-3 px-4 text-sm text-theme-muted truncate">
-                                            {formatRelativeDate(track.liked_at)}
-                                        </td>
-
-                                        {/* Duration */}
-                                        <td className="py-3 px-4 text-sm text-theme-muted text-right font-mono tabular-nums">
-                                            {formatDuration(track.duration)}
-                                        </td>
-
-                                        {/* Unfavorite Button */}
-                                        <td className="py-3 px-4">
-                                            <button
-                                                onClick={(e) => handleUnfavorite(track.id, e)}
-                                                className="text-pink-500 hover:text-pink-400 transition-colors opacity-0 group-hover:opacity-100"
-                                                title="Remove from Liked Songs"
+                    {sortedFavorites.map((track, index) => {
+                        const isCurrentTrack = currentTrack?.id === track.id;
+                        return (
+                            <div
+                                key={track.id}
+                                onClick={() => handlePlayTrack(track)}
+                                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                                    ? 'bg-pink-500/10 text-pink-500'
+                                    : 'hover:bg-theme-surface-hover text-theme-secondary hover:text-white'
+                                    }`}
+                            >
+                                {/* Number / Playing indicator */}
+                                <div className="flex items-center text-xs font-medium justify-center">
+                                    {isCurrentTrack && isPlaying ? (
+                                        <div className="flex gap-0.5 items-end h-4">
+                                            <div className="w-1 bg-pink-500 animate-equalizer rounded-t-sm" style={{ height: '60%', animationDelay: '0s' }} />
+                                            <div className="w-1 bg-pink-500 animate-equalizer rounded-t-sm" style={{ height: '100%', animationDelay: '0.2s' }} />
+                                            <div className="w-1 bg-pink-500 animate-equalizer rounded-t-sm" style={{ height: '40%', animationDelay: '0.4s' }} />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className={`group-hover:hidden ${isCurrentTrack ? 'text-pink-500' : 'opacity-60'}`}>
+                                                {index + 1}
+                                            </span>
+                                            <svg
+                                                className="w-4 h-4 hidden group-hover:block text-white"
+                                                fill="currentColor"
+                                                viewBox="0 0 24 24"
                                             >
-                                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                                </svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                                <path d="M8 5v14l11-7z" />
+                                            </svg>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Title & Cover */}
+                                <div className="flex items-center gap-3 min-w-0">
+                                    {track.cover_image ? (
+                                        <img
+                                            src={track.cover_image}
+                                            alt={track.album}
+                                            className="w-10 h-10 rounded object-cover shadow-sm"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center">
+                                            <svg className="w-5 h-5 opacity-20" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                    <span className={`truncate font-medium ${isCurrentTrack ? 'text-pink-500' : 'text-white'}`}>
+                                        {track.title}
+                                    </span>
+                                </div>
+
+                                {/* Album */}
+                                <div className="flex items-center min-w-0">
+                                    <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                                        {track.album}
+                                    </span>
+                                </div>
+
+                                {/* Artist */}
+                                <div className="flex items-center min-w-0">
+                                    <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                                        {track.artist}
+                                    </span>
+                                </div>
+
+                                {/* Date Added */}
+                                <div className="flex items-center text-sm text-theme-muted">
+                                    {formatRelativeDate(track.liked_at)}
+                                </div>
+
+                                {/* Duration */}
+                                <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
+                                    {formatDuration(track.duration)}
+                                </div>
+
+                                {/* Unfavorite Button */}
+                                <div className="flex items-center justify-end">
+                                    <button
+                                        onClick={(e) => handleUnfavorite(track.id, e)}
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 text-pink-500 hover:text-pink-400 transition-all"
+                                        title="Remove from Liked Songs"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

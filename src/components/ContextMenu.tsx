@@ -14,6 +14,10 @@ interface ContextMenuProps {
     items: ContextMenuItem[];
     position: { x: number; y: number };
     onClose: () => void;
+    /** Optional: Container element to constrain the menu within */
+    containerRef?: React.RefObject<HTMLElement | null>;
+    /** Optional: Force using a portal even if containerRef is provided */
+    portal?: boolean;
 }
 
 function SubMenu({ items, closeMenu }: { items: ContextMenuItem[], closeMenu: () => void }) {
@@ -40,7 +44,7 @@ function SubMenu({ items, closeMenu }: { items: ContextMenuItem[], closeMenu: ()
     return (
         <div
             ref={ref}
-            className="absolute left-full top-0 -ml-1 min-w-[220px] py-1.5 bg-[#1a1a20] border border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 origin-top-left ring-1 ring-black/5 max-h-[300px] overflow-y-auto themed-scrollbar z-50"
+            className="absolute left-full top-0 -ml-1 min-w-[220px] py-1.5 bg-[#1a1a20] border border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 origin-top-left ring-1 ring-black/5 max-h-[300px] overflow-y-auto themed-scrollbar z-[9999]"
         >
             {items.map((item, index) => (
                 <ContextMenuItemRow key={index} item={item} closeMenu={closeMenu} />
@@ -49,7 +53,7 @@ function SubMenu({ items, closeMenu }: { items: ContextMenuItem[], closeMenu: ()
     );
 }
 
-function ContextMenuItemRow({ item, closeMenu }: { item: ContextMenuItem, closeMenu: () => void }) {
+function ContextMenuItemRow({ item, closeMenu, isActive, onMouseEnter }: { item: ContextMenuItem, closeMenu: () => void, isActive?: boolean, onMouseEnter?: () => void }) {
     const [showSubmenu, setShowSubmenu] = useState(false);
     const closeTimerRef = useRef<number | null>(null);
 
@@ -90,10 +94,15 @@ function ContextMenuItemRow({ item, closeMenu }: { item: ContextMenuItem, closeM
         }
     };
 
+    const handleMouseEnterReal = () => {
+        if (onMouseEnter) onMouseEnter();
+        handleMouseEnter();
+    };
+
     return (
         <div
-            className={`relative ${showSubmenu ? 'bg-white/10' : ''}`}
-            onMouseEnter={handleMouseEnter}
+            className={`relative ${showSubmenu || isActive ? 'bg-white/10' : ''}`}
+            onMouseEnter={handleMouseEnterReal}
             onMouseLeave={handleMouseLeave}
         >
             <button
@@ -122,8 +131,94 @@ function ContextMenuItemRow({ item, closeMenu }: { item: ContextMenuItem, closeM
     );
 }
 
-export const ContextMenu = ({ items, position, onClose }: ContextMenuProps) => {
+export const ContextMenu = ({ items, position, onClose, containerRef, portal }: ContextMenuProps) => {
     const menuRef = useRef<HTMLDivElement>(null);
+    const [activeIndex, setActiveIndex] = useState<number>(-1);
+    const [computedStyle, setComputedStyle] = useState<React.CSSProperties | null>(null);
+
+    const menuWidth = 220;
+    const estimatedHeight = Math.min(items.length * 40 + 20, 300);
+    const padding = 8; // Padding from container edges
+
+    // Determine if we should render via portal
+    // Default to portal=true to avoid clipping issues, unless explicitly set to false
+    const usePortal = portal !== undefined ? portal : true;
+
+    // Calculate position based on container or viewport
+    useLayoutEffect(() => {
+        let bounds: { left: number; top: number; right: number; bottom: number; width: number; height: number };
+        let clickX = position.x;
+        let clickY = position.y;
+
+        if (containerRef?.current) {
+            const containerRect = containerRef.current.getBoundingClientRect();
+
+            if (usePortal) {
+                // If using portal with containerRef, use container's GLOBAL bounds
+                bounds = {
+                    left: containerRect.left,
+                    top: containerRect.top,
+                    right: containerRect.right,
+                    bottom: containerRect.bottom,
+                    width: containerRect.width,
+                    height: containerRect.height
+                };
+                // clickX is already global
+            } else {
+                // If inline, use relative bounds (0,0 based)
+                bounds = {
+                    left: 0,
+                    top: 0,
+                    right: containerRect.width,
+                    bottom: containerRect.height,
+                    width: containerRect.width,
+                    height: containerRect.height
+                };
+                // Convert click to relative position within container
+                clickX = position.x - containerRect.left;
+                clickY = position.y - containerRect.top;
+            }
+        } else {
+            // Use viewport bounds
+            bounds = {
+                left: 0,
+                top: 0,
+                right: window.innerWidth,
+                bottom: window.innerHeight,
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        }
+
+        // Calculate X position - flip left if near right edge
+        let xPos = clickX;
+        const wouldOverflowRight = clickX + menuWidth > bounds.right - padding;
+        if (wouldOverflowRight) {
+            // Position to the left of the click instead
+            xPos = clickX - menuWidth;
+        }
+        // Final clamp to ensure it stays within bounds
+        xPos = Math.max(bounds.left + padding, Math.min(xPos, bounds.right - menuWidth - padding));
+
+        // Calculate Y position - flip up if near bottom edge
+        let yPos = clickY;
+        const wouldOverflowBottom = clickY + estimatedHeight > bounds.bottom - padding;
+        if (wouldOverflowBottom) {
+            // Position above the click instead
+            yPos = clickY - estimatedHeight;
+        }
+        // Final clamp to ensure it stays within bounds
+        yPos = Math.max(bounds.top + padding, Math.min(yPos, bounds.bottom - estimatedHeight - padding));
+
+        const flipHorizontal = wouldOverflowRight;
+
+        setComputedStyle({
+            top: yPos,
+            left: xPos,
+            position: usePortal ? 'fixed' : 'absolute',
+            transformOrigin: `${flipHorizontal ? 'top right' : 'top left'}`,
+        });
+    }, [position, containerRef, estimatedHeight, usePortal]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -136,32 +231,72 @@ export const ContextMenu = ({ items, position, onClose }: ContextMenuProps) => {
             onClose();
         };
 
+        const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+            // Stop propagation for all navigation keys to prevent background interaction
+            if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                event.preventDefault(); // Prevent default scrolling
+            }
+
+            switch (event.key) {
+                case 'Escape':
+                    onClose();
+                    break;
+                case 'ArrowDown':
+                    setActiveIndex(prev => (prev + 1) % items.length);
+                    break;
+                case 'ArrowUp':
+                    setActiveIndex(prev => (prev - 1 + items.length) % items.length);
+                    break;
+                case 'Enter':
+                    if (activeIndex >= 0 && items[activeIndex] && !items[activeIndex].disabled) {
+                        if (items[activeIndex].action) {
+                            items[activeIndex].action!();
+                            onClose();
+                        }
+                    }
+                    break;
+            }
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
         window.addEventListener('scroll', handleScroll, true);
+
+        // Use capture to interrupt before SearchPalette sees it
+        document.addEventListener('keydown', handleKeyDown, { capture: true });
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
             window.removeEventListener('scroll', handleScroll, true);
+            document.removeEventListener('keydown', handleKeyDown, { capture: true });
         };
-    }, [onClose]);
+    }, [onClose, items, activeIndex]);
 
-    // Ensure menu stays within viewport
-    const style: React.CSSProperties = {
-        top: Math.min(position.y, window.innerHeight - (items.length * 36) - 20), // rough estimate height cap
-        left: Math.min(position.x, window.innerWidth - 220), // Width cap
-    };
+    // Don't render until position is computed
+    if (!computedStyle) return null;
 
-    return createPortal(
+    const menuElement = (
         <div
             ref={menuRef}
-            className="fixed z-50 min-w-[200px] py-1.5 bg-[#1a1a20] border border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 origin-top-left ring-1 ring-black/5"
-            style={style}
+            className="z-[9999] min-w-[220px] py-1.5 bg-[#1a1a20] border border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5"
+            style={computedStyle}
             onContextMenu={(e) => e.preventDefault()}
         >
             {items.map((item, index) => (
-                <ContextMenuItemRow key={index} item={item} closeMenu={onClose} />
+                <ContextMenuItemRow
+                    key={index}
+                    item={item}
+                    closeMenu={onClose}
+                    isActive={index === activeIndex}
+                    onMouseEnter={() => setActiveIndex(index)}
+                />
             ))}
-        </div>,
-        document.body
+        </div>
     );
+
+    if (usePortal) {
+        return createPortal(menuElement, document.body);
+    }
+    return menuElement;
 };

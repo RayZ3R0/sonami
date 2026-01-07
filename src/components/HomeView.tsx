@@ -171,7 +171,7 @@ const CardSkeleton = ({ count = 6, isArtist = false }: { count?: number; isArtis
 
 
 export const HomeView = () => {
-    const { playTrack, currentTrack, addToPlaylist, playlists, toggleFavorite, favorites } = usePlayer();
+    const { playTrack, currentTrack, addToPlaylist, playlists, toggleFavorite } = usePlayer();
     const { showMenu } = useContextMenu();
     const [loading, setLoading] = useState(true);
     const [tracks, setTracks] = useState<UnifiedTrack[]>([]);

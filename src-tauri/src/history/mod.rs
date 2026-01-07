@@ -120,6 +120,7 @@ impl PlayHistoryManager {
                     .flatten()
                     .map(|v| v as u64),
                 liked_at: None,
+                added_at: None,
             });
         }
 

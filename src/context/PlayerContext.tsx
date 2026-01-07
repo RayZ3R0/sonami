@@ -64,6 +64,10 @@ interface PlayerContextType {
 
     favorites: Set<string>;
     toggleFavorite: (track: Track) => Promise<void>;
+    refreshFavorites: () => Promise<void>;
+
+    /** Incremented when playlist/favorites data changes - watch this to trigger re-fetches */
+    dataVersion: number;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -117,6 +121,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const seekTarget = useRef<{ time: number, timestamp: number } | null>(null);
+
+    // Data version counter - incremented when playlist/favorites data changes
+    const [dataVersion, setDataVersion] = useState(0);
+    const bumpDataVersion = () => setDataVersion(v => v + 1);
 
 
 
@@ -272,7 +280,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const addToPlaylist = async (playlistId: string, track: Track) => {
         try {
             await invoke("add_to_playlist", { playlistId, track });
-            refreshPlaylists();
+            await refreshPlaylists();
+            bumpDataVersion(); // Trigger reactive updates in views
         } catch (e) {
             console.error("Failed to add to playlist:", e);
         }
@@ -281,7 +290,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const removeFromPlaylist = async (playlistId: string, trackId: string) => {
         try {
             await invoke("remove_from_playlist", { playlistId, trackId });
-            refreshPlaylists();
+            await refreshPlaylists();
+            bumpDataVersion(); // Trigger reactive updates in views
         } catch (e) {
             console.error("Failed to remove from playlist:", e);
         }
@@ -475,17 +485,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
+    // Refresh favorites - can be called by views
+    const refreshFavorites = async () => {
+        try {
+            const favs = await invoke<UnifiedTrack[]>("get_favorites");
+            setFavorites(new Set(favs.map(t => t.id)));
+            bumpDataVersion();
+        } catch (e) {
+            console.error("Failed to refresh favorites:", e);
+        }
+    };
+
     // Sync favorites on load
     useEffect(() => {
-        const syncFavorites = async () => {
-            try {
-                const favs = await invoke<UnifiedTrack[]>("get_favorites");
-                setFavorites(new Set(favs.map(t => t.id)));
-            } catch (e) {
-                console.error("Failed to sync favorites:", e);
-            }
-        };
-        syncFavorites();
+        refreshFavorites();
     }, []);
 
     const toggleFavorite = async (track: Track) => {
@@ -506,6 +519,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     return next;
                 });
             }
+            bumpDataVersion(); // Trigger reactive updates
         } catch (e) {
             console.error("Failed to toggle favorite:", e);
         }
@@ -520,11 +534,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         createPlaylist, deletePlaylist, renamePlaylist, addToPlaylist, removeFromPlaylist, refreshPlaylists,
         crossfadeEnabled, crossfadeDuration, setCrossfade,
         playerBarStyle, setPlayerBarStyle,
-        favorites, toggleFavorite
+        favorites, toggleFavorite, refreshFavorites,
+        dataVersion
     }), [
         tracks, currentTrack, isPlaying, volume,
         shuffle, repeatMode, queue, playlists, isQueueOpen,
-        crossfadeEnabled, crossfadeDuration, playerBarStyle, favorites
+        crossfadeEnabled, crossfadeDuration, playerBarStyle, favorites, dataVersion
     ]);
 
 

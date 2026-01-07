@@ -111,6 +111,7 @@ impl FavoritesManager {
                     .flatten()
                     .map(|v| v as u64),
                 liked_at: row.try_get("liked_at").ok(),
+                added_at: None,
             });
         }
 

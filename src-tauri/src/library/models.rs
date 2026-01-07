@@ -55,6 +55,10 @@ pub struct UnifiedTrack {
     // For favorites - when this track was liked
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liked_at: Option<i64>,
+
+    // For playlist tracks - when this track was added to playlist
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub added_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]

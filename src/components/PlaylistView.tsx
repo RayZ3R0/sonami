@@ -2,7 +2,8 @@ import { usePlayer } from "../context/PlayerContext";
 import { useState, useMemo, useEffect } from "react";
 import { UnifiedTrack } from "../api/library";
 import { Track, PlaylistDetails } from "../types";
-import { getPlaylistDetails } from "../api/playlist";
+import { getPlaylistDetails, getPlaylistsContainingTrack } from "../api/playlist";
+import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 
 interface PlaylistViewProps {
     playlistId: string;
@@ -57,10 +58,21 @@ const PlaylistCover = ({ tracks, coverUrl }: { tracks: Track[], coverUrl?: strin
         );
     }
 
-    if (covers.length >= 4) {
+    // If we have 2 or 3 covers, repeat them to fill 4 spots for a grid
+    // 2 covers: [0, 1, 0, 1]
+    // 3 covers: [0, 1, 2, 0] (or check Spotify logic? Spotify uses [0,1,0,1] for 2, and [0,1,2,0] for 3 usually or just 4 distinct)
+    // Actually, simple repetition works well visually.
+    let displayCovers = [...covers];
+    if (covers.length === 2) {
+        displayCovers = [covers[0], covers[1], covers[0], covers[1]];
+    } else if (covers.length === 3) {
+        displayCovers = [covers[0], covers[1], covers[2], covers[0]]; // Or covers[2] again? [0,1,2,0] looks balanced-ish
+    }
+
+    if (displayCovers.length >= 4) {
         return (
             <div className="w-52 h-52 grid grid-cols-2 bg-theme-surface rounded-xl overflow-hidden shadow-2xl">
-                {covers.slice(0, 4).map((src, i) => (
+                {displayCovers.slice(0, 4).map((src, i) => (
                     <img key={i} src={src} className="w-full h-full object-cover" />
                 ))}
             </div>
@@ -75,20 +87,84 @@ const PlaylistCover = ({ tracks, coverUrl }: { tracks: Track[], coverUrl?: strin
 
 
 export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
-    const { playTrack, currentTrack, removeFromPlaylist, deletePlaylist, renamePlaylist, shuffle, toggleShuffle, isPlaying } = usePlayer();
+    const { playTrack, currentTrack, removeFromPlaylist, deletePlaylist, renamePlaylist, shuffle, toggleShuffle, isPlaying, dataVersion, favorites, addToPlaylist, playlists, toggleFavorite } = usePlayer();
 
     // Local state for full playlist details
     const [details, setDetails] = useState<PlaylistDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // Context Menu State
+    const [contextMenu, setContextMenu] = useState<{
+        isOpen: boolean;
+        x: number;
+        y: number;
+        track: Track | null;
+        containingPlaylists: Set<string>;
+    }>({ isOpen: false, x: 0, y: 0, track: null, containingPlaylists: new Set() });
+
+    // Close menu logic
+    const closeContextMenu = () => setContextMenu(prev => ({ ...prev, isOpen: false }));
+
+    const handleContextMenu = async (e: React.MouseEvent, track: Track) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Optimistically show menu then update with fetched data? 
+        // Or await. Await is safer for "Add to Playlist" correctness.
+        // Given local DB, should be fast.
+        try {
+            const containing = await getPlaylistsContainingTrack(track.id);
+            setContextMenu({
+                isOpen: true,
+                x: e.clientX,
+                y: e.clientY,
+                track,
+                containingPlaylists: new Set(containing)
+            });
+        } catch (error) {
+            console.error("Failed to fetch containing playlists:", error);
+            // Show menu anyway without filtering? Or just fail?
+            // Fallback: empty set
+            setContextMenu({
+                isOpen: true,
+                x: e.clientX,
+                y: e.clientY,
+                track,
+                containingPlaylists: new Set()
+            });
+        }
+    };
+
+
     const [error, setError] = useState<string | null>(null);
 
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState("");
 
-    const [sortBy, setSortBy] = useState<'title' | 'artist' | 'album' | 'duration'>('title');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    // Sort preferences - stored per playlist in localStorage
+    const sortStorageKey = `sonami-playlist-sort-${playlistId}`;
+    const [sortBy, setSortBy] = useState<'title' | 'artist' | 'album' | 'duration' | 'date_added'>(() => {
+        const saved = localStorage.getItem(sortStorageKey);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.sortBy || 'date_added';
+        }
+        return 'date_added'; // Default: recently added
+    });
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => {
+        const saved = localStorage.getItem(sortStorageKey);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return parsed.sortDirection || 'desc';
+        }
+        return 'desc'; // Default: newest first
+    });
 
-    // Fetch details when ID changes
+    // Save sort preferences
+    useEffect(() => {
+        localStorage.setItem(sortStorageKey, JSON.stringify({ sortBy, sortDirection }));
+    }, [sortBy, sortDirection, sortStorageKey]);
+
+    // Fetch details when ID changes OR when dataVersion changes
     useEffect(() => {
         const fetchDetails = async () => {
             setIsLoading(true);
@@ -106,7 +182,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         };
 
         fetchDetails();
-    }, [playlistId]);
+    }, [playlistId, dataVersion]); // Re-fetch when dataVersion changes
 
 
     const formatDuration = (seconds: number): string => {
@@ -126,6 +202,10 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         return [...details.tracks].sort((a, b) => {
             let comparison = 0;
             switch (sortBy) {
+                case 'date_added':
+                    // Use added_at timestamp, fallback to 0 for missing values
+                    comparison = (a.added_at || 0) - (b.added_at || 0);
+                    break;
                 case 'title':
                     comparison = a.title.localeCompare(b.title);
                     break;
@@ -143,16 +223,53 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         });
     }, [details, sortBy, sortDirection]);
 
-    const handleSort = (column: 'title' | 'artist' | 'album' | 'duration') => {
+    // Calculate menu items (defined here so sortedTracks is available)
+    const menuItems: ContextMenuItem[] = useMemo(() => {
+        if (!contextMenu.track) return [];
+        const track = contextMenu.track;
+        const isLiked = favorites.has(track.id);
+
+        // Filter valid targets for "Add to Playlist"
+        // Exclude current playlist AND playlists that already contain the track
+        const availablePlaylists = playlists.filter(p =>
+            p.id !== playlistId && !contextMenu.containingPlaylists.has(p.id)
+        );
+
+        return [
+            {
+                label: 'Play',
+                action: () => playTrack(track, sortedTracks)
+            },
+            {
+                label: isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs',
+                action: () => toggleFavorite(track)
+            },
+            {
+                label: 'Add to Playlist',
+                submenu: availablePlaylists.length > 0 ? availablePlaylists.map(p => ({
+                    label: p.title,
+                    action: () => addToPlaylist(p.id, track)
+                })) : [{ label: 'No available playlists', disabled: true }]
+            },
+            {
+                label: 'Remove from this Playlist',
+                danger: true,
+                action: () => removeFromPlaylist(playlistId, track.id)
+            }
+        ];
+    }, [contextMenu, playlists, playlistId, favorites, sortedTracks]);
+
+    const handleSort = (column: 'title' | 'artist' | 'album' | 'duration' | 'date_added') => {
         if (sortBy === column) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
             setSortBy(column);
-            setSortDirection('asc');
+            // Default desc for date_added, asc for others
+            setSortDirection(column === 'date_added' ? 'desc' : 'asc');
         }
     };
 
-    const SortIndicator = ({ column }: { column: 'title' | 'artist' | 'album' | 'duration' }) => {
+    const SortIndicator = ({ column }: { column: 'title' | 'artist' | 'album' | 'duration' | 'date_added' }) => {
         if (sortBy !== column) return null;
         return (
             <span className="ml-1 text-theme-accent inline-block">
@@ -168,6 +285,21 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
             return `${hours} hr ${mins} min`;
         }
         return `${mins} min`;
+    };
+
+    // Format relative date for Date Added column
+    const formatRelativeDate = (timestamp?: number): string => {
+        if (!timestamp) return '';
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - timestamp;
+
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+        if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
+
+        const date = new Date(timestamp * 1000);
+        return date.toLocaleDateString();
     };
 
     if (isLoading) {
@@ -290,7 +422,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
-                        Play
+                        <span className="pt-[2px]">Play</span>
                     </button>
                     <button
                         onClick={handleShufflePlay}
@@ -303,14 +435,14 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
                         </svg>
-                        Shuffle
+                        <span className="pt-[2px]">Shuffle</span>
                     </button>
                 </div>
             </div>
 
             <div className="flex flex-col flex-1 overflow-auto px-8">
                 {/* Header Row */}
-                <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_48px_32px] gap-4 px-4 py-3 border-b border-white/5 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+                <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px] gap-4 px-4 py-3 border-b border-white/5 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
                     <span>#</span>
                     <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('title')}>
                         Title <SortIndicator column="title" />
@@ -321,10 +453,13 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                     <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('artist')}>
                         Artist <SortIndicator column="artist" />
                     </span>
+                    <span className="cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('date_added')}>
+                        Date Added <SortIndicator column="date_added" />
+                    </span>
                     <span className="text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('duration')}>
                         Time <SortIndicator column="duration" />
                     </span>
-                    <span></span>
+
                 </div>
 
                 {sortedTracks.length === 0 ? (
@@ -337,8 +472,9 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                         return (
                             <div
                                 key={`${track.id}-${index}`}
-                                onClick={() => handlePlayTrack(track)}
-                                className={`grid grid-cols-[16px_1fr_1fr_1fr_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                                onContextMenu={(e) => handleContextMenu(e, track)}
+                                onDoubleClick={() => handlePlayTrack(track)}
+                                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
                                     ? 'bg-theme-surface-active text-theme-accent'
                                     : 'hover:bg-theme-surface-hover text-theme-secondary hover:text-white'
                                     }`}
@@ -397,29 +533,27 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                                     </span>
                                 </div>
 
-                                <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
-                                    {formatDuration(track.duration)}
+                                <div className="flex items-center text-sm text-theme-muted">
+                                    {formatRelativeDate(track.added_at)}
                                 </div>
 
-                                <div className="flex items-center justify-end">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (confirm(`Remove "${track.title}" from playlist?`)) {
-                                                removeFromPlaylist(playlist.id, track.id);
-                                            }
-                                        }}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 hover:text-theme-error text-theme-muted transition-all"
-                                        title="Remove from playlist"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
+                                <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
+                                    {formatDuration(track.duration)}
                                 </div>
                             </div>
                         );
                     })
                 )}
             </div>
+
+            {/* Context Menu */}
+            {contextMenu.isOpen && (
+                <ContextMenu
+                    items={menuItems}
+                    position={{ x: contextMenu.x, y: contextMenu.y }}
+                    onClose={closeContextMenu}
+                />
+            )}
         </div>
     );
 };

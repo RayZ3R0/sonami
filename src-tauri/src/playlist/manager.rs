@@ -3,6 +3,7 @@ use crate::library::models::{TrackSource, UnifiedTrack};
 use crate::tidal::models::Track as TidalTrack;
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
+use chrono::Utc;
 
 pub struct PlaylistManager {
     pool: Pool<Sqlite>,
@@ -103,7 +104,8 @@ impl PlaylistManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
                 a.name as artist_name,
-                al.title as album_title, al.cover_url
+                al.title as album_title, al.cover_url,
+                pt.added_at
             FROM playlist_tracks pt
             JOIN tracks t ON pt.track_id = t.id
             JOIN artists a ON t.artist_id = a.id
@@ -132,6 +134,8 @@ impl PlaylistManager {
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
             };
 
+            let added_at: Option<i64> = row.try_get("added_at").ok();
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -144,6 +148,7 @@ impl PlaylistManager {
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
                 liked_at: None,
+                added_at, 
             });
         }
 
@@ -180,18 +185,30 @@ impl PlaylistManager {
 
         let new_pos = max_pos.0 + 1;
         let id = Uuid::new_v4().to_string();
+        let added_at = Utc::now().timestamp();
 
         sqlx::query(
-            "INSERT INTO playlist_tracks (id, playlist_id, track_id, position) VALUES (?, ?, ?, ?)",
+            "INSERT INTO playlist_tracks (id, playlist_id, track_id, position, added_at) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(id)
         .bind(playlist_id)
         .bind(track_id)
         .bind(new_pos)
+        .bind(added_at)
         .execute(&self.pool)
         .await
         .map_err(|e| e.to_string())?;
 
+        Ok(())
+    }
+
+    pub async fn remove_track_entry(&self, playlist_id: &str, track_id: &str) -> Result<(), String> {
+        sqlx::query("DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?")
+            .bind(playlist_id)
+            .bind(track_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -204,5 +221,16 @@ impl PlaylistManager {
             .map_err(|e| e.to_string())?;
 
         Ok(row.map(|r| r.get("id")))
+    }
+
+    pub async fn get_playlists_containing_track(&self, track_id: &str) -> Result<Vec<String>, String> {
+        let rows = sqlx::query("SELECT DISTINCT playlist_id FROM playlist_tracks WHERE track_id = ?")
+            .bind(track_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let playlist_ids = rows.iter().map(|r| r.get("playlist_id")).collect();
+        Ok(playlist_ids)
     }
 }

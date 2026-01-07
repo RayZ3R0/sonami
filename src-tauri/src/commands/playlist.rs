@@ -58,6 +58,17 @@ pub async fn add_tidal_track_to_playlist(
     }
 }
 
+
+
+#[command]
+pub async fn remove_from_playlist(
+    manager: State<'_, PlaylistManager>,
+    playlist_id: String,
+    track_id: String,
+) -> Result<(), String> {
+    manager.remove_track_entry(&playlist_id, &track_id).await
+}
+
 #[command]
 pub async fn add_to_playlist(
     library: State<'_, LibraryManager>,
@@ -114,4 +125,12 @@ pub async fn add_to_playlist(
     // Or weird state.
     
     Err("Failed to add track to playlist".to_string())
+}
+
+#[command]
+pub async fn get_playlists_containing_track(
+    manager: State<'_, PlaylistManager>,
+    track_id: String,
+) -> Result<Vec<String>, String> {
+    manager.get_playlists_containing_track(&track_id).await
 }

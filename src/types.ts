@@ -7,6 +7,8 @@ export interface Track {
     duration: number;
     cover_image?: string;
     path: string;
+    /** Unix timestamp when added to playlist (optional) */
+    added_at?: number;
 }
 
 export interface PlayerState {

@@ -19,6 +19,10 @@ export const getPlaylistDetails = async (id: string): Promise<PlaylistDetails> =
     };
 };
 
+export const getPlaylistsContainingTrack = async (trackId: string): Promise<string[]> => {
+    return await invoke<string[]>("get_playlists_containing_track", { trackId });
+};
+
 export const createPlaylist = async (name: string, description?: string): Promise<Playlist> => {
     return await invoke("create_playlist", { name, description });
 };
