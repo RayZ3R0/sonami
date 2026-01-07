@@ -15,7 +15,11 @@ impl PlayHistoryManager {
         Self { pool }
     }
 
-    pub async fn record_play(&self, track_id: &str, source: Option<String>) -> Result<String, String> {
+    pub async fn record_play(
+        &self,
+        track_id: &str,
+        source: Option<String>,
+    ) -> Result<String, String> {
         let id = Uuid::new_v4().to_string();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -42,15 +46,13 @@ impl PlayHistoryManager {
         duration_played: i64,
         completed: bool,
     ) -> Result<(), String> {
-        sqlx::query(
-            "UPDATE play_history SET duration_played = ?, completed = ? WHERE id = ?",
-        )
-        .bind(duration_played)
-        .bind(if completed { 1 } else { 0 })
-        .bind(entry_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        sqlx::query("UPDATE play_history SET duration_played = ?, completed = ? WHERE id = ?")
+            .bind(duration_played)
+            .bind(if completed { 1 } else { 0 })
+            .bind(entry_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }
@@ -112,7 +114,11 @@ impl PlayHistoryManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path: row.try_get("file_path").unwrap_or_default(),
                 local_path: row.try_get("file_path").ok(),
-                tidal_id: row.try_get::<Option<i64>, _>("tidal_id").ok().flatten().map(|v| v as u64),
+                tidal_id: row
+                    .try_get::<Option<i64>, _>("tidal_id")
+                    .ok()
+                    .flatten()
+                    .map(|v| v as u64),
             });
         }
 

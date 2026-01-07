@@ -3,14 +3,14 @@ pub mod commands;
 pub mod database;
 pub mod download;
 pub mod dsp;
+pub mod favorites;
+pub mod history;
 pub mod library;
 pub mod lyrics;
 pub mod media_controls;
 pub mod playlist;
 pub mod queue;
 pub mod tidal;
-pub mod favorites;
-pub mod history;
 
 use audio::AudioManager;
 use playlist::PlaylistManager;

@@ -22,13 +22,15 @@ impl FavoritesManager {
             .unwrap()
             .as_secs() as i64;
 
-        sqlx::query("INSERT OR IGNORE INTO user_favorites (id, track_id, liked_at) VALUES (?, ?, ?)")
-            .bind(id)
-            .bind(track_id)
-            .bind(now)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "INSERT OR IGNORE INTO user_favorites (id, track_id, liked_at) VALUES (?, ?, ?)",
+        )
+        .bind(id)
+        .bind(track_id)
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
         Ok(())
     }
@@ -102,7 +104,11 @@ impl FavoritesManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path: row.try_get("file_path").unwrap_or_default(),
                 local_path: row.try_get("file_path").ok(),
-                tidal_id: row.try_get::<Option<i64>, _>("tidal_id").ok().flatten().map(|v| v as u64),
+                tidal_id: row
+                    .try_get::<Option<i64>, _>("tidal_id")
+                    .ok()
+                    .flatten()
+                    .map(|v| v as u64),
             });
         }
 

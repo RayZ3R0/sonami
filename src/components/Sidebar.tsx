@@ -4,17 +4,11 @@ import { Settings, SettingsButton, ThemeButton } from "./Settings";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Manual offsets for vertical alignment
-const TOP_NAV_TEXT_OFFSET = "mt-[5px]";
 const PLAYLIST_TEXT_OFFSET = "mt-[5px]";
 const PLUS_ICON_OFFSET = "mt-[-8px]";
 const IMPORT_BUTTON_TEXT_OFFSET = "mt-[4.6px]";
 
-// Unified icon wrapper - guarantees consistent sizing and alignment
-const Icon = ({ children }: { children: React.ReactNode }) => (
-    <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-        {children}
-    </span>
-);
+
 
 // All icons use identical viewBox and size
 const icons = {
@@ -96,17 +90,7 @@ export const Sidebar = ({
         setIsSettingsOpen(true);
     };
 
-    // Sidebar Connector Curve SVG
-    // This creates the smooth rounded internal corner connecting Sidebar top-right to Titlebar bottom-left
-    const SidebarConnector = () => (
-        <div className="absolute -top-[20px] -right-[20px] z-10 w-5 h-5 pointer-events-none">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                {/* The shape draws a curve that matches the MainStage border/radius */}
-                <path d="M0 20C11.0457 20 20 11.0457 20 0V20H0Z" fill="var(--theme-background-secondary)" />
-                {/* Note: Fill should match the MainStage background */}
-            </svg>
-        </div>
-    );
+
 
     return (
         <>
@@ -140,8 +124,8 @@ export const Sidebar = ({
                         <button
                             onClick={() => setActiveTab("favorites")}
                             className={`flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
-                                    ? 'bg-theme-surface-active text-theme-primary'
-                                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                ? 'bg-theme-surface-active text-theme-primary'
+                                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                                 }`}
                             title="Liked Songs"
                         >
@@ -153,8 +137,8 @@ export const Sidebar = ({
                         <button
                             onClick={() => setActiveTab("recent")}
                             className={`flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'} rounded-xl transition-all duration-200 group ${activeTab === "recent"
-                                    ? 'bg-theme-surface-active text-theme-primary'
-                                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                                ? 'bg-theme-surface-active text-theme-primary'
+                                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
                                 }`}
                             title="Recently Played"
                         >

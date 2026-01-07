@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { searchLibrary, UnifiedTrack, addTidalTrack } from '../api/library';
+import { addFavorite } from '../api/favorites';
 import { usePlayer } from '../context/PlayerContext';
 
 interface TidalTrack {
@@ -248,8 +249,8 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         }
     };
 
-    // Add Tidal track to library
-    const handleAddToLibrary = async (result: SearchResult, e: React.MouseEvent) => {
+    // Add Tidal track to Liked Songs (first adds to library, then to favorites)
+    const handleAddToLikedSongs = async (result: SearchResult, e: React.MouseEvent) => {
         e.stopPropagation();
         if (result.type !== 'tidal' || !result.tidalId) return;
 
@@ -268,10 +269,22 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 audioQuality: track.audioQuality || track.audio_quality,
                 cover: track.album?.cover
             };
+
+            // First, add to library database
             await addTidalTrack(backendTrack, coverUrl);
+
+            // Then, mark as favorite (we need to get the track ID from the library)
+            // For now, we'll use a simple approach: search for the track by tidal_id
+            const libraryTracks = await searchLibrary(track.title);
+            const addedTrack = libraryTracks.find(t => t.tidal_id === track.id);
+
+            if (addedTrack) {
+                await addFavorite(addedTrack.id);
+            }
+
             setAddedTracks(prev => new Set(prev).add(result.tidalId!));
         } catch (err) {
-            console.error('Failed to add track:', err);
+            console.error('Failed to add track to liked songs:', err);
         }
     };
 
@@ -409,7 +422,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                                         formatDuration={formatDuration}
                                         showAddButton
                                         isAdded={isAdded}
-                                        onAdd={(e) => handleAddToLibrary(result, e)}
+                                        onAdd={(e) => handleAddToLikedSongs(result, e)}
                                     />
                                 );
                             })}
@@ -477,21 +490,42 @@ const SearchResultItem = ({
                 ${isSelected ? 'bg-theme-accent/15' : 'hover:bg-theme-surface-hover'}
             `}
         >
-            {/* Cover */}
-            {result.cover ? (
-                <img
-                    src={result.cover}
-                    alt={result.album}
-                    className="w-12 h-12 rounded-md object-cover flex-shrink-0 shadow-sm"
-                    loading="lazy"
-                />
-            ) : (
-                <div className="w-12 h-12 rounded-md bg-theme-secondary flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-theme-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                </div>
-            )}
+            {/* Cover with Play Button Overlay */}
+            <div className="relative flex-shrink-0 group/cover">
+                {result.cover ? (
+                    <img
+                        src={result.cover}
+                        alt={result.album}
+                        className="w-12 h-12 rounded-md object-cover shadow-sm"
+                        loading="lazy"
+                    />
+                ) : (
+                    <div className="w-12 h-12 rounded-md bg-theme-secondary flex items-center justify-center">
+                        <svg className="w-5 h-5 text-theme-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                    </div>
+                )}
+                {/* Play Button Overlay */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onPlay();
+                    }}
+                    className={`
+                        absolute inset-0 flex items-center justify-center rounded-md
+                        bg-black/40 backdrop-blur-[2px]
+                        transition-opacity duration-200
+                        ${isSelected ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100'}
+                    `}
+                >
+                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-lg">
+                        <svg className="w-3 h-3 text-black ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                    </div>
+                </button>
+            </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
@@ -516,30 +550,25 @@ const SearchResultItem = ({
                 {formatDuration(result.duration)}
             </div>
 
-            {/* Add Button for Tidal */}
+            {/* Add to Liked Songs Button for Tidal */}
             {showAddButton && (
                 <button
                     onClick={onAdd}
                     disabled={isAdded}
                     className={`
-                        px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 -translate-y-[1px]
+                        px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
                         ${isAdded
-                            ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
-                            : 'bg-white/5 hover:bg-white/10 text-theme-primary hover:text-theme-accent'
+                            ? 'bg-pink-500/20 text-pink-400 cursor-default'
+                            : 'bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400'
                         }
                     `}
+                    title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
                 >
-                    {isAdded ? '✓ Added' : '+ Add'}
-                </button>
-            )}
-
-            {/* Play indicator when selected */}
-            {isSelected && (
-                <div className="w-8 h-8 rounded-full bg-theme-accent flex items-center justify-center flex-shrink-0 -translate-y-[1px]">
-                    <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
+                    <svg viewBox="0 0 24 24" fill={isAdded ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
-                </div>
+                    {isAdded ? 'Liked' : 'Like'}
+                </button>
             )}
         </div>
     );
