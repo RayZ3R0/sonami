@@ -26,15 +26,15 @@ interface TitleBarProps {
 }
 
 export const TitleBar = ({ onSearchClick }: TitleBarProps) => {
-    
-    
-    
+
+
+
     const [osType, setOsType] = useState<string>("windows");
 
     useEffect(() => {
         async function init() {
             try {
-                
+
                 const platform = await type();
                 setOsType(platform);
             } catch (e) {
@@ -44,7 +44,7 @@ export const TitleBar = ({ onSearchClick }: TitleBarProps) => {
         init();
     }, []);
 
-    const appWindow = new Window("main"); 
+    const appWindow = new Window("main");
 
     const minimize = () => appWindow.minimize();
     const maximize = () => appWindow.toggleMaximize();
@@ -79,13 +79,13 @@ export const TitleBar = ({ onSearchClick }: TitleBarProps) => {
             <div className="flex-1 flex items-center justify-center pointer-events-none">
                 <button
                     onClick={onSearchClick}
-                    className="flex items-center gap-3 px-5 py-2 rounded-xl bg-theme-surface hover:bg-theme-surface-hover border border-theme-border text-theme-muted hover:text-theme-primary transition-all pointer-events-auto no-drag cursor-pointer group min-w-[280px]"
+                    className="flex items-center gap-3 px-5 py-2.5 rounded-xl bg-theme-surface/50 hover:bg-theme-surface/70 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all pointer-events-auto no-drag cursor-pointer group min-w-[280px] shadow-sm"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <span className="text-sm flex-1 text-left">Search music...</span>
-                    <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-theme-background/50 border border-theme-border text-[11px] font-mono text-theme-muted group-hover:text-theme-secondary">
+                    <span className="text-sm flex-1 text-left text-theme-muted group-hover:text-theme-primary transition-colors pt-[4px]">Search music...</span>
+                    <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-theme-background/30 text-[11px] font-mono text-theme-muted/70">
                         {isMac ? '⌘' : 'Ctrl'}+K
                     </kbd>
                 </button>

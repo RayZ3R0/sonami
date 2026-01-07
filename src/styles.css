@@ -505,6 +505,20 @@ body {
     animation: scale-in 0.2s ease-out forwards;
 }
 
+/* Shimmer animation for skeleton loading */
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
 /* ============================================
    EQUALIZER ANIMATION (Now Playing indicator)
    ============================================ */
