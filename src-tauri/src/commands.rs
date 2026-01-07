@@ -445,6 +445,7 @@ pub async fn tidal_search_artists(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn play_tidal_track(
     app: AppHandle,
     audio_state: State<'_, AudioManager>,

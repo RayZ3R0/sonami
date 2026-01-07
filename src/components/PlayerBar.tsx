@@ -167,7 +167,6 @@ export const PlayerBar = () => {
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
-  const [dragVolume, setDragVolume] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -205,13 +204,11 @@ export const PlayerBar = () => {
       const rect = volumeBarRef.current.getBoundingClientRect();
       const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
       const newVolume = x / rect.width;
-      setDragVolume(newVolume);
       setVolume(newVolume);
     };
 
     const handleGlobalMouseUp = () => {
       setIsVolumeDragging(false);
-      setDragVolume(null);
     };
 
     window.addEventListener("mousemove", handleGlobalMouseMove);
@@ -239,7 +236,6 @@ export const PlayerBar = () => {
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const newVolume = x / rect.width;
     setVolume(newVolume);
-    setDragVolume(newVolume);
     setIsVolumeDragging(true);
   };
 
