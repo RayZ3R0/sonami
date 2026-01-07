@@ -9,6 +9,8 @@ pub mod media_controls;
 pub mod playlist;
 pub mod queue;
 pub mod tidal;
+pub mod favorites;
+pub mod history;
 
 use audio::AudioManager;
 use playlist::PlaylistManager;
@@ -51,10 +53,16 @@ pub fn run() {
                         let lib = library::LibraryManager::new(pool.clone());
                         handle_clone_db.manage(lib);
 
-                        let pl_manager = playlist::PlaylistManager::new(pool);
+                        let pl_manager = playlist::PlaylistManager::new(pool.clone());
                         handle_clone_db.manage(pl_manager);
 
-                        log::info!("Database, Library & Playlist Manager initialized successfully");
+                        let fav_manager = favorites::FavoritesManager::new(pool.clone());
+                        handle_clone_db.manage(fav_manager);
+
+                        let hist_manager = history::PlayHistoryManager::new(pool);
+                        handle_clone_db.manage(hist_manager);
+
+                        log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
                     }
                     Err(e) => {
                         log::error!("Failed to initialize database: {}", e);
@@ -111,8 +119,18 @@ pub fn run() {
             commands::playlist::create_playlist,
             commands::playlist::delete_playlist,
             // commands::playlist::rename_playlist, // Removed for now or need implement
-            commands::playlist::get_playlist_details, 
+            commands::playlist::get_playlist_details,
             commands::playlist::add_tidal_track_to_playlist,
+            // Favorites commands
+            commands::favorites::add_favorite,
+            commands::favorites::remove_favorite,
+            commands::favorites::is_favorited,
+            commands::favorites::get_favorites,
+            // History commands
+            commands::history::record_play,
+            commands::history::update_play_completion,
+            commands::history::get_recent_plays,
+            commands::history::get_play_count,
             // Old playlist cmds replaced
             commands::import_music,
             commands::import_folder,

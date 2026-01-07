@@ -42,8 +42,6 @@ pub async fn search_library(
 }
 
 #[command]
-pub async fn rebuild_search_index(
-    library: State<'_, LibraryManager>,
-) -> Result<(), String> {
+pub async fn rebuild_search_index(library: State<'_, LibraryManager>) -> Result<(), String> {
     library.rebuild_index().await
 }

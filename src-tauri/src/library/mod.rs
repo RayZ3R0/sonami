@@ -1,6 +1,6 @@
 pub mod models;
 
-use crate::tidal::models::{CoverSize, get_cover_url};
+use crate::tidal::models::{get_cover_url, CoverSize};
 use models::{LibraryAlbum, LibraryArtist, TrackSource, UnifiedTrack};
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
@@ -30,7 +30,7 @@ impl LibraryManager {
             log::error!("Failed to fetch albums: {}", e);
             e.to_string()
         })?;
-        
+
         log::info!("Fetched {} albums", result.len());
         Ok(result)
     }
@@ -59,7 +59,10 @@ impl LibraryManager {
         let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
 
         // Clear index
-        sqlx::query("DELETE FROM search_index").execute(&mut *tx).await.map_err(|e| e.to_string())?;
+        sqlx::query("DELETE FROM search_index")
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
 
         // Re-populate
         let rows = sqlx::query(
@@ -68,8 +71,11 @@ impl LibraryManager {
             FROM tracks t
             JOIN artists a ON t.artist_id = a.id
             LEFT JOIN albums al ON t.album_id = al.id
-            "#
-        ).fetch_all(&mut *tx).await.map_err(|e| e.to_string())?;
+            "#,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
         for row in &rows {
             let id: String = row.try_get("id").unwrap_or_default();
@@ -77,37 +83,46 @@ impl LibraryManager {
             let artist: String = row.try_get("artist").unwrap_or_default();
             let album: String = row.try_get("album").unwrap_or_default();
 
-            sqlx::query("INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)")
-                .bind(id)
-                .bind(title)
-                .bind(artist)
-                .bind(album)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
+            sqlx::query(
+                "INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)",
+            )
+            .bind(id)
+            .bind(title)
+            .bind(artist)
+            .bind(album)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
         }
 
         tx.commit().await.map_err(|e| e.to_string())?;
-        log::info!("Search index rebuilt successfully with {} items", rows.len());
+        log::info!(
+            "Search index rebuilt successfully with {} items",
+            rows.len()
+        );
         Ok(())
     }
 
     pub async fn search_library(&self, query: &str) -> Result<Vec<UnifiedTrack>, String> {
         log::info!("Searching library for: '{}'", query);
-        
+
         // Check if search_index is in sync with tracks table
         let index_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM search_index")
             .fetch_one(&self.pool)
             .await
             .unwrap_or((0,));
-        
+
         let tracks_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tracks")
             .fetch_one(&self.pool)
             .await
             .unwrap_or((0,));
-        
-        log::info!("search_index: {} entries, tracks table: {} entries", index_count.0, tracks_count.0);
-        
+
+        log::info!(
+            "search_index: {} entries, tracks table: {} entries",
+            index_count.0,
+            tracks_count.0
+        );
+
         // If index is out of sync, rebuild it
         if index_count.0 != tracks_count.0 {
             log::warn!("search_index out of sync! Rebuilding...");
@@ -117,7 +132,7 @@ impl LibraryManager {
                 log::info!("Index rebuilt successfully");
             }
         }
-        
+
         // Build FTS5 query: each word gets a prefix wildcard, joined with spaces (implicit AND)
         // Example: "bot bakka" -> "bot* bakka*"
         let fts_query = query
@@ -130,12 +145,12 @@ impl LibraryManager {
             .filter(|w| w.len() > 1) // Skip empty or single-char wildcards
             .collect::<Vec<_>>()
             .join(" ");
-        
+
         if fts_query.is_empty() {
             log::info!("Query is empty after sanitization");
             return Ok(Vec::new());
         }
-        
+
         log::info!("FTS5 query: {}", fts_query);
 
         let rows = sqlx::query(
@@ -160,7 +175,7 @@ impl LibraryManager {
             log::error!("FTS5 Search failed: {}", e);
             e.to_string()
         })?;
-        
+
         log::info!("Found {} search results", rows.len());
 
         let mut tracks = Vec::new();
@@ -330,7 +345,7 @@ impl LibraryManager {
             .map_err(|e| e.to_string())?;
 
         let track_id = if let Some(row) = exists {
-             row.try_get::<String, _>("id").unwrap_or_default()
+            row.try_get::<String, _>("id").unwrap_or_default()
         } else {
             let new_id = Uuid::new_v4().to_string();
             let duration = track.duration.unwrap_or(0) as i64;
@@ -366,14 +381,16 @@ impl LibraryManager {
             .await
             .ok();
 
-        sqlx::query("INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)")
-            .bind(&track_id)
-            .bind(&track.title)
-            .bind(&artist_name)
-            .bind(&album_name)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)",
+        )
+        .bind(&track_id)
+        .bind(&track.title)
+        .bind(&artist_name)
+        .bind(&album_name)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
         tx.commit().await.map_err(|e| e.to_string())?;
         Ok(())

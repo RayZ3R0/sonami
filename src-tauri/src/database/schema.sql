@@ -71,3 +71,29 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track ON playlist_tracks(track_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_id, position);
+
+-- User Favorites (Liked Songs)
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id TEXT PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    liked_at INTEGER NOT NULL,
+    FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    UNIQUE(track_id)
+);
+
+-- Play History (Recently Played)
+CREATE TABLE IF NOT EXISTS play_history (
+    id TEXT PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    played_at INTEGER NOT NULL,
+    duration_played INTEGER,
+    completed INTEGER DEFAULT 0,
+    source TEXT,
+    FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+);
+
+-- Indexes for user activity tables
+CREATE INDEX IF NOT EXISTS idx_favorites_liked_at ON user_favorites(liked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_favorites_track_id ON user_favorites(track_id);
+CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_play_history_track_id ON play_history(track_id);

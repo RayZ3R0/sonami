@@ -2,6 +2,8 @@ use tauri::{AppHandle, Emitter, State};
 
 pub mod library;
 pub mod playlist;
+pub mod favorites;
+pub mod history;
 
 use crate::audio::AudioManager;
 use base64::{engine::general_purpose, Engine as _};

@@ -5,9 +5,7 @@ use crate::tidal::models::Track as TidalTrack;
 use tauri::{command, State};
 
 #[command]
-pub async fn get_playlists(
-    manager: State<'_, PlaylistManager>,
-) -> Result<Vec<Playlist>, String> {
+pub async fn get_playlists(manager: State<'_, PlaylistManager>) -> Result<Vec<Playlist>, String> {
     manager.get_playlists().await
 }
 
@@ -50,7 +48,7 @@ pub async fn add_tidal_track_to_playlist(
     // 2. Get local Track ID
     // We can assume import worked, checking ID via tidal_id lookup
     let track_id_opt = playlist.find_track_id_by_tidal_id(track.id).await?;
-    
+
     if let Some(track_id) = track_id_opt {
         playlist.add_track_entry(&playlist_id, &track_id).await?;
         Ok(())
