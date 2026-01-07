@@ -17,7 +17,7 @@ Download the latest release for your platform from the [Releases](https://github
 |----------|---------|
 | Windows | `.msi`, `.exe` |
 | macOS | `.dmg` |
-| Linux | `.deb`, `.rpm`, `.AppImage` |
+| Linux | `.deb`, `.rpm`, `.AppImage`, `.tar.gz` |
 
 ## Development
 
