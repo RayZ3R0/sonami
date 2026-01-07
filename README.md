@@ -79,4 +79,4 @@ bun tauri build
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+Distributed under the AGPL-3.0 License. See [LICENSE](LICENSE) for more information.
