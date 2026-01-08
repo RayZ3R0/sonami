@@ -151,6 +151,7 @@ pub fn run() {
             commands::set_repeat_mode,
             commands::next_track,
             commands::prev_track,
+            commands::resolve_next_track_url,
             commands::get_playback_info,
             commands::get_current_track,
             commands::get_queue,

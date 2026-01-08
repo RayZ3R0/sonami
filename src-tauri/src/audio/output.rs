@@ -9,7 +9,7 @@ use super::manager::BUFFER_SIZE;
 use super::types::{AudioContext, AudioError, DeviceChanged};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-const DEBUG_CROSSFADE: bool = false;
+const DEBUG_CROSSFADE: bool = true;
 
 macro_rules! debug_cf {
     ($($arg:tt)*) => {
@@ -189,6 +189,9 @@ where
             let volume = state.get_volume();
 
             if !is_playing {
+                if callback_num.is_multiple_of(500) {
+                    debug_cf!("cb#{} NOT PLAYING - filling silence", callback_num);
+                }
                 data.fill(T::from_sample(0.0));
                 return;
             }
@@ -202,9 +205,20 @@ where
             };
 
             let samples_in_b_before_pop = BUFFER_SIZE - buffer_b.available_space();
-            let need_micro_fade = is_draining && !is_crossfading &&
-                samples_in_b_before_pop > 0 &&
-                samples_in_b_before_pop <= MICRO_FADE_SAMPLES + data.len();
+            let samples_in_a_before_pop = BUFFER_SIZE - buffer_a.available_space();
+
+            // Log buffer states only every 500 callbacks (~5 seconds)
+            if callback_num.is_multiple_of(500) {
+                debug_cf!(
+                    "cb#{} BUFFER: a={}, b={}, crossfading={}, draining={}, cf_ms={}",
+                    callback_num, samples_in_a_before_pop, samples_in_b_before_pop,
+                    is_crossfading, is_draining, crossfade_ms.load(Ordering::Relaxed)
+                );
+            }
+
+            let need_micro_fade = is_draining && !is_crossfading
+                && samples_in_b_before_pop > 0
+                && samples_in_b_before_pop <= MICRO_FADE_SAMPLES + data.len();
 
             if need_micro_fade && !micro_fade_active_clone.load(Ordering::Relaxed) {
                 micro_fade_active_clone.store(true, Ordering::Release);

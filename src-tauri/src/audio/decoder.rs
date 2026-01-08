@@ -27,7 +27,7 @@ use super::types::{
 };
 use crate::queue::{PlayQueue, RepeatMode};
 
-const DEBUG_CROSSFADE: bool = false;
+const DEBUG_CROSSFADE: bool = true;
 
 macro_rules! debug_cf {
     ($($arg:tt)*) => {
@@ -79,6 +79,12 @@ pub fn decoder_thread(
         if let Some(cmd) = command {
             match cmd {
                 DecoderCommand::Load(path) => {
+                    debug_cf!("=== LOAD COMMAND === path: {}", path);
+                    debug_cf!(
+                        "  crossfade_ms={}, crossfade_active={}",
+                        crossfade_ms.load(Ordering::Relaxed),
+                        crossfade_active.load(Ordering::Relaxed)
+                    );
                     let source_res = resolve_source(&path).map_err(|e| e.to_string());
                     match source_res.and_then(load_track) {
                         Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
@@ -207,60 +213,117 @@ pub fn decoder_thread(
             let position = state.position_samples.load(Ordering::Relaxed);
             let duration = state.duration_samples.load(Ordering::Relaxed);
 
+            // Debug position tracking every 10 seconds
+            if position % (sample_rate * 10) < 100 {
+                let time_pos = position as f64 / sample_rate as f64;
+                let time_dur = duration as f64 / sample_rate as f64;
+                let time_remaining = time_dur - time_pos;
+                // debug_cf!(
+                //     "DECODER LOOP: pos={:.2}s/{:.2}s, remaining={:.2}s, cf_ms={}, playing={}",
+                //     time_pos, time_dur, time_remaining, cf_duration_ms,
+                //     state.is_playing.load(Ordering::Relaxed)
+                // );
+            }
+
             let should_prebuffer = cf_duration_ms > 0
                 && duration > cf_duration_samples
                 && position >= duration.saturating_sub(cf_duration_samples)
                 && crossfade_state == CrossfadeState::Idle
                 && next_decoder.is_none();
 
+            // Log when we're in the crossfade window
+            let in_crossfade_window = cf_duration_ms > 0
+                && duration > cf_duration_samples
+                && position >= duration.saturating_sub(cf_duration_samples);
+
+            if in_crossfade_window {
+                let time_remaining = (duration - position) as f64 / sample_rate as f64;
+                debug_cf!(
+                    "!!! IN CROSSFADE WINDOW: pos={:.2}s/{:.2}s, remaining={:.2}s, state={:?}, has_next={}, should_prebuf={}",
+                    position as f64 / sample_rate as f64,
+                    duration as f64 / sample_rate as f64,
+                    time_remaining,
+                    crossfade_state,
+                    next_decoder.is_some(),
+                    should_prebuffer
+                );
+            }
+
             if should_prebuffer {
+                debug_cf!("ATTEMPTING TO PREBUFFER...");
                 let next_track_opt = {
                     let q = queue.read();
+                    debug_cf!(
+                        "Queue: tracks={}, repeat={:?}, shuffle={}",
+                        q.tracks.len(),
+                        q.repeat,
+                        q.shuffle
+                    );
                     q.peek_next_track()
                 };
 
                 if let Some(track) = next_track_opt {
-                    let source_res = resolve_source(&track.path).map_err(|e| e.to_string());
-                    if let Ok(source) = source_res {
-                        if let Ok((r, d, tid, _dur, sr)) = load_track(source) {
-                            next_decoder = Some((r, d, tid));
-                            next_track_info = Some(track);
-                            next_sample_buf = None;
-                            next_input_accumulator.clear();
-                            buffer_b.clear();
+                    debug_cf!("Found next track: {:?}", track.path);
+                    // Use resolved_url if available, otherwise use path
+                    let track_path = track.resolved_url.as_ref().unwrap_or(&track.path);
+                    debug_cf!("Using path/URL: {}", track_path);
+                    let source_res = resolve_source(track_path).map_err(|e| e.to_string());
+                    match source_res {
+                        Ok(source) => {
+                            debug_cf!("Resolved source for next track");
+                            match load_track(source) {
+                                Ok((r, d, tid, _dur, sr)) => {
+                                    debug_cf!("Successfully loaded next track decoder");
+                                    next_decoder = Some((r, d, tid));
+                                    next_track_info = Some(track);
+                                    next_sample_buf = None;
+                                    next_input_accumulator.clear();
+                                    buffer_b.clear();
 
-                            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-                            if device_rate != 0 && device_rate != sr {
-                                let params = SincInterpolationParameters {
-                                    sinc_len: 256,
-                                    f_cutoff: 0.95,
-                                    interpolation: SincInterpolationType::Linear,
-                                    window: WindowFunction::BlackmanHarris2,
-                                    oversampling_factor: 128,
-                                };
-                                if let Ok(r) = SincFixedIn::<f32>::new(
-                                    device_rate as f64 / sr as f64,
-                                    2.0,
-                                    params,
-                                    1024,
-                                    2,
-                                ) {
-                                    next_resampler = Some(r);
-                                    next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
-                                } else {
-                                    next_resampler = None;
+                                    let device_rate =
+                                        state.device_sample_rate.load(Ordering::Relaxed);
+                                    if device_rate != 0 && device_rate != sr {
+                                        let params = SincInterpolationParameters {
+                                            sinc_len: 256,
+                                            f_cutoff: 0.95,
+                                            interpolation: SincInterpolationType::Linear,
+                                            window: WindowFunction::BlackmanHarris2,
+                                            oversampling_factor: 128,
+                                        };
+                                        if let Ok(r) = SincFixedIn::<f32>::new(
+                                            device_rate as f64 / sr as f64,
+                                            2.0,
+                                            params,
+                                            1024,
+                                            2,
+                                        ) {
+                                            next_resampler = Some(r);
+                                            next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                                        } else {
+                                            next_resampler = None;
+                                        }
+                                    } else {
+                                        next_resampler = None;
+                                    }
+
+                                    crossfade_state = CrossfadeState::Prebuffering;
+                                    debug_cf!(
+                                        "=== PREBUFFER STARTED === track: {:?}, buffer_b space={}",
+                                        next_track_info.as_ref().map(|t| &t.path),
+                                        buffer_b.available_space()
+                                    );
                                 }
-                            } else {
-                                next_resampler = None;
+                                Err(e) => {
+                                    debug_cf!("Failed to load next track: {}", e);
+                                }
                             }
-
-                            crossfade_state = CrossfadeState::Prebuffering;
-                            debug_cf!(
-                                "DECODER: Started prebuffering next track: {:?}",
-                                next_track_info.as_ref().map(|t| &t.path)
-                            );
+                        }
+                        Err(e) => {
+                            debug_cf!("Failed to resolve source for next track: {}", e);
                         }
                     }
+                } else {
+                    debug_cf!("NO NEXT TRACK AVAILABLE - prebuffering skipped");
                 }
             }
 
@@ -294,6 +357,13 @@ pub fn decoder_thread(
                     Err(symphonia::core::errors::Error::IoError(ref e))
                         if e.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
+                        let actual_pos = position as f64 / sample_rate as f64;
+                        let expected_dur = duration as f64 / sample_rate as f64;
+                        let seconds_lost = expected_dur - actual_pos;
+                        debug_cf!(
+                            "!!! PREMATURE EOF: reached at {:.2}s but expected {:.2}s (lost {:.2}s) - STREAMING BUG?",
+                            actual_pos, expected_dur, seconds_lost
+                        );
                         handle_track_end(
                             &mut current_decoder,
                             &mut next_decoder,
@@ -360,9 +430,14 @@ pub fn decoder_thread(
                                     progress_samples: 0,
                                     total_samples: cf_duration_samples,
                                 };
-                                crossfade_active.store(true, Ordering::Relaxed);
-                                debug_cf!("DECODER: CROSSFADE ACTIVATED! buffer_b has {} samples, cf_duration={} samples", 
+                                crossfade_active.store(true, Ordering::Release);
+                                debug_cf!("=== CROSSFADE ACTIVATED === buffer_b has {} samples, cf_duration={} samples", 
                                     BUFFER_SIZE - buffer_b.available_space(), cf_duration_samples);
+                                debug_cf!(
+                                    "  buffer_a space={}, buffer_b space={}",
+                                    buffer_a.available_space(),
+                                    buffer_b.available_space()
+                                );
                             }
                         }
                     }
@@ -454,6 +529,18 @@ fn handle_track_end(
     buffer_b: &Arc<AudioBuffer>,
     app_handle: &AppHandle,
 ) {
+    debug_cf!("=== TRACK END HANDLER ===");
+    debug_cf!(
+        "  has_next_decoder={}, crossfade_state={:?}",
+        next_decoder.is_some(),
+        crossfade_state
+    );
+    debug_cf!(
+        "  buffer_a space={}, buffer_b space={}",
+        buffer_a.available_space(),
+        buffer_b.available_space()
+    );
+
     let _ = app_handle.emit("track-ended", ());
 
     let repeat_mode = queue.read().repeat;
@@ -521,14 +608,29 @@ fn handle_track_end(
         next_input_accumulator.clear();
 
         if let Some(track) = next_track_info.take() {
-            debug_cf!("  New track: {:?}", track.path);
+            debug_cf!("  New track: {:?} (from prebuffered decoder)", track.title);
             *state.current_path.write() = Some(track.path.clone());
             let _ = app_handle.emit("track-changed", track.clone());
 
             {
                 let mut q = queue.write();
+                let before_idx = q.peek_current_index();
                 q.get_next_track(false);
+                let after_idx = q.peek_current_index();
+                debug_cf!(
+                    "  Queue advanced: index {} -> {}, total tracks: {}",
+                    before_idx
+                        .map(|i| i.to_string())
+                        .unwrap_or("None".to_string()),
+                    after_idx
+                        .map(|i| i.to_string())
+                        .unwrap_or("None".to_string()),
+                    q.tracks.len()
+                );
             }
+
+            // Emit event to request pre-resolution of the next track's URL
+            let _ = app_handle.emit("resolve-next-track", ());
 
             if let Some((ref reader, _, _)) = current_decoder {
                 if let Some(audio_track) = reader
@@ -571,17 +673,70 @@ fn handle_track_end(
 
     let next_track_opt = {
         let mut q = queue.write();
-        q.get_next_track(false)
+        let before_idx = q.peek_current_index();
+        debug_cf!(
+            "AUTO-ADVANCE: Getting next track from queue (current index: {})",
+            before_idx
+                .map(|i| i.to_string())
+                .unwrap_or("None".to_string())
+        );
+        let track = q.get_next_track(false);
+        let after_idx = q.peek_current_index();
+        debug_cf!(
+            "AUTO-ADVANCE: Queue index {} -> {}, total tracks: {}, got track: {}",
+            before_idx
+                .map(|i| i.to_string())
+                .unwrap_or("None".to_string()),
+            after_idx
+                .map(|i| i.to_string())
+                .unwrap_or("None".to_string()),
+            q.tracks.len(),
+            track.is_some()
+        );
+        track
     };
 
     if let Some(track) = next_track_opt {
-        let next_path = track.path.clone();
-        *state.current_path.write() = Some(next_path.clone());
-        let _ = app_handle.emit("track-changed", track);
+        // Use resolved_url if available, otherwise use path
+        let next_path = track.resolved_url.as_ref().unwrap_or(&track.path).clone();
+        debug_cf!("FALLBACK AUTO-ADVANCE: Loading track '{}'", track.title);
+        debug_cf!("  track.path: {}", track.path);
+        debug_cf!("  track.resolved_url: {:?}", track.resolved_url);
+        debug_cf!(
+            "  Using: {}",
+            if track.resolved_url.is_some() {
+                "resolved_url"
+            } else {
+                "path"
+            }
+        );
+        *state.current_path.write() = Some(track.path.clone());
+        let _ = app_handle.emit("track-changed", track.clone());
+
+        // Emit event to request pre-resolution of the NEXT track's URL
+        let _ = app_handle.emit("resolve-next-track", ());
 
         let source_res = resolve_source(&next_path).map_err(|e| e.to_string());
         if let Ok(source) = source_res {
+            debug_cf!("Successfully resolved source, loading track...");
             if let Ok((r, d, tid, dur, sr)) = load_track(source) {
+                debug_cf!(
+                    "Track loaded successfully: dur={} samples, sr={} Hz",
+                    dur,
+                    sr
+                );
+
+                // Store the resolved URL back in the queue for future use
+                // Note: Do this in a single write lock to avoid deadlock
+                if next_path.starts_with("http") {
+                    let mut q = queue.write();
+                    if let Some(current_idx) = q.peek_current_index() {
+                        if current_idx < q.tracks.len() {
+                            q.tracks[current_idx].resolved_url = Some(next_path.clone());
+                        }
+                    }
+                }
+
                 state.position_samples.store(0, Ordering::Relaxed);
                 state.duration_samples.store(dur, Ordering::Relaxed);
                 state.sample_rate.store(sr as u64, Ordering::Relaxed);
@@ -590,9 +745,12 @@ fn handle_track_end(
                 input_accumulator.clear();
                 buffer_a.clear();
                 buffer_b.clear();
+                debug_cf!("  Decoder state reset, setting up resampler...");
 
                 let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                debug_cf!("  device_rate={}, track_rate={}", device_rate, sr);
                 if device_rate != 0 && device_rate != sr {
+                    debug_cf!("  Creating resampler {} -> {}", sr, device_rate);
                     let params = SincInterpolationParameters {
                         sinc_len: 256,
                         f_cutoff: 0.95,
@@ -607,23 +765,33 @@ fn handle_track_end(
                         1024,
                         2,
                     ) {
+                        debug_cf!("  Resampler created successfully");
                         *resampler = Some(r);
                         *resampler_input_buffer = vec![vec![0.0; 1024]; 2];
                     } else {
+                        debug_cf!("  Resampler creation failed, using passthrough");
                         *resampler = None;
                     }
                 } else {
+                    debug_cf!("  No resampling needed");
                     *resampler = None;
                 }
+                debug_cf!("AUTO-ADVANCE: Successfully loaded next track, playback continuing");
             } else {
+                debug_cf!("AUTO-ADVANCE ERROR: Failed to load track, stopping playback");
                 state.is_playing.store(false, Ordering::Relaxed);
                 *current_decoder = None;
             }
         } else {
+            debug_cf!(
+                "AUTO-ADVANCE ERROR: Failed to resolve source: {:?}",
+                source_res.err()
+            );
             state.is_playing.store(false, Ordering::Relaxed);
             *current_decoder = None;
         }
     } else {
+        debug_cf!("AUTO-ADVANCE: No more tracks in queue, stopping playback");
         state.is_playing.store(false, Ordering::Relaxed);
         *current_decoder = None;
     }
@@ -647,8 +815,6 @@ pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
     let mss = MediaSourceStream::new(source, Default::default());
 
     let hint = Hint::new();
-    // Hint based on content type or extension from metadata could go here
-    // For now we rely on Symphonia probing
 
     let format_opts = FormatOptions {
         enable_gapless: true,

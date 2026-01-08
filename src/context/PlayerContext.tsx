@@ -202,15 +202,29 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       seekTarget.current = null;
     });
 
+    const unlistenResolve = listen("resolve-next-track", async () => {
+      console.log("[CROSSFADE] Pre-resolving next track URL");
+      try {
+        await invoke("resolve_next_track_url");
+      } catch (error) {
+        console.error("[CROSSFADE] Failed to resolve next track URL:", error);
+      }
+    });
+
     return () => {
       cancelAnimationFrame(animationId);
       unlisten.then((f) => f());
+      unlistenResolve.then((f) => f());
     };
   }, []);
 
   useEffect(() => {
     const syncState = async () => {
       try {
+        const targetDuration = crossfadeEnabled ? crossfadeDuration : 0;
+        await invoke("set_crossfade_duration", {
+          durationMs: targetDuration,
+        });
         const track = await invoke<Track | null>("get_current_track");
         if (track) setCurrentTrack(track);
 
@@ -224,19 +238,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         const r = await invoke<RepeatMode>("get_repeat_mode");
         setRepeatMode(r);
-
-        const cfDuration = await invoke<number>("get_crossfade_duration");
-        if (crossfadeEnabled) {
-          if (cfDuration !== crossfadeDuration) {
-            await invoke("set_crossfade_duration", {
-              durationMs: crossfadeDuration,
-            });
-          }
-        } else {
-          if (cfDuration !== 0) {
-            await invoke("set_crossfade_duration", { durationMs: 0 });
-          }
-        }
 
         refreshPlaylists();
       } catch (e) {

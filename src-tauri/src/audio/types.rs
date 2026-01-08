@@ -27,7 +27,7 @@ use serde::Serialize;
 use symphonia::core::codecs::Decoder;
 use symphonia::core::formats::FormatReader;
 
-pub const DEFAULT_CROSSFADE_MS: u32 = 5000;
+pub const DEFAULT_CROSSFADE_MS: u32 = 0;
 
 #[derive(Clone, Serialize)]
 pub struct AudioError {
@@ -103,7 +103,7 @@ pub enum DecoderCommand {
     QueueNext(String),
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CrossfadeState {
     Idle,
     Prebuffering,

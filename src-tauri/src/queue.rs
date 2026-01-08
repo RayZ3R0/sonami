@@ -19,6 +19,8 @@ pub struct Track {
     pub duration: u64,
     pub cover_image: Option<String>,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_url: Option<String>,
 }
 
 pub struct PlayQueue {
@@ -198,6 +200,10 @@ impl PlayQueue {
         self.get_track_at(next_idx)
     }
 
+    pub fn peek_current_index(&self) -> Option<usize> {
+        self.current_index
+    }
+
     pub fn play_track_by_path(&mut self, path: &str) {
         if let Some(index) = self.tracks.iter().position(|t| t.path == path) {
             if self.shuffle {
@@ -210,6 +216,25 @@ impl PlayQueue {
                 }
             } else {
                 self.current_index = Some(index);
+            }
+        }
+    }
+
+    pub fn update_next_track_url(&mut self, track: Track) {
+        if let Some(next) = self.peek_next_track() {
+            if next.path == track.path {
+                // Find the actual track in the tracks list and update it
+                let next_idx = if self.shuffle {
+                    let current_shuffled = self.current_index.unwrap_or(0);
+                    let next_shuffled = (current_shuffled + 1) % self.shuffled_indices.len();
+                    self.shuffled_indices[next_shuffled]
+                } else {
+                    (self.current_index.unwrap_or(0) + 1) % self.tracks.len()
+                };
+
+                if next_idx < self.tracks.len() {
+                    self.tracks[next_idx].resolved_url = track.resolved_url;
+                }
             }
         }
     }

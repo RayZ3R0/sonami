@@ -119,6 +119,11 @@ impl Read for HttpSource {
 
             let reader = self.reader.as_mut().unwrap();
             match reader.read(buf) {
+                Ok(0) => {
+                    // EOF reached
+                    // eprintln!("[HTTP] EOF at position {} / {:?}", self.position, self.total_size);
+                    return Ok(0);
+                }
                 Ok(n) => {
                     self.position += n as u64;
                     return Ok(n);

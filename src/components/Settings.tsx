@@ -83,10 +83,11 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${isActive
-          ? "ring-2 ring-offset-2 ring-offset-transparent"
-          : "hover:scale-[1.02]"
-        }
+                ${
+                  isActive
+                    ? "ring-2 ring-offset-2 ring-offset-transparent"
+                    : "hover:scale-[1.02]"
+                }
             `}
       style={{
         background: colors.background,
@@ -283,9 +284,7 @@ export const Settings = ({
           background: `linear-gradient(135deg, ${theme.colors.background} 0%, ${theme.colors.backgroundSecondary} 100%)`,
         }}
       >
-        <div
-          className="flex items-center justify-between px-6 py-4"
-        >
+        <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -324,9 +323,7 @@ export const Settings = ({
           </button>
         </div>
 
-        <div
-          className="flex border-b border-white/5"
-        >
+        <div className="flex border-b border-white/5">
           <button
             className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "appearance" ? "text-theme-primary" : "text-theme-muted"}`}
             onClick={() => setActiveTab("appearance")}
@@ -381,10 +378,11 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("floating")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "floating"
-                        ? "ring-2 ring-offset-2 ring-offset-transparent"
-                        : "hover:scale-[1.02]"
-                      }
+                                            ${
+                                              playerBarStyle === "floating"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -429,10 +427,11 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("classic")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "classic"
-                        ? "ring-2 ring-offset-2 ring-offset-transparent"
-                        : "hover:scale-[1.02]"
-                      }
+                                            ${
+                                              playerBarStyle === "classic"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -591,9 +590,7 @@ export const Settings = ({
           )}
         </div>
 
-        <div
-          className="px-6 py-4 border-t border-white/5"
-        >
+        <div className="px-6 py-4 border-t border-white/5">
           <p
             className="text-xs text-center"
             style={{ color: theme.colors.textMuted }}

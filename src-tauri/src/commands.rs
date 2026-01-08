@@ -76,6 +76,7 @@ fn parse_audio_file(path_str: &str) -> Option<Track> {
         duration,
         cover_image,
         path: path_str.to_string(),
+        resolved_url: None,
     })
 }
 
@@ -168,6 +169,21 @@ async fn resolve_path(
 }
 
 #[tauri::command]
+pub async fn resolve_next_track_url(
+    state: State<'_, AudioManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
+) -> Result<(), String> {
+    let upcoming_track_opt = state.queue.read().peek_next_track();
+    if let Some(mut upcoming_track) = upcoming_track_opt {
+        if let Ok(resolved_url) = resolve_path(&upcoming_track.path, &tidal_state).await {
+            upcoming_track.resolved_url = Some(resolved_url);
+            state.queue.write().update_next_track_url(upcoming_track);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn play_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
@@ -175,6 +191,19 @@ pub async fn play_track(
     path: String,
 ) -> Result<(), String> {
     let play_path = resolve_path(&path, &tidal_state).await?;
+
+    // Update queue position to match the track being played
+    {
+        let mut q = state.queue.write();
+        q.play_track_by_path(&path);
+
+        // Store the resolved URL for the current track
+        if let Some(idx) = q.peek_current_index() {
+            if idx < q.tracks.len() {
+                q.tracks[idx].resolved_url = Some(play_path.clone());
+            }
+        }
+    }
 
     state.play(play_path);
 
@@ -184,6 +213,15 @@ pub async fn play_track(
     };
 
     if let Some(ref t) = track {
+        // Pre-resolve the NEXT track's URL for prebuffering
+        let upcoming_track_opt = state.queue.read().peek_next_track();
+        if let Some(mut upcoming_track) = upcoming_track_opt {
+            if let Ok(resolved_url) = resolve_path(&upcoming_track.path, &tidal_state).await {
+                upcoming_track.resolved_url = Some(resolved_url);
+                state.queue.write().update_next_track_url(upcoming_track);
+            }
+        }
+
         let _ = app.emit("track-changed", t.clone());
         state
             .media_controls
@@ -285,10 +323,26 @@ pub async fn next_track(
     if let Some(ref track) = next_track {
         match resolve_path(&track.path, &tidal_state).await {
             Ok(play_path) => {
+                // Store resolved URL for current track
+                if let Some(idx) = state.queue.read().peek_current_index() {
+                    let mut q = state.queue.write();
+                    if idx < q.tracks.len() {
+                        q.tracks[idx].resolved_url = Some(play_path.clone());
+                    }
+                }
                 state.play(play_path);
                 // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
+        }
+
+        // Pre-resolve the NEXT track's URL for prebuffering
+        let upcoming_track_opt = state.queue.read().peek_next_track();
+        if let Some(mut upcoming_track) = upcoming_track_opt {
+            if let Ok(resolved_url) = resolve_path(&upcoming_track.path, &tidal_state).await {
+                upcoming_track.resolved_url = Some(resolved_url);
+                state.queue.write().update_next_track_url(upcoming_track);
+            }
         }
 
         let _ = app.emit("track-changed", track.clone());
@@ -314,10 +368,26 @@ pub async fn prev_track(
     if let Some(ref track) = prev_track {
         match resolve_path(&track.path, &tidal_state).await {
             Ok(play_path) => {
+                // Store resolved URL for current track
+                if let Some(idx) = state.queue.read().peek_current_index() {
+                    let mut q = state.queue.write();
+                    if idx < q.tracks.len() {
+                        q.tracks[idx].resolved_url = Some(play_path.clone());
+                    }
+                }
                 state.play(play_path);
                 // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
+        }
+
+        // Pre-resolve the NEXT track's URL for prebuffering
+        let upcoming_track_opt = state.queue.read().peek_next_track();
+        if let Some(mut upcoming_track) = upcoming_track_opt {
+            if let Ok(resolved_url) = resolve_path(&upcoming_track.path, &tidal_state).await {
+                upcoming_track.resolved_url = Some(resolved_url);
+                state.queue.write().update_next_track_url(upcoming_track);
+            }
         }
 
         let _ = app.emit("track-changed", track.clone());
@@ -378,9 +448,17 @@ pub async fn set_crossfade_duration(
     duration_ms: u32,
 ) -> Result<(), String> {
     let clamped = duration_ms.min(12000);
+    eprintln!(
+        "[CROSSFADE CMD] Setting duration: requested={}ms, clamped={}ms",
+        duration_ms, clamped
+    );
     state
         .crossfade_duration_ms
         .store(clamped, std::sync::atomic::Ordering::Relaxed);
+    let verify = state
+        .crossfade_duration_ms
+        .load(std::sync::atomic::Ordering::Relaxed);
+    eprintln!("[CROSSFADE CMD] Stored and verified: {}ms", verify);
     Ok(())
 }
 
@@ -418,6 +496,7 @@ pub async fn play_stream(
         duration: 0,
         cover_image: None,
         path: url.clone(),
+        resolved_url: None,
     };
 
     {
@@ -488,6 +567,7 @@ pub async fn play_tidal_track(
         duration,
         cover_image: cover_url,
         path: stream_info.url.clone(),
+        resolved_url: None,
     };
 
     {
@@ -496,6 +576,19 @@ pub async fn play_tidal_track(
     }
 
     audio_state.play(stream_info.url);
+
+    // Pre-resolve the NEXT track's URL for prebuffering
+    let upcoming_track_opt = audio_state.queue.read().peek_next_track();
+    if let Some(mut upcoming_track) = upcoming_track_opt {
+        if let Ok(resolved_url) = resolve_path(&upcoming_track.path, &tidal_state).await {
+            upcoming_track.resolved_url = Some(resolved_url);
+            audio_state
+                .queue
+                .write()
+                .update_next_track_url(upcoming_track);
+        }
+    }
+
     let _ = app.emit("track-changed", track);
     Ok(())
 }
