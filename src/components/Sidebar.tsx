@@ -4,8 +4,6 @@ import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Manual offsets for vertical alignment
 
-const IMPORT_BUTTON_TEXT_OFFSET = "mt-[4.6px]";
-
 // All icons use identical viewBox and size
 const icons = {
   home: (
@@ -152,7 +150,7 @@ export const Sidebar = ({
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) => {
-  const { importMusic, importFolder, playlists } = usePlayer();
+  const { playlists } = usePlayer();
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
   return (
