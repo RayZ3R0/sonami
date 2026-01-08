@@ -159,5 +159,8 @@ jobs:
           commit_email: z3r069@tutanota.com
           ssh_private_key: ${{ secrets.AUR_PRIVATE_KEY }}
           commit_message: "Update to v${{ needs.create-release.outputs.version }}"
-          ssh_keyscan_types: rsa,dsa,ecdsa,ed25519
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+          updpkgsums: false
+          test: false
+          allow_empty_commits: true
 

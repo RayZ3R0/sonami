@@ -6,6 +6,7 @@
 [![Version](https://img.shields.io/github/v/tag/RayZ3R0/sonami?style=flat-square&label=version&color=blue)](https://github.com/RayZ3R0/sonami/tags)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/RayZ3R0/sonami/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/RayZ3R0/sonami/actions)
 [![License](https://img.shields.io/github/license/RayZ3R0/sonami?style=flat-square)](LICENSE)
+[![AUR Version](https://img.shields.io/aur/version/sonami-bin?style=flat-square&logo=arch-linux&color=1793D1)](https://aur.archlinux.org/packages/sonami-bin)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-informational?style=flat-square)](https://github.com/RayZ3R0/sonami/releases)
 
 <!-- LINE 2: Activity & Stats -->
@@ -45,7 +46,19 @@ Download the latest release for your platform from the [**Releases Page**](https
 |:---------|:------------------|
 | **Windows** | `.msi`, `.exe` |
 | **macOS** | `.dmg` |
-| **Linux** | `.deb`, `.rpm`, `.AppImage` |
+| **Linux** | `.deb`, `.rpm`, `.AppImage`, `AUR` |
+
+### Arch Linux (AUR)
+
+You can install Sonami from the AUR using your favorite AUR helper:
+
+```bash
+# Using yay
+yay -S sonami-bin
+
+# Using paru
+paru -S sonami-bin
+```
 
 ## Development
 

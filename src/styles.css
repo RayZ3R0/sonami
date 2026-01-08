@@ -1057,86 +1057,7 @@ body {
     backface-visibility: hidden;
 }
 
-/* Lyric line transitions - optimized for performance */
-.lyric-line {
-    will-change: opacity;
-    transition:
-        opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1),
-        font-size 0.3s ease-out,
-        color 0.3s ease-out;
-    backface-visibility: hidden;
-}
 
-.lyric-active {
-    opacity: 1;
-    transition:
-        opacity 0.3s ease-out,
-        font-size 0.25s ease-out,
-        color 0.25s ease-out;
-}
-
-.lyric-past {
-    opacity: 0.5;
-    transition:
-        opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1),
-        font-size 0.4s ease-out,
-        color 0.4s ease-out;
-}
-
-.lyric-future {
-    opacity: 0.6;
-    transition:
-        opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-        font-size 0.25s ease-out,
-        color 0.25s ease-out;
-}
-
-/* Lyrics wrapper - allows glow to overflow while containing scroll */
-.lyrics-wrapper {
-    position: relative;
-}
-
-/* Lyrics container - clean scrolling without horizontal overflow */
-.lyrics-container {
-    animation: lyrics-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
-    scroll-behavior: smooth;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-top: 20px;
-    padding-bottom: 20px;
-    /* Enhanced smooth scrolling for webkit */
-    -webkit-overflow-scrolling: touch;
-}
-
-@keyframes lyrics-enter {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Lyrics scrollbar */
-.lyrics-container::-webkit-scrollbar {
-    width: 4px;
-}
-
-.lyrics-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.lyrics-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-}
-
-.lyrics-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
 
 /* Vinyl indicator animation */
 .vinyl-indicator {
@@ -1214,4 +1135,209 @@ body {
 .animate-equalizer {
     animation: equalizer 0.6s ease-in-out infinite;
     transform-origin: bottom;
+}
+
+/* ============================================
+   SYNCED LYRICS STYLES
+   Industry-standard smooth animations
+   ============================================ */
+
+/* Lyrics container with smooth scrolling */
+.lyrics-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    scroll-behavior: smooth;
+    overflow-y: auto;
+    overflow-x: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.lyrics-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.lyrics-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.lyrics-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.lyrics-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Individual lyric line animations */
+.lyric-line {
+    will-change: transform, opacity, text-shadow;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    padding: 0 2rem;
+    margin-left: -2rem;
+    margin-right: -2rem;
+}
+
+/* Active line glow effect with smooth webkit support */
+.lyric-line.active {
+    color: var(--theme-text-primary);
+    font-weight: 800;
+    text-shadow: 
+        0 0 20px rgba(255, 255, 255, 0.4),
+        0 0 40px rgba(255, 255, 255, 0.2),
+        0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Smooth fade animations for static lyrics */
+@keyframes lyrics-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: lyrics-fade-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Gradient text effect for active lyrics (optional enhancement) */
+.lyric-line.active.gradient-text {
+    background: linear-gradient(
+        90deg,
+        var(--theme-text-primary) 0%,
+        var(--theme-accent) 50%,
+        var(--theme-text-primary) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-slide 3s ease-in-out infinite;
+}
+
+@keyframes gradient-slide {
+    0%, 100% {
+        background-position: 0% center;
+    }
+    50% {
+        background-position: 100% center;
+    }
+}
+
+/* Subtle opacity for non-active lines instead of blur to prevent flickering */
+.lyrics-container .lyric-line:not(.active) {
+    /* Blur removed to prevent flickering - opacity handled via JS */
+}
+
+/* Smooth spring-based scale animation */
+@keyframes lyric-bounce {
+    0% {
+        transform: scale(0.92);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1.0);
+    }
+}
+
+/* Word-by-word animation support (for future enhancement) */
+.lyric-word {
+    display: inline-block;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+.lyric-word.active {
+    color: var(--theme-accent);
+    transform: translateY(-2px);
+}
+
+/* Karaoke-style fill animation (optional) */
+@keyframes karaoke-fill {
+    from {
+        background-size: 0% 100%;
+    }
+    to {
+        background-size: 100% 100%;
+    }
+}
+
+.lyric-line.karaoke {
+    background: linear-gradient(
+        90deg,
+        var(--theme-accent) 0%,
+        var(--theme-accent) 50%,
+        var(--theme-text-secondary) 50%,
+        var(--theme-text-secondary) 100%
+    );
+    background-size: 200% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: karaoke-fill linear forwards;
+}
+
+/* Smooth entry animation for fullscreen lyrics */
+@keyframes lyrics-enter {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.fullscreen-lyrics-enter {
+    animation: lyrics-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: 0.3s;
+    opacity: 0;
+}
+
+/* Responsive text sizing for lyrics */
+@media (max-width: 1024px) {
+    .lyric-line {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .lyric-line {
+        font-size: 2rem;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .lyric-line.active {
+        text-shadow: none;
+        border-bottom: 2px solid var(--theme-accent);
+    }
+}
+
+/* Reduced motion support - respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+    .lyric-line,
+    .lyrics-container,
+    .animate-fade-in {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    .lyrics-container {
+        scroll-behavior: auto;
+    }
 }

@@ -1,6 +1,8 @@
-import { useEffect, useCallback, memo, useMemo, useState, useRef } from "react";
+import { useEffect, useCallback, memo, useState, useRef } from "react";
 import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
 import { MiniPlayerBar } from "./MiniPlayerBar";
+import { SyncedLyrics, LyricsData } from "./SyncedLyrics";
+import { invoke } from "@tauri-apps/api/core";
 
 import ColorThief from "colorthief";
 
@@ -9,51 +11,9 @@ interface FullScreenViewProps {
   onClose: () => void;
 }
 
-const LYRICS_X_OFFSET = 1200;
+const LYRICS_X_OFFSET = 1100;
 const GRADIENT_WIDTH_PERCENT = 230;
 
-const LyricLine = memo(
-  ({
-    text,
-    isActive,
-    isPast,
-    lineRef,
-  }: {
-    text: string;
-    isActive: boolean;
-    isPast: boolean;
-    lineRef?: React.RefObject<HTMLParagraphElement | null>;
-  }) => (
-    <p
-      ref={lineRef}
-      className={`
-            lyric-line leading-relaxed transition-all duration-500 ease-out
-            ${text === "" ? "h-8" : "py-2"}
-        `}
-      style={{
-        fontSize: isActive ? "2.25rem" : "1.5rem",
-        fontWeight: isActive ? 700 : 500,
-        color: isActive
-          ? "rgba(255, 255, 255, 1)"
-          : isPast
-            ? "rgba(255, 255, 255, 0.4)"
-            : "rgba(255, 255, 255, 0.5)",
-        transform: isActive ? "scale(1.05)" : "scale(1)",
-        filter: isActive ? "blur(0px)" : "blur(0.5px)",
-        textShadow: isActive
-          ? "0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.15)"
-          : "none",
-        transition:
-          "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s ease-out, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        willChange: "transform, font-size, color, filter",
-      }}
-    >
-      {text || "\u00A0"}
-    </p>
-  ),
-);
-
-LyricLine.displayName = "LyricLine";
 
 const imageCache = new Map<string, string>();
 
@@ -61,6 +21,9 @@ export const FullScreenView = memo(
   ({ isOpen, onClose }: FullScreenViewProps) => {
     const { currentTrack, isPlaying } = usePlayer();
     const { currentTime } = usePlaybackProgress();
+    const [lyrics, setLyrics] = useState<LyricsData | null>(null);
+    const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+
     const [layerStyles, setLayerStyles] = useState<{
       solid: React.CSSProperties;
       shadow: React.CSSProperties;
@@ -69,8 +32,7 @@ export const FullScreenView = memo(
       shadow: {},
     });
 
-    const lyricsContainerRef = useRef<HTMLDivElement>(null);
-    const activeLyricRef = useRef<HTMLParagraphElement>(null);
+
     const lastExtractedImageRef = useRef<string | null>(null);
 
 
@@ -158,6 +120,35 @@ export const FullScreenView = memo(
         lastExtractedImageRef.current = currentTrack.cover_image;
       }
     }, [currentTrack]);
+
+    // Fetch lyrics when track changes
+    useEffect(() => {
+      if (!currentTrack || !isOpen) {
+        setLyrics(null);
+        return;
+      }
+
+      const fetchLyrics = async () => {
+        setIsLoadingLyrics(true);
+        try {
+          const result = await invoke<LyricsData | null>("get_lyrics", {
+            path: currentTrack.path || "",
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            album: currentTrack.album || "",
+            duration: currentTrack.duration,
+          });
+          setLyrics(result);
+        } catch (error) {
+          console.error("Failed to fetch lyrics:", error);
+          setLyrics(null);
+        } finally {
+          setIsLoadingLyrics(false);
+        }
+      };
+
+      fetchLyrics();
+    }, [currentTrack, isOpen]);
 
     useEffect(() => {
       if (isOpen) {
@@ -276,125 +267,7 @@ export const FullScreenView = memo(
       [getDefaultGradient],
     );
 
-    const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
-    const [isSynced, setIsSynced] = useState(false);
-    const [hasLyrics, setHasLyrics] = useState(false);
-    const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
 
-    const lastFetchedTrackId = useRef<string | null>(null);
-
-    useEffect(() => {
-      if (!currentTrack) {
-        setLyrics([]);
-        setHasLyrics(false);
-        setIsLoadingLyrics(false);
-        lastFetchedTrackId.current = null;
-        return;
-      }
-
-      // Prevent duplicate fetches for the same track
-      if (lastFetchedTrackId.current === currentTrack.id) {
-        return;
-      }
-
-      // Clear previous lyrics immediately and show loading
-      setLyrics([]);
-      setHasLyrics(false);
-      setIsLoadingLyrics(true);
-      lastFetchedTrackId.current = currentTrack.id;
-
-      const fetchLyrics = async () => {
-        try {
-          const result = await import("@tauri-apps/api/core").then((mod) =>
-            mod.invoke<{
-              synced: boolean;
-              lines: { time: number; text: string }[];
-            } | null>("get_lyrics", {
-              path: currentTrack.path,
-              title: currentTrack.title,
-              artist: currentTrack.artist,
-              album: currentTrack.album,
-              duration: currentTrack.duration,
-            }),
-          );
-
-          if (result && result.lines.length > 0) {
-            if (result.synced) {
-              setLyrics(result.lines);
-              setIsSynced(true);
-            } else {
-              const rawText = result.lines[0].text;
-              const splitLines = rawText
-                .split(/\r?\n/)
-                .map((line) => ({ time: 0, text: line }));
-              setLyrics(splitLines);
-              setIsSynced(false);
-            }
-            setHasLyrics(true);
-          } else {
-            setLyrics([]);
-            setHasLyrics(false);
-          }
-        } catch (e) {
-          console.error("Failed to fetch lyrics:", e);
-          setLyrics([]);
-          setHasLyrics(false);
-        } finally {
-          setIsLoadingLyrics(false);
-        }
-      };
-
-      fetchLyrics();
-    }, [currentTrack]);
-
-    useEffect(() => {
-      if (
-        !hasLyrics &&
-        lyrics.length <= 1 &&
-        lyrics[0]?.text === "No lyrics found."
-      ) {
-      }
-    }, [hasLyrics, lyrics]);
-
-    const activeLyricIndex = useMemo(() => {
-      if (!isSynced || !hasLyrics) return -1;
-
-      // Offset to adjust timing (negative = lyrics appear earlier, positive = later)
-      const LYRICS_OFFSET = -0.3; // Adjust this value if lyrics feel delayed
-      const adjustedTime = currentTime + LYRICS_OFFSET;
-
-      let activeIdx = -1;
-
-      for (let i = lyrics.length - 1; i >= 0; i--) {
-        if (adjustedTime >= lyrics[i].time) {
-          activeIdx = i;
-          break;
-        }
-      }
-      return activeIdx;
-    }, [currentTime, lyrics, isSynced, hasLyrics]);
-
-    useEffect(() => {
-      if (!isSynced || activeLyricIndex === -1) return;
-
-      if (activeLyricRef.current && lyricsContainerRef.current) {
-        const container = lyricsContainerRef.current;
-        const activeLine = activeLyricRef.current;
-
-        const containerRect = container.getBoundingClientRect();
-        const lineRect = activeLine.getBoundingClientRect();
-
-        const targetScrollTop =
-          activeLine.offsetTop -
-          containerRect.height / 2 +
-          lineRect.height / 2;
-
-        container.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: "smooth",
-        });
-      }
-    }, [activeLyricIndex, isSynced]);
 
     const handleMouseDown = useCallback(
       (e: React.MouseEvent) => {
@@ -689,51 +562,24 @@ export const FullScreenView = memo(
 
         {/* Lyrics Container - Animated */}
         <div
-          className="absolute right-0 top-0 bottom-0 z-20 flex flex-col justify-center pr-20 py-20 pointer-events-auto fullscreen-lyrics-enter"
+          className="absolute right-0 top-0 bottom-0 z-20 flex flex-col justify-center py-20 pointer-events-auto fullscreen-lyrics-enter"
           style={{
             left: `${LYRICS_X_OFFSET}px`,
-            pointerEvents: "none",
+            right: 0,
           }}
         >
-          {/* Lyrics scroll container */}
-          <div
-            ref={lyricsContainerRef}
-            className="lyrics-container max-h-[65vh] space-y-3 px-8 pointer-events-auto w-full"
-          >
-            {hasLyrics ? (
-              lyrics.map((lyric, index) => (
-                <LyricLine
-                  key={index}
-                  text={lyric.text}
-                  isActive={isSynced && index === activeLyricIndex}
-                  isPast={isSynced && index < activeLyricIndex}
-                  lineRef={
-                    isSynced && index === activeLyricIndex
-                      ? activeLyricRef
-                      : undefined
-                  }
-                />
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 opacity-50 space-y-4">
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-                <p className="text-xl font-medium">
-                  {isLoadingLyrics ? "Loading lyrics..." : "Instrumental / No Lyrics"}
-                </p>
-              </div>
-            )}
-          </div>
+          {isLoadingLyrics ? (
+            <div className="flex flex-col items-center justify-center h-full opacity-50">
+              <div className="w-12 h-12 border-4 border-white/20 border-t-white/60 rounded-full animate-spin mb-4" />
+              <p className="text-lg font-medium text-white/60">Loading lyrics...</p>
+            </div>
+          ) : (
+            <SyncedLyrics 
+              lyrics={lyrics} 
+              currentTime={currentTime} 
+              isPlaying={isPlaying} 
+            />
+          )}
         </div>
 
         {/* Snap zone indicator */}
