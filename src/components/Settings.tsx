@@ -83,11 +83,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -274,20 +273,18 @@ export const Settings = ({
   return (
     <>
       <div
-        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 z-[199] bg-black/50 backdrop-blur-[2px] animate-fade-in"
         onClick={onClose}
       />
 
       <div
-        className="fixed inset-y-0 right-0 z-[101] w-full max-w-lg flex flex-col animate-slide-in-right"
+        className="fixed inset-y-0 right-0 z-[200] w-full max-w-lg flex flex-col animate-slide-in-right rounded-l-2xl overflow-hidden shadow-2xl"
         style={{
           background: `linear-gradient(135deg, ${theme.colors.background} 0%, ${theme.colors.backgroundSecondary} 100%)`,
-          borderLeft: `1px solid ${theme.colors.border}`,
         }}
       >
         <div
-          className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: theme.colors.border }}
+          className="flex items-center justify-between px-6 py-4"
         >
           <div className="flex items-center gap-3">
             <div
@@ -328,8 +325,7 @@ export const Settings = ({
         </div>
 
         <div
-          className="flex border-b"
-          style={{ borderColor: theme.colors.border }}
+          className="flex border-b border-white/5"
         >
           <button
             className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "appearance" ? "text-theme-primary" : "text-theme-muted"}`}
@@ -385,11 +381,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("floating")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "floating"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -434,11 +429,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("classic")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "classic"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -598,8 +592,7 @@ export const Settings = ({
         </div>
 
         <div
-          className="px-6 py-4 border-t"
-          style={{ borderColor: theme.colors.border }}
+          className="px-6 py-4 border-t border-white/5"
         >
           <p
             className="text-xs text-center"

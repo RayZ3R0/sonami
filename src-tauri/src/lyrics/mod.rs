@@ -26,12 +26,11 @@ pub async fn get_lyrics(
     album: &str,
     duration: f64,
 ) -> Option<LyricsResult> {
-    
     // 1. Try Local Files (if path is provided and exists)
     if let Some(ref p) = path_str {
         let path = Path::new(p);
         if path.exists() {
-             if let Some(mut lyrics) = check_sidecar_files(path) {
+            if let Some(mut lyrics) = check_sidecar_files(path) {
                 lyrics.source = "local".to_string();
                 return Some(lyrics);
             }
@@ -44,9 +43,11 @@ pub async fn get_lyrics(
     }
 
     // 2. Fallback to LRCLib
-    if let Ok(Some(response)) = lrclib::LrcLibClient::get_lyrics(title, artist, album, duration).await {
+    if let Ok(Some(response)) =
+        lrclib::LrcLibClient::get_lyrics(title, artist, album, duration).await
+    {
         log::info!("Processing LRCLib response...");
-        
+
         // Try synced lyrics first
         if let Some(ref synced) = response.synced_lyrics {
             log::info!("Synced lyrics present, length: {}", synced.len());
@@ -65,7 +66,7 @@ pub async fn get_lyrics(
         } else {
             log::info!("No synced lyrics in response");
         }
-        
+
         // Fallback to plain lyrics
         if let Some(plain) = response.plain_lyrics {
             log::info!("✓ Using plain lyrics fallback");
@@ -122,7 +123,7 @@ fn check_metadata(path: &Path) -> Option<LyricsResult> {
                 if let Some(parsed) = parse_lrc(val) {
                     return Some(parsed);
                 }
-                
+
                 return Some(LyricsResult {
                     synced: false,
                     lines: string_to_lines(val),
@@ -155,7 +156,7 @@ fn parse_lrc(content: &str) -> Option<LyricsResult> {
         if let Some((time, text)) = parse_lrc_line(line) {
             lines.push(LyricLine { time, text });
             is_synced = true;
-        } 
+        }
     }
 
     if is_synced && !lines.is_empty() {

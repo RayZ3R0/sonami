@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { usePlayer } from "../context/PlayerContext";
-import { Settings, SettingsButton, ThemeButton } from "./Settings";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // Manual offsets for vertical alignment
 
-const PLUS_ICON_OFFSET = "mt-[-8px]";
 const IMPORT_BUTTON_TEXT_OFFSET = "mt-[4.6px]";
 
 // All icons use identical viewBox and size
@@ -155,16 +153,7 @@ export const Sidebar = ({
   onToggleCollapse?: () => void;
 }) => {
   const { importMusic, importFolder, playlists } = usePlayer();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
-    "appearance",
-  );
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
-
-  const openSettings = (tab: "appearance" | "playback") => {
-    setSettingsTab(tab);
-    setIsSettingsOpen(true);
-  };
 
   return (
     <>
@@ -183,7 +172,7 @@ export const Sidebar = ({
               {onToggleCollapse && (
                 <button
                   onClick={onToggleCollapse}
-                  className="text-theme-muted hover:text-white transition-colors"
+                  className="text-theme-muted hover:text-white transition-colors mb-1"
                 >
                   <svg
                     width="14"
@@ -222,11 +211,10 @@ export const Sidebar = ({
           <nav className="flex flex-col gap-1">
             <button
               onClick={() => setActiveTab("favorites")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "favorites"
-                  ? "bg-theme-surface-active text-theme-primary"
-                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
+                ? "bg-theme-surface-active text-theme-primary"
+                : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
               title="Liked Songs"
             >
               <svg
@@ -246,11 +234,10 @@ export const Sidebar = ({
             </button>
             <button
               onClick={() => setActiveTab("recent")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "recent"
-                  ? "bg-theme-surface-active text-theme-primary"
-                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "recent"
+                ? "bg-theme-surface-active text-theme-primary"
+                : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
               title="Recently Played"
             >
               <svg
@@ -273,30 +260,29 @@ export const Sidebar = ({
         </div>
 
         {/* Playlists */}
+        {!isCollapsed && (
+          <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
+            <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+              Playlists
+            </span>
+            <button
+              className={`w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors mb-1`}
+              onClick={() => setIsCreatePlaylistOpen(true)}
+            >
+              {icons.plusSmall}
+            </button>
+          </div>
+        )}
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          {!isCollapsed && (
-            <div className="flex items-center justify-between px-3 mb-2 overflow-visible">
-              <span className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                Playlists
-              </span>
-              <button
-                className={`w-6 h-6 flex items-center justify-center rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors ${PLUS_ICON_OFFSET}`}
-                onClick={() => setIsCreatePlaylistOpen(true)}
-              >
-                {icons.plusSmall}
-              </button>
-            </div>
-          )}
           <div className="flex flex-col gap-0.5 overflow-y-auto no-scrollbar flex-1 pr-1">
             {playlists.map((pl) => (
               <button
                 key={pl.id}
                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${
-                  activeTab === `playlist:${pl.id}`
-                    ? "bg-theme-surface-active text-theme-primary"
-                    : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
+                  ? "bg-theme-surface-active text-theme-primary"
+                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                  }`}
                 title={pl.title}
               >
                 <div
@@ -342,59 +328,7 @@ export const Sidebar = ({
             ))}
           </div>
         </div>
-
-        {/* Bottom Actions */}
-        <div className="pt-4 mt-auto flex flex-col gap-2 pb-2">
-          {/* Import Buttons */}
-          <div className={`flex gap-2 ${isCollapsed ? "flex-col" : ""}`}>
-            <button
-              onClick={importMusic}
-              className={`flex-1 btn-primary ${isCollapsed ? "p-2" : ""}`}
-              title="Add File"
-            >
-              {icons.plus}
-              {!isCollapsed && (
-                <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>
-                  File
-                </span>
-              )}
-            </button>
-            <button
-              onClick={importFolder}
-              className={`flex-1 btn-primary ${isCollapsed ? "p-2" : ""}`}
-              title="Add Folder"
-            >
-              {icons.folder}
-              {!isCollapsed && (
-                <span className={`leading-none ${IMPORT_BUTTON_TEXT_OFFSET}`}>
-                  Folder
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Settings Row */}
-          {!isCollapsed ? (
-            <div className="flex items-center justify-between px-1 gap-1">
-              <div className="flex gap-1">
-                <ThemeButton onClick={() => openSettings("appearance")} />
-                <SettingsButton onClick={() => openSettings("playback")} />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2 items-center">
-              <SettingsButton onClick={() => openSettings("playback")} />
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* Settings Panel */}
-      <Settings
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        defaultTab={settingsTab}
-      />
 
       {/* Create Playlist Modal */}
       <CreatePlaylistModal

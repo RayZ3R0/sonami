@@ -51,9 +51,8 @@ const QueueTrackItem = ({
   isCurrent?: boolean;
 }) => (
   <div
-    className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
-      isCurrent ? "bg-theme-surface-active" : "hover:bg-theme-surface-hover"
-    }`}
+    className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${isCurrent ? "bg-theme-surface-active" : "hover:bg-theme-surface-hover"
+      }`}
     onClick={onPlay}
   >
     <span className="w-6 text-xs text-theme-muted text-center flex-shrink-0">
@@ -145,9 +144,8 @@ export const QueueSidebar = () => {
 
   return (
     <div
-      className={`h-full flex-shrink-0 bg-theme-sidebar border-l border-theme transition-all duration-300 ease-in-out overflow-hidden ${
-        isQueueOpen ? "w-80" : "w-0"
-      }`}
+      className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden mt-2 ${isQueueOpen ? "w-80" : "w-0"
+        }`}
     >
       <div className="w-80 h-full flex flex-col">
         {/* Header */}
@@ -183,7 +181,7 @@ export const QueueSidebar = () => {
               <QueueTrackItem
                 track={currentTrack}
                 index={0}
-                onPlay={() => {}}
+                onPlay={() => { }}
                 isCurrent
               />
             </div>

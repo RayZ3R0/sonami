@@ -258,9 +258,9 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
       {
@@ -345,9 +345,9 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         setDetails((prev) =>
           prev
             ? {
-                ...prev,
-                playlist: { ...prev.playlist, title: editName.trim() },
-              }
+              ...prev,
+              playlist: { ...prev.playlist, title: editName.trim() },
+            }
             : null,
         );
       } catch (e) {
@@ -404,13 +404,13 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
 
           {/* Info */}
           <div className="flex-1 pb-2 min-w-0">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/60 mb-2 block">
+            <span className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-2 block">
               Playlist
             </span>
 
             {isEditing ? (
               <input
-                className="block w-full text-5xl font-black text-white bg-transparent border-b border-white/20 focus:border-white/50 focus:outline-none mb-4"
+                className="block w-full text-5xl font-black text-theme-primary bg-transparent border-b border-theme-border focus:border-theme-border-focus focus:outline-none mb-4"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onBlur={handleRename}
@@ -419,7 +419,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
               />
             ) : (
               <h1
-                className="text-5xl font-black text-white mb-4 truncate cursor-pointer hover:underline decoration-2 underline-offset-4 decoration-white/20"
+                className="text-5xl font-black text-theme-primary mb-4 truncate cursor-pointer hover:underline decoration-2 underline-offset-4 decoration-theme-primary/20"
                 onClick={startEdit}
                 title="Click to rename"
               >
@@ -428,7 +428,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
             )}
 
             <div className="flex items-center gap-2 text-sm text-theme-muted">
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-theme-primary">
                 {tracks.length} tracks
               </span>
               <span>•</span>
@@ -459,11 +459,10 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                : "bg-white/5 hover:bg-white/10 text-white border border-white/10"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -485,38 +484,39 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
 
       <div className="flex flex-col flex-1 overflow-auto px-8">
         {/* Header Row */}
-        <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px] gap-4 px-4 py-3 border-b border-white/5 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+        <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
           <span>#</span>
           <span
-            className="cursor-pointer hover:text-white transition-colors"
+            className="cursor-pointer hover:text-theme-primary transition-colors"
             onClick={() => handleSort("title")}
           >
             Title <SortIndicator column="title" />
           </span>
           <span
-            className="cursor-pointer hover:text-white transition-colors"
+            className="cursor-pointer hover:text-theme-primary transition-colors"
             onClick={() => handleSort("album")}
           >
             Album <SortIndicator column="album" />
           </span>
           <span
-            className="cursor-pointer hover:text-white transition-colors"
+            className="cursor-pointer hover:text-theme-primary transition-colors"
             onClick={() => handleSort("artist")}
           >
             Artist <SortIndicator column="artist" />
           </span>
           <span
-            className="cursor-pointer hover:text-white transition-colors"
+            className="cursor-pointer hover:text-theme-primary transition-colors"
             onClick={() => handleSort("date_added")}
           >
             Date Added <SortIndicator column="date_added" />
           </span>
           <span
-            className="text-right cursor-pointer hover:text-white transition-colors"
+            className="text-right cursor-pointer hover:text-theme-primary transition-colors"
             onClick={() => handleSort("duration")}
           >
             Time <SortIndicator column="duration" />
           </span>
+          <span></span>
         </div>
 
         {sortedTracks.length === 0 ? (
@@ -532,11 +532,10 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-theme-surface-active text-theme-accent"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-white"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-theme-surface-active text-theme-accent"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -562,7 +561,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                         {index + 1}
                       </span>
                       <svg
-                        className="w-4 h-4 hidden group-hover:block text-white"
+                        className="w-4 h-4 hidden group-hover:block text-theme-primary"
                         fill="currentColor"
                         viewBox="0 0 24 24"
                       >
@@ -591,20 +590,20 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                     </div>
                   )}
                   <span
-                    className={`truncate font-medium ${isCurrentTrack ? "text-theme-accent" : "text-white"}`}
+                    className={`truncate font-medium ${isCurrentTrack ? "text-theme-accent" : "text-theme-primary"}`}
                   >
                     {track.title}
                   </span>
                 </div>
 
                 <div className="flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.album}
                   </span>
                 </div>
 
                 <div className="flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.artist}
                   </span>
                 </div>

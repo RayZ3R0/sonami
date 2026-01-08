@@ -24,7 +24,13 @@ impl LrcLibClient {
         album: &str,
         duration: f64,
     ) -> Result<Option<LrcLibResponse>, String> {
-        log::info!("Fetching lyrics for: {} - {} (Album: {}, Duration: {})", title, artist, album, duration);
+        log::info!(
+            "Fetching lyrics for: {} - {} (Album: {}, Duration: {})",
+            title,
+            artist,
+            album,
+            duration
+        );
 
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
@@ -33,9 +39,9 @@ impl LrcLibClient {
             .map_err(|e| e.to_string())?;
 
         // 1. Try exact match via /get endpoint
-        let mut url = reqwest::Url::parse("https://lrclib.net/api/get")
-            .map_err(|e| e.to_string())?;
-            
+        let mut url =
+            reqwest::Url::parse("https://lrclib.net/api/get").map_err(|e| e.to_string())?;
+
         {
             let mut pairs = url.query_pairs_mut();
             pairs.append_pair("track_name", title);
@@ -57,14 +63,19 @@ impl LrcLibClient {
                             return Ok(None);
                         }
                     };
-                    
-                    log::info!("Raw response (first 500 chars): {}", &text.chars().take(500).collect::<String>());
-                    
+
+                    log::info!(
+                        "Raw response (first 500 chars): {}",
+                        &text.chars().take(500).collect::<String>()
+                    );
+
                     match serde_json::from_str::<LrcLibResponse>(&text) {
                         Ok(lyrics) => {
-                            log::info!("✓ Got response - synced: {}, plain: {}", 
-                                lyrics.synced_lyrics.is_some(), 
-                                lyrics.plain_lyrics.is_some());
+                            log::info!(
+                                "✓ Got response - synced: {}, plain: {}",
+                                lyrics.synced_lyrics.is_some(),
+                                lyrics.plain_lyrics.is_some()
+                            );
                             return Ok(Some(lyrics));
                         }
                         Err(e) => {
@@ -77,10 +88,12 @@ impl LrcLibClient {
         }
 
         // 2. If exact match fails, try search
-        let mut search_url = reqwest::Url::parse("https://lrclib.net/api/search")
-             .map_err(|e| e.to_string())?;
-             
-        search_url.query_pairs_mut().append_pair("q", &format!("{} {}", artist, title));
+        let mut search_url =
+            reqwest::Url::parse("https://lrclib.net/api/search").map_err(|e| e.to_string())?;
+
+        search_url
+            .query_pairs_mut()
+            .append_pair("q", &format!("{} {}", artist, title));
 
         log::debug!("Trying search URL: {}", search_url);
 

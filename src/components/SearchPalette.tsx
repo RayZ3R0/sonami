@@ -155,11 +155,10 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${
-                          isAdded
-                            ? "bg-pink-500/20 text-pink-400 cursor-default"
-                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-                        }
+                        ${isAdded
+              ? "bg-pink-500/20 text-pink-400 cursor-default"
+              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+            }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -443,7 +442,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (contextMenu) {
+      if (contextMenu.isOpen) {
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
@@ -545,17 +544,17 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         title: track.title,
         artist: track.artist
           ? {
-              id: track.artist.id || 0,
-              name: track.artist.name,
-              picture: track.artist.picture,
-            }
+            id: track.artist.id || 0,
+            name: track.artist.name,
+            picture: track.artist.picture,
+          }
           : undefined,
         album: track.album
           ? {
-              id: track.album.id || 0,
-              title: track.album.title,
-              cover: track.album.cover,
-            }
+            id: track.album.id || 0,
+            title: track.album.title,
+            cover: track.album.cover,
+          }
           : undefined,
         duration: track.duration,
         audioQuality: track.audioQuality || track.audio_quality,

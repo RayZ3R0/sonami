@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Window } from "@tauri-apps/api/window";
 import { type } from "@tauri-apps/plugin-os";
+import { Settings, SettingsButton, ThemeButton } from "./Settings";
 
 const MinusIcon = () => (
   <svg width="10" height="10" viewBox="0 0 10.2 1" fill="currentColor">
@@ -39,6 +40,13 @@ export const TitleBar = ({
   setActiveTab,
 }: TitleBarProps) => {
   const [osType, setOsType] = useState<string>("windows");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
+
+  const openSettings = (tab: "appearance" | "playback") => {
+    setSettingsTab(tab);
+    setIsSettingsOpen(true);
+  };
 
   useEffect(() => {
     async function init() {
@@ -71,7 +79,7 @@ export const TitleBar = ({
     >
       {/* Left Section (Mac Controls & Home) */}
       <div
-        className="flex items-center pl-4 h-full pointer-events-none gap-4"
+        className="flex items-center pl-4 h-full pointer-events-none gap-2"
         style={{ width: "240px" }}
       >
         {isMac && (
@@ -96,11 +104,10 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${
-              activeTab === "home"
-                ? "bg-theme-surface-active text-theme-primary"
-                : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
+            className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
+              ? "bg-theme-surface-active text-theme-primary"
+              : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+              }`}
             title="Home"
           >
             <svg
@@ -117,6 +124,11 @@ export const TitleBar = ({
             </svg>
           </button>
         )}
+
+        <div className="pointer-events-auto no-drag flex items-center gap-1">
+          <ThemeButton onClick={() => openSettings("appearance")} />
+          <SettingsButton onClick={() => openSettings("playback")} />
+        </div>
       </div>
 
       {/* Center Section - Search Button */}
@@ -171,6 +183,12 @@ export const TitleBar = ({
           </div>
         )}
       </div>
+
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        defaultTab={settingsTab}
+      />
     </div>
   );
 };

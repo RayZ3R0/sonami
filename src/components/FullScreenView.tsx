@@ -14,7 +14,6 @@ interface FullScreenViewProps {
 const LYRICS_X_OFFSET = 1100;
 const GRADIENT_WIDTH_PERCENT = 230;
 
-
 const imageCache = new Map<string, string>();
 
 export const FullScreenView = memo(
@@ -32,9 +31,7 @@ export const FullScreenView = memo(
       shadow: {},
     });
 
-
     const lastExtractedImageRef = useRef<string | null>(null);
-
 
     const STORAGE_KEY_MINI_PLAYER_POS =
       "spotist-fullscreen-mini-player-position";
@@ -266,8 +263,6 @@ export const FullScreenView = memo(
       },
       [getDefaultGradient],
     );
-
-
 
     const handleMouseDown = useCallback(
       (e: React.MouseEvent) => {
@@ -571,13 +566,15 @@ export const FullScreenView = memo(
           {isLoadingLyrics ? (
             <div className="flex flex-col items-center justify-center h-full opacity-50">
               <div className="w-12 h-12 border-4 border-white/20 border-t-white/60 rounded-full animate-spin mb-4" />
-              <p className="text-lg font-medium text-white/60">Loading lyrics...</p>
+              <p className="text-lg font-medium text-white/60">
+                Loading lyrics...
+              </p>
             </div>
           ) : (
-            <SyncedLyrics 
-              lyrics={lyrics} 
-              currentTime={currentTime} 
-              isPlaying={isPlaying} 
+            <SyncedLyrics
+              lyrics={lyrics}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
             />
           )}
         </div>
@@ -597,10 +594,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                left: `${miniPlayerPosition.x}px`,
-                top: `${miniPlayerPosition.y}px`,
-                userSelect: "none",
-              }
+                  left: `${miniPlayerPosition.x}px`,
+                  top: `${miniPlayerPosition.y}px`,
+                  userSelect: "none",
+                }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}

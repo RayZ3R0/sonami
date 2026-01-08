@@ -394,7 +394,14 @@ pub async fn get_lyrics(
     album: String,
     duration: f64,
 ) -> Result<Option<lyrics::LyricsResult>, String> {
-    Ok(lyrics::get_lyrics(if path.is_empty() { None } else { Some(path) }, &title, &artist, &album, duration).await)
+    Ok(lyrics::get_lyrics(
+        if path.is_empty() { None } else { Some(path) },
+        &title,
+        &artist,
+        &album,
+        duration,
+    )
+    .await)
 }
 
 #[tauri::command]

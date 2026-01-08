@@ -217,7 +217,7 @@ export const LikedSongsView = () => {
             <p className="text-xs font-semibold text-theme-muted uppercase tracking-widest mb-2">
               Playlist
             </p>
-            <h1 className="text-5xl font-bold text-white mb-4">Liked Songs</h1>
+            <h1 className="text-5xl font-bold text-theme-primary mb-4">Liked Songs</h1>
             <p className="text-sm text-theme-muted">
               {favorites.length} {favorites.length === 1 ? "song" : "songs"} •{" "}
               {formatTotalDuration(totalDuration)}
@@ -230,7 +230,7 @@ export const LikedSongsView = () => {
           <button
             onClick={handlePlayAll}
             disabled={favorites.length === 0}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-pink-500 hover:bg-pink-400 text-white font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-pink-500 hover:bg-pink-400 text-white font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
@@ -240,11 +240,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                : "bg-white/5 hover:bg-white/10 text-white border border-white/10"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -282,34 +281,34 @@ export const LikedSongsView = () => {
       ) : (
         <div className="flex flex-col flex-1 overflow-auto px-8">
           {/* Header Row */}
-          <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 border-b border-white/5 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+          <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
             <span>#</span>
             <span
-              className="cursor-pointer hover:text-white transition-colors"
+              className="cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("title")}
             >
               Title <SortIndicator column="title" />
             </span>
             <span
-              className="cursor-pointer hover:text-white transition-colors"
+              className="cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("album")}
             >
               Album <SortIndicator column="album" />
             </span>
             <span
-              className="cursor-pointer hover:text-white transition-colors"
+              className="cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("artist")}
             >
               Artist <SortIndicator column="artist" />
             </span>
             <span
-              className="cursor-pointer hover:text-white transition-colors"
+              className="cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("date_added")}
             >
               Date Added <SortIndicator column="date_added" />
             </span>
             <span
-              className="text-right cursor-pointer hover:text-white transition-colors"
+              className="text-right cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("duration")}
             >
               Time <SortIndicator column="duration" />
@@ -323,11 +322,10 @@ export const LikedSongsView = () => {
               <div
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-pink-500/10 text-pink-500"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-white"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-pink-500/10 text-pink-500"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">
@@ -354,7 +352,7 @@ export const LikedSongsView = () => {
                         {index + 1}
                       </span>
                       <svg
-                        className="w-4 h-4 hidden group-hover:block text-white"
+                        className="w-4 h-4 hidden group-hover:block text-theme-primary"
                         fill="currentColor"
                         viewBox="0 0 24 24"
                       >
@@ -384,7 +382,7 @@ export const LikedSongsView = () => {
                     </div>
                   )}
                   <span
-                    className={`truncate font-medium ${isCurrentTrack ? "text-pink-500" : "text-white"}`}
+                    className={`truncate font-medium ${isCurrentTrack ? "text-pink-500" : "text-theme-primary"}`}
                   >
                     {track.title}
                   </span>
@@ -392,14 +390,14 @@ export const LikedSongsView = () => {
 
                 {/* Album */}
                 <div className="flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.album}
                   </span>
                 </div>
 
                 {/* Artist */}
                 <div className="flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-white/70 transition-colors">
+                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.artist}
                   </span>
                 </div>
