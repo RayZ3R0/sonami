@@ -172,6 +172,7 @@ pub async fn play_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     path: String,
 ) -> Result<(), String> {
     let play_path = resolve_path(&path, &tidal_state).await?;
@@ -193,24 +194,74 @@ pub async fn play_track(
             t.duration as f64,
         );
         state.media_controls.set_playback(true, Some(0.0));
+
+        // Update Discord presence
+        discord_rpc.set_playing(
+            crate::discord::TrackInfo {
+                title: t.title.clone(),
+                artist: t.artist.clone(),
+                album: t.album.clone(),
+                duration_secs: t.duration,
+                cover_url: t.cover_image.clone(),
+            },
+            0,
+        );
     }
 
     Ok(())
 }
 
 #[tauri::command]
-pub async fn pause_track(state: State<'_, AudioManager>) -> Result<(), String> {
+pub async fn pause_track(
+    state: State<'_, AudioManager>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+) -> Result<(), String> {
     state.pause();
     let position = state.get_position();
     state.media_controls.set_playback(false, Some(position));
+
+    // Update Discord presence to paused state
+    let track = state.queue.read().get_current_track();
+    if let Some(ref t) = track {
+        discord_rpc.set_paused(
+            crate::discord::TrackInfo {
+                title: t.title.clone(),
+                artist: t.artist.clone(),
+                album: t.album.clone(),
+                duration_secs: t.duration,
+                cover_url: t.cover_image.clone(),
+            },
+            position as u64,
+        );
+    }
+
     Ok(())
 }
 
 #[tauri::command]
-pub async fn resume_track(state: State<'_, AudioManager>) -> Result<(), String> {
+pub async fn resume_track(
+    state: State<'_, AudioManager>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+) -> Result<(), String> {
     state.resume();
     let position = state.get_position();
     state.media_controls.set_playback(true, Some(position));
+
+    // Update Discord presence to playing state
+    let track = state.queue.read().get_current_track();
+    if let Some(ref t) = track {
+        discord_rpc.set_playing(
+            crate::discord::TrackInfo {
+                title: t.title.clone(),
+                artist: t.artist.clone(),
+                album: t.album.clone(),
+                duration_secs: t.duration,
+                cover_url: t.cover_image.clone(),
+            },
+            position as u64,
+        );
+    }
+
     Ok(())
 }
 
@@ -282,6 +333,7 @@ pub async fn next_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
 ) -> Result<(), String> {
     let next_track = {
         let mut q = state.queue.write();
@@ -306,6 +358,18 @@ pub async fn next_track(
             track.duration as f64,
         );
         state.media_controls.set_playback(true, Some(0.0));
+
+        // Update Discord presence
+        discord_rpc.set_playing(
+            crate::discord::TrackInfo {
+                title: track.title.clone(),
+                artist: track.artist.clone(),
+                album: track.album.clone(),
+                duration_secs: track.duration,
+                cover_url: track.cover_image.clone(),
+            },
+            0,
+        );
     }
     Ok(())
 }
@@ -315,6 +379,7 @@ pub async fn prev_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
 ) -> Result<(), String> {
     let prev_track = {
         let mut q = state.queue.write();
@@ -339,6 +404,18 @@ pub async fn prev_track(
             track.duration as f64,
         );
         state.media_controls.set_playback(true, Some(0.0));
+
+        // Update Discord presence
+        discord_rpc.set_playing(
+            crate::discord::TrackInfo {
+                title: track.title.clone(),
+                artist: track.artist.clone(),
+                album: track.album.clone(),
+                duration_secs: track.duration,
+                cover_url: track.cover_image.clone(),
+            },
+            0,
+        );
     }
     Ok(())
 }
@@ -422,6 +499,7 @@ pub async fn get_lyrics(
 pub async fn play_stream(
     app: AppHandle,
     state: State<'_, AudioManager>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     url: String,
 ) -> Result<(), String> {
     let track = Track {
@@ -446,6 +524,18 @@ pub async fn play_stream(
         .media_controls
         .set_metadata(&track.title, &track.artist, &track.album, None, 0.0);
     state.media_controls.set_playback(true, Some(0.0));
+
+    // Update Discord presence
+    discord_rpc.set_playing(
+        crate::discord::TrackInfo {
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            album: track.album.clone(),
+            duration_secs: track.duration,
+            cover_url: track.cover_image.clone(),
+        },
+        0,
+    );
 
     let _ = app.emit("track-changed", track);
     Ok(())
@@ -484,6 +574,7 @@ pub async fn play_tidal_track(
     app: AppHandle,
     audio_state: State<'_, AudioManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     track_id: u64,
     title: String,
     artist: String,
@@ -527,6 +618,18 @@ pub async fn play_tidal_track(
         track.duration as f64,
     );
     audio_state.media_controls.set_playback(true, Some(0.0));
+
+    // Update Discord presence
+    discord_rpc.set_playing(
+        crate::discord::TrackInfo {
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            album: track.album.clone(),
+            duration_secs: track.duration,
+            cover_url: track.cover_image.clone(),
+        },
+        0,
+    );
 
     let _ = app.emit("track-changed", track);
     Ok(())
@@ -586,4 +689,46 @@ pub async fn refresh_tidal_cache(
     _state: State<'_, crate::tidal::TidalClient>,
 ) -> Result<(), String> {
     Ok(())
+}
+
+// ============================================================================
+// DSP / Audio Processing Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn set_loudness_normalization(
+    state: State<'_, AudioManager>,
+    enabled: bool,
+) -> Result<(), String> {
+    state.dsp.write().set_loudness_normalization(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_loudness_normalization(state: State<'_, AudioManager>) -> Result<bool, String> {
+    Ok(state.dsp.read().is_loudness_normalization_enabled())
+}
+
+// ============================================================================
+// Discord Rich Presence Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn set_discord_rpc_enabled(
+    state: State<'_, crate::discord::DiscordRpcManager>,
+    enabled: bool,
+) -> Result<(), String> {
+    if enabled {
+        state.connect();
+    } else {
+        state.disconnect();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_discord_rpc_enabled(
+    state: State<'_, crate::discord::DiscordRpcManager>,
+) -> Result<bool, String> {
+    Ok(state.is_enabled())
 }

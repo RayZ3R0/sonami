@@ -227,6 +227,10 @@ export const Settings = ({
     setPlayerBarStyle,
     streamQuality,
     setStreamQuality,
+    loudnessNormalization,
+    setLoudnessNormalization,
+    discordRpcEnabled,
+    setDiscordRpcEnabled,
   } = usePlayer();
   const [activeTab, setActiveTab] = useState<"appearance" | "playback">(
     defaultTab,
@@ -660,6 +664,56 @@ export const Settings = ({
                   </div>
                 </div>
               )}
+
+              {/* Loudness Normalization Section */}
+              <div
+                className="flex items-center justify-between p-4 rounded-xl"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Loudness Normalization
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Normalize volume across tracks (-14 LUFS target)
+                  </p>
+                </div>
+                <Toggle
+                  checked={loudnessNormalization}
+                  onChange={(checked) => setLoudnessNormalization(checked)}
+                />
+              </div>
+
+              {/* Discord Rich Presence Section */}
+              <div
+                className="flex items-center justify-between p-4 rounded-xl"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Discord Rich Presence
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Show what you're listening to on Discord
+                  </p>
+                </div>
+                <Toggle
+                  checked={discordRpcEnabled}
+                  onChange={(checked) => setDiscordRpcEnabled(checked)}
+                />
+              </div>
             </div>
           )}
         </div>

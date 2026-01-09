@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod commands;
 pub mod database;
+pub mod discord;
 pub mod download;
 pub mod dsp;
 pub mod favorites;
@@ -13,6 +14,7 @@ pub mod queue;
 pub mod tidal;
 
 use audio::AudioManager;
+use discord::DiscordRpcManager;
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -184,6 +186,10 @@ pub fn run() {
                 }
             });
 
+            // Initialize Discord RPC manager
+            let discord_rpc = DiscordRpcManager::new();
+            app.manage(discord_rpc);
+
             app.manage(audio_manager);
 
             Ok(())
@@ -247,7 +253,13 @@ pub fn run() {
             commands::library::get_library_artists,
             commands::library::search_library,
             commands::library::add_tidal_track,
-            commands::library::rebuild_search_index
+            commands::library::rebuild_search_index,
+            // DSP / Audio Processing
+            commands::set_loudness_normalization,
+            commands::get_loudness_normalization,
+            // Discord Rich Presence
+            commands::set_discord_rpc_enabled,
+            commands::get_discord_rpc_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

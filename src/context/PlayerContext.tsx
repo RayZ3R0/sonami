@@ -71,6 +71,14 @@ interface PlayerContextType {
   streamQuality: "LOSSLESS" | "HIGH" | "LOW";
   setStreamQuality: (quality: "LOSSLESS" | "HIGH" | "LOW") => void;
 
+  // Audio processing settings
+  loudnessNormalization: boolean;
+  setLoudnessNormalization: (enabled: boolean) => Promise<void>;
+
+  // Discord Rich Presence
+  discordRpcEnabled: boolean;
+  setDiscordRpcEnabled: (enabled: boolean) => Promise<void>;
+
   favorites: Set<string>;
   toggleFavorite: (track: Track) => Promise<void>;
   refreshFavorites: () => Promise<void>;
@@ -82,7 +90,6 @@ interface PlayerContextType {
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  TRACKS: "sonami-library-tracks",
   VOLUME: "sonami-volume",
   SHUFFLE: "sonami-shuffle",
   REPEAT: "sonami-repeat",
@@ -90,13 +97,13 @@ const STORAGE_KEYS = {
   CROSSFADE_DURATION: "sonami-crossfade-duration",
   PLAYER_BAR_STYLE: "sonami-player-bar-style",
   STREAM_QUALITY: "sonami-stream-quality",
+  LOUDNESS_NORMALIZATION: "sonami-loudness-normalization",
+  DISCORD_RPC: "sonami-discord-rpc",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
-  const [tracks, setTracks] = useState<Track[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.TRACKS);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Tracks are now stored in SQL only - no localStorage cache
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -141,15 +148,25 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return "LOSSLESS";
   });
 
+  // Loudness normalization setting
+  const [loudnessNormalization, setLoudnessNormalizationState] = useState(
+    () => {
+      const saved = localStorage.getItem(STORAGE_KEYS.LOUDNESS_NORMALIZATION);
+      return saved === "true";
+    },
+  );
+
+  // Discord Rich Presence setting
+  const [discordRpcEnabled, setDiscordRpcEnabledState] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.DISCORD_RPC);
+    return saved === "true";
+  });
+
   const seekTarget = useRef<{ time: number; timestamp: number } | null>(null);
 
   // Data version counter - incremented when playlist/favorites data changes
   const [dataVersion, setDataVersion] = useState(0);
   const bumpDataVersion = () => setDataVersion((v) => v + 1);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TRACKS, JSON.stringify(tracks));
-  }, [tracks]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
@@ -460,13 +477,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const clearLibrary = () => {
+  const clearLibrary = async () => {
     setTracks([]);
     setCurrentTrack(null);
     setQueue([]);
-    localStorage.removeItem(STORAGE_KEYS.TRACKS);
-
-    invoke("set_queue", { tracks: [] });
+    await invoke("set_queue", { tracks: [] });
   };
 
   const queueNextTrack = async (track: Track) => {
@@ -494,6 +509,46 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     setStreamQualityState(quality);
     localStorage.setItem(STORAGE_KEYS.STREAM_QUALITY, quality);
   };
+
+  const setLoudnessNormalization = async (enabled: boolean) => {
+    setLoudnessNormalizationState(enabled);
+    localStorage.setItem(
+      STORAGE_KEYS.LOUDNESS_NORMALIZATION,
+      enabled.toString(),
+    );
+    try {
+      await invoke("set_loudness_normalization", { enabled });
+    } catch (e) {
+      console.error("Failed to set loudness normalization:", e);
+    }
+  };
+
+  const setDiscordRpcEnabled = async (enabled: boolean) => {
+    setDiscordRpcEnabledState(enabled);
+    localStorage.setItem(STORAGE_KEYS.DISCORD_RPC, enabled.toString());
+    try {
+      await invoke("set_discord_rpc_enabled", { enabled });
+    } catch (e) {
+      console.error("Failed to set Discord RPC:", e);
+    }
+  };
+
+  // Sync settings with backend on load
+  useEffect(() => {
+    const syncSettings = async () => {
+      try {
+        // Sync loudness normalization
+        await invoke("set_loudness_normalization", {
+          enabled: loudnessNormalization,
+        });
+        // Sync Discord RPC
+        await invoke("set_discord_rpc_enabled", { enabled: discordRpcEnabled });
+      } catch (e) {
+        console.error("Failed to sync settings:", e);
+      }
+    };
+    syncSettings();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
@@ -577,6 +632,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setPlayerBarStyle,
       streamQuality,
       setStreamQuality,
+      loudnessNormalization,
+      setLoudnessNormalization,
+      discordRpcEnabled,
+      setDiscordRpcEnabled,
       favorites,
       toggleFavorite,
       refreshFavorites,
@@ -596,6 +655,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       crossfadeDuration,
       playerBarStyle,
       streamQuality,
+      loudnessNormalization,
+      discordRpcEnabled,
       favorites,
       dataVersion,
     ],
