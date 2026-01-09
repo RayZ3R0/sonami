@@ -185,10 +185,14 @@ pub async fn play_track(
 
     if let Some(ref t) = track {
         let _ = app.emit("track-changed", t.clone());
-        state
-            .media_controls
-            .set_metadata(&t.title, &t.artist, &t.album);
-        state.media_controls.set_playback(true);
+        state.media_controls.set_metadata(
+            &t.title,
+            &t.artist,
+            &t.album,
+            t.cover_image.as_deref(),
+            t.duration as f64,
+        );
+        state.media_controls.set_playback(true, Some(0.0));
     }
 
     Ok(())
@@ -197,14 +201,16 @@ pub async fn play_track(
 #[tauri::command]
 pub async fn pause_track(state: State<'_, AudioManager>) -> Result<(), String> {
     state.pause();
-    state.media_controls.set_playback(false);
+    let position = state.get_position();
+    state.media_controls.set_playback(false, Some(position));
     Ok(())
 }
 
 #[tauri::command]
 pub async fn resume_track(state: State<'_, AudioManager>) -> Result<(), String> {
     state.resume();
-    state.media_controls.set_playback(true);
+    let position = state.get_position();
+    state.media_controls.set_playback(true, Some(position));
     Ok(())
 }
 
@@ -292,10 +298,14 @@ pub async fn next_track(
         }
 
         let _ = app.emit("track-changed", track.clone());
-        state
-            .media_controls
-            .set_metadata(&track.title, &track.artist, &track.album);
-        state.media_controls.set_playback(true);
+        state.media_controls.set_metadata(
+            &track.title,
+            &track.artist,
+            &track.album,
+            track.cover_image.as_deref(),
+            track.duration as f64,
+        );
+        state.media_controls.set_playback(true, Some(0.0));
     }
     Ok(())
 }
@@ -321,10 +331,14 @@ pub async fn prev_track(
         }
 
         let _ = app.emit("track-changed", track.clone());
-        state
-            .media_controls
-            .set_metadata(&track.title, &track.artist, &track.album);
-        state.media_controls.set_playback(true);
+        state.media_controls.set_metadata(
+            &track.title,
+            &track.artist,
+            &track.album,
+            track.cover_image.as_deref(),
+            track.duration as f64,
+        );
+        state.media_controls.set_playback(true, Some(0.0));
     }
     Ok(())
 }
@@ -426,6 +440,13 @@ pub async fn play_stream(
     }
 
     state.play(url);
+
+    // Update media controls
+    state
+        .media_controls
+        .set_metadata(&track.title, &track.artist, &track.album, None, 0.0);
+    state.media_controls.set_playback(true, Some(0.0));
+
     let _ = app.emit("track-changed", track);
     Ok(())
 }
@@ -496,6 +517,17 @@ pub async fn play_tidal_track(
     }
 
     audio_state.play(stream_info.url);
+
+    // Update media controls with track info
+    audio_state.media_controls.set_metadata(
+        &track.title,
+        &track.artist,
+        &track.album,
+        track.cover_image.as_deref(),
+        track.duration as f64,
+    );
+    audio_state.media_controls.set_playback(true, Some(0.0));
+
     let _ = app.emit("track-changed", track);
     Ok(())
 }

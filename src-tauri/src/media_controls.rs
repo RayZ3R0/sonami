@@ -1,8 +1,35 @@
+use base64::{engine::general_purpose, Engine as _};
 use parking_lot::RwLock;
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
+use souvlaki::{
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+};
+use std::io::Write;
+use std::time::Duration;
+
+/// Cached metadata to avoid frequent string allocations
+struct CachedMetadata {
+    title: String,
+    artist: String,
+    album: String,
+    cover_url: Option<String>,
+    duration_secs: f64,
+}
+
+impl Default for CachedMetadata {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            artist: String::new(),
+            album: String::new(),
+            cover_url: None,
+            duration_secs: 0.0,
+        }
+    }
+}
 
 pub struct MediaControlsManager {
     controls: RwLock<Option<MediaControls>>,
+    metadata: RwLock<CachedMetadata>,
 }
 
 unsafe impl Send for MediaControlsManager {}
@@ -26,6 +53,7 @@ impl MediaControlsManager {
         let controls = MediaControls::new(config).ok();
         Self {
             controls: RwLock::new(controls),
+            metadata: RwLock::new(CachedMetadata::default()),
         }
     }
 
@@ -33,6 +61,7 @@ impl MediaControlsManager {
     pub fn new() -> Self {
         Self {
             controls: RwLock::new(None),
+            metadata: RwLock::new(CachedMetadata::default()),
         }
     }
 
@@ -49,6 +78,7 @@ impl MediaControlsManager {
         }
     }
 
+    /// Attach the event handler for media control events
     pub fn attach_handler<F>(&self, handler: F)
     where
         F: Fn(MediaControlEvent) + Send + 'static,
@@ -58,31 +88,156 @@ impl MediaControlsManager {
         }
     }
 
-    pub fn set_metadata(&self, title: &str, artist: &str, album: &str) {
+    /// Set metadata including cover art and duration
+    /// For cover art on Linux MPRIS, use a file:// URL or http:// URL
+    pub fn set_metadata(
+        &self,
+        title: &str,
+        artist: &str,
+        album: &str,
+        cover_url: Option<&str>,
+        duration_secs: f64,
+    ) {
+        // Process cover URL - convert data: URLs to file:// URLs for MPRIS
+        let processed_cover_url = cover_url.and_then(|url| {
+            if url.starts_with("data:") {
+                // Create a unique ID from the title/artist for caching
+                let cache_id = format!("{}_{}", title, artist);
+                data_url_to_file_url(url, &cache_id)
+            } else if url.starts_with("file://")
+                || url.starts_with("http://")
+                || url.starts_with("https://")
+            {
+                Some(url.to_string())
+            } else if !url.is_empty() {
+                // Assume it's a local path
+                Some(format!("file://{}", url))
+            } else {
+                None
+            }
+        });
+
+        // Cache the metadata for later use
+        {
+            let mut cached = self.metadata.write();
+            cached.title = title.to_string();
+            cached.artist = artist.to_string();
+            cached.album = album.to_string();
+            cached.cover_url = processed_cover_url;
+            cached.duration_secs = duration_secs;
+        }
+
+        self.apply_metadata();
+    }
+
+    /// Apply cached metadata to the controls
+    fn apply_metadata(&self) {
         if let Some(ref mut controls) = *self.controls.write() {
+            let cached = self.metadata.read();
+
+            let duration = if cached.duration_secs > 0.0 {
+                Some(Duration::from_secs_f64(cached.duration_secs))
+            } else {
+                None
+            };
+
             let _ = controls.set_metadata(MediaMetadata {
-                title: Some(title),
-                artist: Some(artist),
-                album: Some(album),
-                ..Default::default()
+                title: Some(&cached.title),
+                artist: Some(&cached.artist),
+                album: Some(&cached.album),
+                cover_url: cached.cover_url.as_deref(),
+                duration,
             });
         }
     }
 
-    pub fn set_playback(&self, playing: bool) {
+    /// Update playback state with progress information
+    /// This should be called periodically (e.g., every second) to update the progress bar
+    pub fn set_playback(&self, playing: bool, position_secs: Option<f64>) {
         if let Some(ref mut controls) = *self.controls.write() {
+            let progress = position_secs.map(|secs| MediaPosition(Duration::from_secs_f64(secs)));
+
             let playback = if playing {
-                MediaPlayback::Playing { progress: None }
+                MediaPlayback::Playing { progress }
             } else {
-                MediaPlayback::Paused { progress: None }
+                MediaPlayback::Paused { progress }
             };
             let _ = controls.set_playback(playback);
         }
     }
 
+    /// Convenience method for simple play/pause without position update
+    pub fn set_playback_simple(&self, playing: bool) {
+        self.set_playback(playing, None);
+    }
+
+    /// Set playback to stopped state
     pub fn set_stopped(&self) {
         if let Some(ref mut controls) = *self.controls.write() {
             let _ = controls.set_playback(MediaPlayback::Stopped);
         }
     }
+
+    /// Get the cached duration in seconds
+    pub fn get_duration(&self) -> f64 {
+        self.metadata.read().duration_secs
+    }
+}
+
+/// Extract cover art from a data URL and save it to a temporary file
+/// Returns the file:// URL to the saved cover art
+fn save_cover_art_to_temp(cover_data: &[u8], track_id: &str) -> Option<String> {
+    use std::fs;
+
+    let cache_dir = dirs::cache_dir()?.join("sonami").join("covers");
+    fs::create_dir_all(&cache_dir).ok()?;
+
+    // Sanitize the track ID for use as a filename
+    let safe_id: String = track_id
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(64) // Limit filename length
+        .collect();
+
+    let filename = format!("{}.jpg", safe_id);
+    let cover_path = cache_dir.join(&filename);
+
+    // Only write if file doesn't exist (cache)
+    if !cover_path.exists() {
+        let mut file = fs::File::create(&cover_path).ok()?;
+        file.write_all(cover_data).ok()?;
+    }
+
+    Some(format!("file://{}", cover_path.to_string_lossy()))
+}
+
+/// Process a data URL and save it to a file, returning a file:// URL
+/// This is needed because MPRIS doesn't support data: URLs
+fn data_url_to_file_url(data_url: &str, track_id: &str) -> Option<String> {
+    if !data_url.starts_with("data:") {
+        return Some(data_url.to_string());
+    }
+
+    // Parse data URL: data:[<mediatype>][;base64],<data>
+    let parts: Vec<&str> = data_url.splitn(2, ',').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+
+    let data_part = parts[1];
+    let is_base64 = parts[0].contains(";base64");
+
+    let bytes = if is_base64 {
+        general_purpose::STANDARD.decode(data_part).ok()?
+    } else {
+        data_part.as_bytes().to_vec()
+    };
+
+    save_cover_art_to_temp(&bytes, track_id)
 }

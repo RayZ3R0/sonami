@@ -71,6 +71,7 @@ pub fn run() {
             let state_for_controls = audio_manager.state.clone();
             let queue_for_controls = audio_manager.queue.clone();
             let cmd_tx = audio_manager.command_tx_clone();
+            let media_controls_for_handler = audio_manager.media_controls.clone();
 
             audio_manager
                 .media_controls
@@ -78,20 +79,30 @@ pub fn run() {
                     MediaControlEvent::Play => {
                         state_for_controls
                             .is_playing
-                            .store(true, std::sync::atomic::Ordering::Relaxed);
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        // Update MPRIS state with current position
+                        let position = state_for_controls.get_position_seconds();
+                        media_controls_for_handler.set_playback(true, Some(position));
                     }
                     MediaControlEvent::Pause => {
                         state_for_controls
                             .is_playing
-                            .store(false, std::sync::atomic::Ordering::Relaxed);
+                            .store(false, std::sync::atomic::Ordering::SeqCst);
+                        // Update MPRIS state with current position
+                        let position = state_for_controls.get_position_seconds();
+                        media_controls_for_handler.set_playback(false, Some(position));
                     }
                     MediaControlEvent::Toggle => {
                         let current = state_for_controls
                             .is_playing
-                            .load(std::sync::atomic::Ordering::Relaxed);
+                            .load(std::sync::atomic::Ordering::SeqCst);
+                        let new_state = !current;
                         state_for_controls
                             .is_playing
-                            .store(!current, std::sync::atomic::Ordering::Relaxed);
+                            .store(new_state, std::sync::atomic::Ordering::SeqCst);
+                        // Update MPRIS state with current position
+                        let position = state_for_controls.get_position_seconds();
+                        media_controls_for_handler.set_playback(new_state, Some(position));
                     }
                     MediaControlEvent::Next => {
                         if let Some(track) = queue_for_controls.write().get_next_track(true) {
@@ -105,9 +116,53 @@ pub fn run() {
                     }
                     MediaControlEvent::Stop => {
                         let _ = cmd_tx.send(audio::DecoderCommand::Stop);
+                        state_for_controls
+                            .is_playing
+                            .store(false, std::sync::atomic::Ordering::SeqCst);
+                        media_controls_for_handler.set_stopped();
+                    }
+                    MediaControlEvent::SetPosition(position) => {
+                        // Seek to absolute position (in microseconds from souvlaki)
+                        let seconds = position.0.as_secs_f64();
+                        let _ = cmd_tx.send(audio::DecoderCommand::Seek(seconds));
+                    }
+                    MediaControlEvent::Seek(direction) => {
+                        // Relative seek (forward/backward)
+                        use souvlaki::SeekDirection;
+                        let current_pos = state_for_controls.get_position_seconds();
+                        let duration = state_for_controls.get_duration_seconds();
+                        let new_pos = match direction {
+                            SeekDirection::Forward => (current_pos + 5.0).min(duration),
+                            SeekDirection::Backward => (current_pos - 5.0).max(0.0),
+                        };
+                        let _ = cmd_tx.send(audio::DecoderCommand::Seek(new_pos));
+                    }
+                    MediaControlEvent::SetVolume(volume) => {
+                        // Volume is 0.0 to 1.0
+                        state_for_controls.set_volume(volume as f32);
                     }
                     _ => {}
                 });
+
+            // Spawn a background thread to periodically update MPRIS position
+            // This is essential for the progress bar to work correctly
+            let media_controls_for_position = audio_manager.media_controls.clone();
+            let state_for_position = audio_manager.state.clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+
+                    let is_playing = state_for_position
+                        .is_playing
+                        .load(std::sync::atomic::Ordering::Relaxed);
+                    let position = state_for_position.get_position_seconds();
+
+                    // Only update if we have a valid position (track is loaded)
+                    if position > 0.0 || is_playing {
+                        media_controls_for_position.set_playback(is_playing, Some(position));
+                    }
+                }
+            });
 
             app.manage(audio_manager);
 
