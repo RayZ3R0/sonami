@@ -68,6 +68,9 @@ interface PlayerContextType {
   playerBarStyle: "floating" | "classic";
   setPlayerBarStyle: (style: "floating" | "classic") => void;
 
+  streamQuality: "LOSSLESS" | "HIGH" | "LOW";
+  setStreamQuality: (quality: "LOSSLESS" | "HIGH" | "LOW") => void;
+
   favorites: Set<string>;
   toggleFavorite: (track: Track) => Promise<void>;
   refreshFavorites: () => Promise<void>;
@@ -86,6 +89,7 @@ const STORAGE_KEYS = {
   CROSSFADE_ENABLED: "sonami-crossfade-enabled",
   CROSSFADE_DURATION: "sonami-crossfade-duration",
   PLAYER_BAR_STYLE: "sonami-player-bar-style",
+  STREAM_QUALITY: "sonami-stream-quality",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -125,6 +129,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   >(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PLAYER_BAR_STYLE);
     return saved === "classic" || saved === "floating" ? saved : "floating";
+  });
+
+  const [streamQuality, setStreamQualityState] = useState<
+    "LOSSLESS" | "HIGH" | "LOW"
+  >(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.STREAM_QUALITY);
+    if (saved === "LOSSLESS" || saved === "HIGH" || saved === "LOW") {
+      return saved;
+    }
+    return "LOSSLESS";
   });
 
   const seekTarget = useRef<{ time: number; timestamp: number } | null>(null);
@@ -476,6 +490,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(STORAGE_KEYS.PLAYER_BAR_STYLE, style);
   };
 
+  const setStreamQuality = (quality: "LOSSLESS" | "HIGH" | "LOW") => {
+    setStreamQualityState(quality);
+    localStorage.setItem(STORAGE_KEYS.STREAM_QUALITY, quality);
+  };
+
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   // Refresh favorites - can be called by views
@@ -556,6 +575,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setCrossfade,
       playerBarStyle,
       setPlayerBarStyle,
+      streamQuality,
+      setStreamQuality,
       favorites,
       toggleFavorite,
       refreshFavorites,
@@ -574,6 +595,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       crossfadeEnabled,
       crossfadeDuration,
       playerBarStyle,
+      streamQuality,
       favorites,
       dataVersion,
     ],

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { usePlayer } from "../context/PlayerContext";
 
 interface SearchTrack {
   id: number;
@@ -12,6 +13,7 @@ interface SearchTrack {
 }
 
 export const TidalSearch = () => {
+  const { streamQuality } = usePlayer();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ export const TidalSearch = () => {
         album: track.album?.title || "Unknown",
         duration: track.duration || 0,
         coverUrl: coverUrl,
-        quality: "LOSSLESS",
+        quality: streamQuality,
       });
     } catch (e: any) {
       setError(`Failed to play: ${e.toString()}`);

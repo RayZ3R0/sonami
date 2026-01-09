@@ -105,13 +105,33 @@ pub fn run() {
                         media_controls_for_handler.set_playback(new_state, Some(position));
                     }
                     MediaControlEvent::Next => {
-                        if let Some(track) = queue_for_controls.write().get_next_track(true) {
-                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path));
+                        let track = queue_for_controls.write().get_next_track(true);
+                        if let Some(ref track) = track {
+                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
+                            // Update MPRIS metadata for the new track
+                            media_controls_for_handler.set_metadata(
+                                &track.title,
+                                &track.artist,
+                                &track.album,
+                                track.cover_image.as_deref(),
+                                track.duration as f64,
+                            );
+                            media_controls_for_handler.set_playback(true, Some(0.0));
                         }
                     }
                     MediaControlEvent::Previous => {
-                        if let Some(track) = queue_for_controls.write().get_prev_track() {
-                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path));
+                        let track = queue_for_controls.write().get_prev_track();
+                        if let Some(ref track) = track {
+                            let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
+                            // Update MPRIS metadata for the new track
+                            media_controls_for_handler.set_metadata(
+                                &track.title,
+                                &track.artist,
+                                &track.album,
+                                track.cover_image.as_deref(),
+                                track.duration as f64,
+                            );
+                            media_controls_for_handler.set_playback(true, Some(0.0));
                         }
                     }
                     MediaControlEvent::Stop => {

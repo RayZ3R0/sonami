@@ -246,6 +246,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     addToPlaylist,
     toggleFavorite,
     refreshFavorites,
+    streamQuality,
   } = usePlayer();
   const [query, setQuery] = useState("");
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
@@ -518,7 +519,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
           album: track.album?.title || "Unknown",
           duration: track.duration || 0,
           coverUrl,
-          quality: "LOSSLESS",
+          quality: streamQuality,
         });
         onClose();
       } catch (e) {

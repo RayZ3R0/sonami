@@ -225,6 +225,8 @@ export const Settings = ({
     setCrossfade,
     playerBarStyle,
     setPlayerBarStyle,
+    streamQuality,
+    setStreamQuality,
   } = usePlayer();
   const [activeTab, setActiveTab] = useState<"appearance" | "playback">(
     defaultTab,
@@ -518,6 +520,78 @@ export const Settings = ({
 
           {activeTab === "playback" && (
             <div className="space-y-6">
+              {/* Stream Quality Section */}
+              <div
+                className="p-4 rounded-xl space-y-4"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Stream Quality
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Audio quality for Tidal streaming
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      {
+                        value: "LOSSLESS",
+                        label: "Lossless",
+                        desc: "FLAC 16-bit/44.1kHz",
+                      },
+                      { value: "HIGH", label: "High", desc: "AAC 320kbps" },
+                      { value: "LOW", label: "Normal", desc: "AAC 96kbps" },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setStreamQuality(option.value)}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
+                        streamQuality === option.value
+                          ? "ring-2"
+                          : "hover:scale-[1.02]"
+                      }`}
+                      style={{
+                        background:
+                          streamQuality === option.value
+                            ? theme.colors.accentMuted
+                            : theme.colors.surfaceHover,
+                        borderColor:
+                          streamQuality === option.value
+                            ? theme.colors.accent
+                            : theme.colors.border,
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        // @ts-ignore
+                        "--tw-ring-color": theme.colors.accent,
+                      }}
+                    >
+                      <div
+                        className="text-sm font-medium"
+                        style={{ color: theme.colors.textPrimary }}
+                      >
+                        {option.label}
+                      </div>
+                      <div
+                        className="text-xs mt-0.5"
+                        style={{ color: theme.colors.textMuted }}
+                      >
+                        {option.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Crossfade Section */}
               <div
                 className="flex items-center justify-between p-4 rounded-xl"
                 style={{ background: theme.colors.surface }}
