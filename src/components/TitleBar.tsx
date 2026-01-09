@@ -41,7 +41,9 @@ export const TitleBar = ({
 }: TitleBarProps) => {
   const [osType, setOsType] = useState<string>("windows");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
+  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
+    "appearance",
+  );
 
   const openSettings = (tab: "appearance" | "playback") => {
     setSettingsTab(tab);
@@ -104,10 +106,11 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
-              ? "bg-theme-surface-active text-theme-primary"
-              : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+            className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${
+              activeTab === "home"
+                ? "bg-theme-surface-active text-theme-primary"
+                : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+            }`}
             title="Home"
           >
             <svg

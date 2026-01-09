@@ -50,6 +50,7 @@ pub fn decoder_thread(
         crossfade_active,
         app_handle,
         shutdown,
+        url_resolver,
         ..
     } = context;
     let mut current_decoder: Option<DecoderState> = None;
@@ -64,6 +65,7 @@ pub fn decoder_thread(
     let mut next_input_accumulator: VecDeque<f32> = VecDeque::new();
     let mut crossfade_state = CrossfadeState::Idle;
     let mut next_track_info: Option<crate::queue::Track> = None;
+    let mut prebuffer_failed_for_path: Option<String> = None;
 
     loop {
         if shutdown.load(Ordering::Relaxed) {
@@ -79,10 +81,9 @@ pub fn decoder_thread(
         if let Some(cmd) = command {
             match cmd {
                 DecoderCommand::Load(path) => {
-                    let source_res = resolve_source(&path).map_err(|e| e.to_string());
+                    let source_res = resolve_source(&path, &url_resolver);
                     match source_res.and_then(load_track) {
                         Ok((reader, decoder, track_id, duration_samples, sample_rate)) => {
-                            // Clear buffers while playback is paused (set in AudioManager::play)
                             buffer_a.clear();
                             buffer_b.clear();
                             input_accumulator.clear();
@@ -93,8 +94,8 @@ pub fn decoder_thread(
                             sample_buf = None;
                             next_sample_buf = None;
                             crossfade_state = CrossfadeState::Idle;
+                            prebuffer_failed_for_path = None;
 
-                            // Set up new decoder state
                             state.position_samples.store(0, Ordering::Relaxed);
                             state
                                 .duration_samples
@@ -190,6 +191,7 @@ pub fn decoder_thread(
                     next_decoder = None;
                     next_track_info = None;
                     crossfade_state = CrossfadeState::Idle;
+                    prebuffer_failed_for_path = None;
                 }
                 DecoderCommand::QueueNext(_) => {}
             }
@@ -207,58 +209,66 @@ pub fn decoder_thread(
             let position = state.position_samples.load(Ordering::Relaxed);
             let duration = state.duration_samples.load(Ordering::Relaxed);
 
+            let next_track_opt = {
+                let q = queue.read();
+                q.peek_next_track()
+            };
+
             let should_prebuffer = cf_duration_ms > 0
                 && duration > cf_duration_samples
                 && position >= duration.saturating_sub(cf_duration_samples)
                 && crossfade_state == CrossfadeState::Idle
-                && next_decoder.is_none();
+                && next_decoder.is_none()
+                && next_track_opt.as_ref().map(|t| &t.path) != prebuffer_failed_for_path.as_ref();
 
             if should_prebuffer {
-                let next_track_opt = {
-                    let q = queue.read();
-                    q.peek_next_track()
-                };
-
                 if let Some(track) = next_track_opt {
-                    let source_res = resolve_source(&track.path).map_err(|e| e.to_string());
-                    if let Ok(source) = source_res {
-                        if let Ok((r, d, tid, _dur, sr)) = load_track(source) {
-                            next_decoder = Some((r, d, tid));
-                            next_track_info = Some(track);
-                            next_sample_buf = None;
-                            next_input_accumulator.clear();
-                            buffer_b.clear();
+                    match resolve_source(&track.path, &url_resolver) {
+                        Ok(source) => {
+                            if let Ok((r, d, tid, _dur, sr)) = load_track(source) {
+                                next_decoder = Some((r, d, tid));
+                                next_track_info = Some(track);
+                                prebuffer_failed_for_path = None;
+                                next_sample_buf = None;
+                                next_input_accumulator.clear();
+                                buffer_b.clear();
 
-                            let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
-                            if device_rate != 0 && device_rate != sr {
-                                let params = SincInterpolationParameters {
-                                    sinc_len: 256,
-                                    f_cutoff: 0.95,
-                                    interpolation: SincInterpolationType::Linear,
-                                    window: WindowFunction::BlackmanHarris2,
-                                    oversampling_factor: 128,
-                                };
-                                if let Ok(r) = SincFixedIn::<f32>::new(
-                                    device_rate as f64 / sr as f64,
-                                    2.0,
-                                    params,
-                                    1024,
-                                    2,
-                                ) {
-                                    next_resampler = Some(r);
-                                    next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                                let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
+                                if device_rate != 0 && device_rate != sr {
+                                    let params = SincInterpolationParameters {
+                                        sinc_len: 256,
+                                        f_cutoff: 0.95,
+                                        interpolation: SincInterpolationType::Linear,
+                                        window: WindowFunction::BlackmanHarris2,
+                                        oversampling_factor: 128,
+                                    };
+                                    if let Ok(r) = SincFixedIn::<f32>::new(
+                                        device_rate as f64 / sr as f64,
+                                        2.0,
+                                        params,
+                                        1024,
+                                        2,
+                                    ) {
+                                        next_resampler = Some(r);
+                                        next_resampler_input_buffer = vec![vec![0.0; 1024]; 2];
+                                    } else {
+                                        next_resampler = None;
+                                    }
                                 } else {
                                     next_resampler = None;
                                 }
-                            } else {
-                                next_resampler = None;
-                            }
 
-                            crossfade_state = CrossfadeState::Prebuffering;
-                            debug_cf!(
-                                "DECODER: Started prebuffering next track: {:?}",
-                                next_track_info.as_ref().map(|t| &t.path)
-                            );
+                                crossfade_state = CrossfadeState::Prebuffering;
+                                debug_cf!(
+                                    "DECODER: Started prebuffering next track: {:?}",
+                                    next_track_info.as_ref().map(|t| &t.path)
+                                );
+                            } else {
+                                prebuffer_failed_for_path = Some(track.path.clone());
+                            }
+                        }
+                        Err(_) => {
+                            prebuffer_failed_for_path = Some(track.path.clone());
                         }
                     }
                 }
@@ -314,6 +324,8 @@ pub fn decoder_thread(
                             &buffer_a,
                             &buffer_b,
                             &app_handle,
+                            &url_resolver,
+                            &mut prebuffer_failed_for_path,
                         );
                         continue;
                     }
@@ -453,6 +465,8 @@ fn handle_track_end(
     buffer_a: &Arc<AudioBuffer>,
     buffer_b: &Arc<AudioBuffer>,
     app_handle: &AppHandle,
+    url_resolver: &UrlResolver,
+    prebuffer_failed_for_path: &mut Option<String>,
 ) {
     let _ = app_handle.emit("track-ended", ());
 
@@ -519,6 +533,7 @@ fn handle_track_end(
 
         input_accumulator.clear();
         next_input_accumulator.clear();
+        *prebuffer_failed_for_path = None;
 
         if let Some(track) = next_track_info.take() {
             debug_cf!("  New track: {:?}", track.path);
@@ -579,7 +594,7 @@ fn handle_track_end(
         *state.current_path.write() = Some(next_path.clone());
         let _ = app_handle.emit("track-changed", track);
 
-        let source_res = resolve_source(&next_path).map_err(|e| e.to_string());
+        let source_res = resolve_source(&next_path, url_resolver);
         if let Ok(source) = source_res {
             if let Ok((r, d, tid, dur, sr)) = load_track(source) {
                 state.position_samples.store(0, Ordering::Relaxed);
@@ -590,6 +605,7 @@ fn handle_track_end(
                 input_accumulator.clear();
                 buffer_a.clear();
                 buffer_b.clear();
+                *prebuffer_failed_for_path = None;
 
                 let device_rate = state.device_sample_rate.load(Ordering::Relaxed);
                 if device_rate != 0 && device_rate != sr {
@@ -632,14 +648,19 @@ fn handle_track_end(
     crossfade_active.store(false, Ordering::Relaxed);
 }
 
+use super::resolver::UrlResolver;
 use super::source::{file::FileSource, http::HttpSource, prefetch::PrefetchSource, MediaSource};
 
-fn resolve_source(uri: &str) -> std::io::Result<Box<dyn MediaSource>> {
-    if uri.starts_with("http://") || uri.starts_with("https://") {
-        let http = HttpSource::new(uri)?;
+fn resolve_source(uri: &str, resolver: &UrlResolver) -> Result<Box<dyn MediaSource>, String> {
+    let resolved_uri = resolver.resolve(uri)?;
+
+    if resolved_uri.starts_with("http://") || resolved_uri.starts_with("https://") {
+        let http = HttpSource::new(&resolved_uri).map_err(|e| e.to_string())?;
         Ok(Box::new(PrefetchSource::new(Box::new(http))))
     } else {
-        Ok(Box::new(FileSource::new(uri)?))
+        Ok(Box::new(
+            FileSource::new(&resolved_uri).map_err(|e| e.to_string())?,
+        ))
     }
 }
 

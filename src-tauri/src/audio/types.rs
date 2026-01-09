@@ -5,6 +5,7 @@ use parking_lot::RwLock;
 use tauri::AppHandle;
 
 use super::buffer::AudioBuffer;
+use super::resolver::UrlResolver;
 use crate::dsp::DspChain;
 use crate::media_controls::MediaControlsManager;
 use crate::queue::PlayQueue;
@@ -21,6 +22,7 @@ pub struct AudioContext {
     pub crossfade_active: Arc<AtomicBool>,
     pub app_handle: AppHandle,
     pub shutdown: Arc<AtomicBool>,
+    pub url_resolver: UrlResolver,
 }
 
 use serde::Serialize;

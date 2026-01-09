@@ -11,6 +11,7 @@ use crate::queue::PlayQueue;
 use super::buffer::AudioBuffer;
 use super::decoder::decoder_thread;
 use super::output::run_audio_output;
+use super::resolver::UrlResolver;
 use super::types::{AudioContext, DecoderCommand, PlaybackState, DEFAULT_CROSSFADE_MS};
 
 pub const BUFFER_SIZE: usize = 65536;
@@ -45,6 +46,7 @@ impl AudioManager {
         let media_controls = Arc::new(MediaControlsManager::new());
         let crossfade_duration_ms = Arc::new(AtomicU32::new(DEFAULT_CROSSFADE_MS));
         let crossfade_active = Arc::new(AtomicBool::new(false));
+        let url_resolver = UrlResolver::new(app_handle.clone());
 
         let context = AudioContext {
             buffer_a: buffer_a.clone(),
@@ -57,6 +59,7 @@ impl AudioManager {
             crossfade_active: crossfade_active.clone(),
             app_handle: app_handle.clone(),
             shutdown: shutdown.clone(),
+            url_resolver,
         };
 
         let context_decoder = context.clone();
