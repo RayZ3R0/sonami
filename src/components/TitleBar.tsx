@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type } from "@tauri-apps/plugin-os";
 import { invoke } from "@tauri-apps/api/core";
 import { Settings, SettingsButton, ThemeButton } from "./Settings";
+import { captureAppScreenshot } from "../utils/screenshot";
 
 const MinusIcon = () => (
   <svg width="10" height="10" viewBox="0 0 10.2 1" fill="currentColor">
@@ -51,6 +52,29 @@ export const TitleBar = ({
     setSettingsTab(tab);
     setIsSettingsOpen(true);
   };
+
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const handleScreenshot = useCallback(async () => {
+    if (isCapturing) return;
+    setIsCapturing(true);
+    try {
+      const result = await captureAppScreenshot();
+      if (result.success) {
+        console.log("Screenshot saved to:", result.path);
+        // Could add a toast notification here
+        alert(`Screenshot saved!\n${result.path}`);
+      } else {
+        console.error("Screenshot failed:", result.error);
+        alert(`Screenshot failed: ${result.error}`);
+      }
+    } catch (err) {
+      console.error("Screenshot error:", err);
+      alert(`Error: ${err}`);
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [isCapturing]);
 
   useEffect(() => {
     async function init() {
@@ -176,6 +200,32 @@ export const TitleBar = ({
         <div className="flex items-center gap-1">
           <ThemeButton onClick={() => openSettings("appearance")} />
           <SettingsButton onClick={() => openSettings("playback")} />
+          {/* Screenshot button - dev only */}
+          {import.meta.env.DEV && (
+            <button
+              onClick={handleScreenshot}
+              disabled={isCapturing}
+              className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                isCapturing
+                  ? "text-theme-primary animate-pulse"
+                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+              }`}
+              title="Capture Screenshot (Dev Only)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

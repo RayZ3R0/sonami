@@ -30,7 +30,8 @@
     "@tauri-apps/plugin-os": "~2",
     "colorthief": "^2.6.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tauri-plugin-screenshots-api": "^2.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

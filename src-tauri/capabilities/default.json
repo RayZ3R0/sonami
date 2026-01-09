@@ -15,6 +15,7 @@
     "core:window:allow-set-focus",
     "opener:default",
     "os:default",
-    "dialog:default"
+    "dialog:default",
+    "screenshots:default"
   ]
 }

@@ -25,6 +25,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_screenshots::init())
         .setup(|app| {
             let handle = app.handle().clone();
             let audio_manager = AudioManager::new(handle.clone());

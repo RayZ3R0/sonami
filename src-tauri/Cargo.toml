@@ -55,4 +55,5 @@ sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls", "macros"
 walkdir = "2.5.0"
 spotapi = "0.1.0"
 ib-romaji = "0.1.2"
+tauri-plugin-screenshots = "2.2.0"
 
