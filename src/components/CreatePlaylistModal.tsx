@@ -77,7 +77,7 @@ export const CreatePlaylistModal = ({
                     placeholder="My Playlist #1"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:bg-white/10 focus:border-indigo-500/50 transition-all font-medium"
+                    className="w-full px-4 py-3 pt-[14px] pb-[10px] bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:bg-white/10 focus:border-indigo-500/50 transition-all font-medium"
                     autoFocus
                   />
                 </div>
@@ -113,7 +113,7 @@ export const CreatePlaylistModal = ({
                   </svg>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold text-white group-hover:text-green-400 transition-colors">
+                  <p className="text-sm font-semibold text-white group-hover:text-green-400 transition-colors pt-[3px]">
                     Import from Spotify
                   </p>
                   <p className="text-xs text-white/50">

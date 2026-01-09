@@ -83,11 +83,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -384,11 +383,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("floating")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "floating"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -433,11 +431,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("classic")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "classic"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -558,11 +555,10 @@ export const Settings = ({
                     <button
                       key={option.value}
                       onClick={() => setStreamQuality(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        streamQuality === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                      }`}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${streamQuality === option.value
+                        ? "ring-2"
+                        : "hover:scale-[1.02]"
+                        }`}
                       style={{
                         background:
                           streamQuality === option.value

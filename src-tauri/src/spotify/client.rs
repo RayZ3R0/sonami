@@ -1,5 +1,5 @@
+use super::models::{SpotifyError, SpotifyPlaylistResult, SpotifyTrack};
 use spotapi::PublicPlaylist;
-use super::models::{SpotifyPlaylistResult, SpotifyTrack, SpotifyError};
 
 #[derive(Clone)]
 pub struct SpotifyClient;
@@ -40,14 +40,19 @@ impl SpotifyClient {
         )))
     }
 
-    pub async fn fetch_playlist(&self, playlist_id: &str) -> Result<SpotifyPlaylistResult, SpotifyError> {
+    pub async fn fetch_playlist(
+        &self,
+        playlist_id: &str,
+    ) -> Result<SpotifyPlaylistResult, SpotifyError> {
         log::info!("Fetching Spotify playlist via spotapi: {}", playlist_id);
 
         let playlist_url = format!("https://open.spotify.com/playlist/{}", playlist_id);
-        
+
         let mut playlist = PublicPlaylist::new(&playlist_url);
 
-        let tracks = playlist.get_tracks().await
+        let tracks = playlist
+            .get_tracks()
+            .await
             .map_err(|e| SpotifyError::ApiError(format!("Failed to fetch playlist: {}", e)))?;
 
         let track_count = tracks.len();
@@ -55,22 +60,26 @@ impl SpotifyClient {
         log::info!("Successfully fetched {} tracks from playlist", track_count);
 
         if let Some(first_track) = tracks.first() {
-            log::debug!("First track JSON structure: {}", serde_json::to_string_pretty(first_track).unwrap_or_default());
+            log::debug!(
+                "First track JSON structure: {}",
+                serde_json::to_string_pretty(first_track).unwrap_or_default()
+            );
         }
 
         // Parse tracks into our format
         let spotify_tracks: Vec<SpotifyTrack> = tracks
             .into_iter()
-            .filter_map(|track_data| {
-                Self::parse_track(&track_data)
-            })
+            .filter_map(|track_data| Self::parse_track(&track_data))
             .collect();
 
-        log::info!("Parsed {} tracks into SpotifyTrack format", spotify_tracks.len());
+        log::info!(
+            "Parsed {} tracks into SpotifyTrack format",
+            spotify_tracks.len()
+        );
 
         // We use placeholders here since the user can edit them in the import modal
         let name = "Imported Playlist".to_string();
-        
+
         let description = String::new();
 
         // Create playlist info
@@ -89,27 +98,25 @@ impl SpotifyClient {
 
     fn parse_track(track: &serde_json::Value) -> Option<SpotifyTrack> {
         let data = track.get("itemV2")?.get("data")?;
-        
-        let title = data.get("name")
-            .and_then(|v| v.as_str())?
-            .to_string();
+
+        let title = data.get("name").and_then(|v| v.as_str())?.to_string();
 
         let artists_items = data.get("artists")?.get("items")?.as_array()?;
         let artist = artists_items
             .iter()
-            .filter_map(|a| {
-                a.get("profile")?.get("name")?.as_str()
-            })
+            .filter_map(|a| a.get("profile")?.get("name")?.as_str())
             .collect::<Vec<_>>()
             .join(", ");
 
-        let album = data.get("albumOfTrack")
+        let album = data
+            .get("albumOfTrack")
             .and_then(|a| a.get("name"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
 
-        let duration_ms = data.get("trackDuration")
+        let duration_ms = data
+            .get("trackDuration")
             .and_then(|d| d.get("totalMilliseconds"))
             .and_then(|v| v.as_u64())
             .unwrap_or(0) as u32;

@@ -17,10 +17,10 @@ pub fn romanize_japanese(text: &str) -> Option<String> {
     }
 
     let result = ROMANIZER.romanize_kana_str_all(text);
-    
+
     match result {
         Some(s) if s != text && !s.is_empty() => Some(s),
-        _ => None
+        _ => None,
     }
 }
 
@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_romanize_katakana() {
-         let result = romanize_japanese("アイウエオ");
+        let result = romanize_japanese("アイウエオ");
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "aiueo");
     }

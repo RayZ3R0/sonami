@@ -5,11 +5,9 @@ use crate::spotify::{
 use crate::tidal::{get_cover_url, CoverSize, TidalClient};
 use tauri::{command, AppHandle, Emitter, State};
 
-
 #[command]
 pub async fn fetch_spotify_playlist(url_or_id: String) -> Result<SpotifyPlaylistResult, String> {
-    let playlist_id =
-        SpotifyClient::extract_playlist_id(&url_or_id).map_err(|e| e.to_string())?;
+    let playlist_id = SpotifyClient::extract_playlist_id(&url_or_id).map_err(|e| e.to_string())?;
 
     let client = SpotifyClient::new().map_err(|e| e.to_string())?;
 
@@ -19,8 +17,6 @@ pub async fn fetch_spotify_playlist(url_or_id: String) -> Result<SpotifyPlaylist
         .map_err(|e| e.to_string())
 }
 
-
-
 #[command]
 pub async fn verify_spotify_track(
     tidal: State<'_, TidalClient>,
@@ -29,8 +25,6 @@ pub async fn verify_spotify_track(
 ) -> Result<VerifiedSpotifyTrack, String> {
     verify_track_internal(&tidal, &title, &artist, None, None, None).await
 }
-
-
 
 #[command]
 pub async fn verify_spotify_tracks(
@@ -43,7 +37,6 @@ pub async fn verify_spotify_tracks(
     let mut found_count = 0;
 
     for (i, track) in tracks.into_iter().enumerate() {
-        
         let progress = VerificationProgress {
             current: i + 1,
             total,
@@ -58,7 +51,7 @@ pub async fn verify_spotify_tracks(
             &track.artist,
             Some(&track.album),
             Some(track.duration_ms as u64),
-            None, 
+            None,
         )
         .await?;
 
@@ -68,11 +61,9 @@ pub async fn verify_spotify_tracks(
 
         verified.push(result);
 
-        
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 
-    
     let _ = app.emit(
         "spotify-import-progress",
         VerificationProgress {
@@ -85,7 +76,6 @@ pub async fn verify_spotify_tracks(
 
     Ok(verified)
 }
-
 
 async fn verify_track_internal(
     tidal: &TidalClient,
@@ -103,7 +93,6 @@ async fn verify_track_internal(
         isrc: String::new(),
     };
 
-    
     let query = format!("{} {}", artist, title);
     log::debug!("Searching Tidal for: {}", query);
 
@@ -129,7 +118,6 @@ async fn verify_track_internal(
         }
     }
 
-    
     let romanized_title = romanize_japanese(title);
     let romanized_artist = romanize_japanese(artist);
 
@@ -163,10 +151,8 @@ async fn verify_track_internal(
         }
     }
 
-    
     if let Ok(result) = tidal.search_tracks(title).await {
         if let Some(track) = result.items.first() {
-            
             let tidal_artist = track
                 .artist
                 .as_ref()
@@ -196,7 +182,6 @@ async fn verify_track_internal(
         }
     }
 
-    
     Ok(VerifiedSpotifyTrack {
         spotify: spotify_track,
         found: false,
@@ -209,7 +194,6 @@ async fn verify_track_internal(
         status_message: Some("Not found on Tidal".to_string()),
     })
 }
-
 
 #[command]
 pub async fn add_spotify_tracks_to_playlist(
@@ -236,7 +220,6 @@ pub async fn add_spotify_tracks_to_playlist(
             }
         };
 
-        
         let tidal_track = crate::tidal::Track {
             id: tidal_id,
             title: track.spotify.title.clone(),
@@ -247,7 +230,10 @@ pub async fn add_spotify_tracks_to_playlist(
             }),
             album: track.tidal_album_id.map(|id| crate::tidal::Album {
                 id,
-                title: track.tidal_album.clone().unwrap_or_else(|| track.spotify.album.clone()),
+                title: track
+                    .tidal_album
+                    .clone()
+                    .unwrap_or_else(|| track.spotify.album.clone()),
                 cover: None,
                 artist: None,
                 number_of_tracks: None,
@@ -258,16 +244,17 @@ pub async fn add_spotify_tracks_to_playlist(
             track_number: None,
         };
 
-        
         if let Err(e) = library
             .import_tidal_track(&tidal_track, track.cover_url)
             .await
         {
-            errors.push(format!("{} - {}: {}", track.spotify.artist, track.spotify.title, e));
+            errors.push(format!(
+                "{} - {}: {}",
+                track.spotify.artist, track.spotify.title, e
+            ));
             continue;
         }
 
-        
         if let Ok(Some(track_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
             if let Err(e) = playlist.add_track_entry(&playlist_id, &track_id).await {
                 errors.push(format!(
@@ -288,10 +275,13 @@ pub async fn add_spotify_tracks_to_playlist(
     Ok(AddTracksResult {
         added,
         skipped,
-        errors: if errors.is_empty() { None } else { Some(errors) },
+        errors: if errors.is_empty() {
+            None
+        } else {
+            Some(errors)
+        },
     })
 }
-
 
 #[command]
 pub async fn create_playlist_from_spotify(
@@ -301,13 +291,11 @@ pub async fn create_playlist_from_spotify(
     description: Option<String>,
     tracks: Vec<VerifiedSpotifyTrack>,
 ) -> Result<CreatePlaylistResult, String> {
-    
     let playlist = playlist_manager
         .create_playlist(name, description)
         .await
         .map_err(|e| e.to_string())?;
 
-    
     let add_result =
         add_spotify_tracks_internal(&library, &playlist_manager, &playlist.id, tracks).await?;
 
@@ -319,7 +307,6 @@ pub async fn create_playlist_from_spotify(
         errors: add_result.errors,
     })
 }
-
 
 async fn add_spotify_tracks_internal(
     library: &crate::library::LibraryManager,
@@ -355,7 +342,9 @@ async fn add_spotify_tracks_internal(
             }),
             album: track.tidal_album_id.map(|id| crate::tidal::Album {
                 id,
-                title: track.tidal_album.unwrap_or_else(|| track.spotify.album.clone()),
+                title: track
+                    .tidal_album
+                    .unwrap_or_else(|| track.spotify.album.clone()),
                 cover: None,
                 artist: None,
                 number_of_tracks: None,
@@ -397,7 +386,11 @@ async fn add_spotify_tracks_internal(
     Ok(AddTracksResult {
         added,
         skipped,
-        errors: if errors.is_empty() { None } else { Some(errors) },
+        errors: if errors.is_empty() {
+            None
+        } else {
+            Some(errors)
+        },
     })
 }
 

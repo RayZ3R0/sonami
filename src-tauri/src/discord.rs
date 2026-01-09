@@ -364,10 +364,13 @@ fn update_paused_activity(
     // Format position for display in album text
     let mins = position_secs / 60;
     let secs = position_secs % 60;
-    let position_text = format!("{} • {:02}:{:02} / {:02}:{:02}", 
+    let position_text = format!(
+        "{} • {:02}:{:02} / {:02}:{:02}",
         track.album,
-        mins, secs,
-        track.duration_secs / 60, track.duration_secs % 60
+        mins,
+        secs,
+        track.duration_secs / 60,
+        track.duration_secs % 60
     );
 
     log::debug!(

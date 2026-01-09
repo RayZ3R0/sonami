@@ -242,11 +242,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
                 ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
                 : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -284,7 +283,7 @@ export const LikedSongsView = () => {
       ) : (
         <div className="flex flex-col flex-1 overflow-auto px-8">
           {/* Header Row */}
-          <div className="sticky top-0 bg-theme-background-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+          <div className="sticky top-0 bg-theme-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
             <span>#</span>
             <span
               className="cursor-pointer hover:text-theme-primary transition-colors"
@@ -325,11 +324,10 @@ export const LikedSongsView = () => {
               <div
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
                     ? "bg-pink-500/10 text-pink-500"
                     : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                  }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">

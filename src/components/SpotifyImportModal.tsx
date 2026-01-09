@@ -245,7 +245,7 @@ export const SpotifyImportModal = ({
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-theme-primary">
+              <h2 className="text-lg font-semibold text-theme-primary pt-[3px]">
                 Import from Spotify
               </h2>
               <p className="text-sm text-theme-secondary">
@@ -316,7 +316,7 @@ export const SpotifyImportModal = ({
                   value={spotifyUrl}
                   onChange={(e) => setSpotifyUrl(e.target.value)}
                   placeholder="https://open.spotify.com/playlist/..."
-                  className="w-full px-4 py-3 bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
+                  className="w-full px-4 pt-[14px] pb-[10px] bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
                   autoFocus
                 />
                 {spotifyUrl && !isUrlValid && (
@@ -336,7 +336,7 @@ export const SpotifyImportModal = ({
                   value={playlistName}
                   onChange={(e) => setPlaylistName(e.target.value)}
                   placeholder="Will use Spotify playlist name if empty"
-                  className="w-full px-4 py-3 bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
+                  className="w-full px-4 pt-[14px] pb-[10px] bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
                 />
               </div>
 
