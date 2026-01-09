@@ -304,37 +304,71 @@ fn update_playing_activity(
         .unwrap()
         .as_secs() as i64;
 
+    // Calculate timestamps for progress bar simulation
+    // Discord shows "XX:XX left" when both start and end are provided
     let elapsed_since_start = started_at.elapsed().as_secs();
-    let start_timestamp = now - (position_secs + elapsed_since_start) as i64;
+    let current_position = position_secs + elapsed_since_start;
+    let start_timestamp = now - current_position as i64;
+    let end_timestamp = start_timestamp + track.duration_secs as i64;
 
     let details = &track.title;
-    let state_text = format!("by {}", track.artist);
+    let state_text = &track.artist;
 
-    let activity_builder = activity::Activity::new()
+    // Build activity with Spotify-like structure
+    let mut activity_builder = activity::Activity::new()
+        .activity_type(activity::ActivityType::Listening)
         .details(details)
-        .state(&state_text)
-        .timestamps(activity::Timestamps::new().start(start_timestamp));
+        .state(state_text)
+        .timestamps(
+            activity::Timestamps::new()
+                .start(start_timestamp)
+                .end(end_timestamp),
+        )
+        .assets(
+            activity::Assets::new()
+                .large_image("sonami_logo")
+                .large_text(&track.album),
+        );
+
+    // Add cover art URL if available (Discord supports external URLs)
+    if let Some(ref cover_url) = track.cover_url {
+        activity_builder = activity_builder.assets(
+            activity::Assets::new()
+                .large_image(cover_url)
+                .large_text(&track.album)
+                .small_image("sonami_logo")
+                .small_text("Sonami"),
+        );
+    }
 
     log::debug!(
-        "Discord: Sending activity - details: '{}', state: '{}'",
+        "Discord: Sending activity - '{}' by '{}' ({} secs)",
         details,
-        state_text
+        state_text,
+        track.duration_secs
     );
 
     client.set_activity(activity_builder)?;
     Ok(())
 }
 
+/// Update Discord activity for paused state
 fn update_paused_activity(
     client: &mut DiscordIpcClient,
     track: &TrackInfo,
     position_secs: u64,
 ) -> Result<(), discord_rich_presence::error::Error> {
     let details = &track.title;
-    let state_text = format!("by {} • Paused", track.artist);
+    let state_text = format!("{} • Paused", track.artist);
 
+    // Format position for display in album text
     let mins = position_secs / 60;
     let secs = position_secs % 60;
+    let position_text = format!("{} • {:02}:{:02} / {:02}:{:02}", 
+        track.album,
+        mins, secs,
+        track.duration_secs / 60, track.duration_secs % 60
+    );
 
     log::debug!(
         "Discord: Sending paused activity - '{}' at {:02}:{:02}",
@@ -343,9 +377,26 @@ fn update_paused_activity(
         secs
     );
 
-    let activity_builder = activity::Activity::new()
+    let mut activity_builder = activity::Activity::new()
+        .activity_type(activity::ActivityType::Listening)
         .details(details)
-        .state(&state_text);
+        .state(&state_text)
+        .assets(
+            activity::Assets::new()
+                .large_image("sonami_logo")
+                .large_text(&position_text),
+        );
+
+    // Add cover art URL if available
+    if let Some(ref cover_url) = track.cover_url {
+        activity_builder = activity_builder.assets(
+            activity::Assets::new()
+                .large_image(cover_url)
+                .large_text(&position_text)
+                .small_image("sonami_logo")
+                .small_text("Sonami"),
+        );
+    }
 
     client.set_activity(activity_builder)?;
     Ok(())

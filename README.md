@@ -2,27 +2,17 @@
 
 # Sonami
 
-<!-- LINE 1: Version, Build Status, License, Platform -->
+
 [![Version](https://img.shields.io/github/v/tag/RayZ3R0/sonami?style=flat-square&label=version&color=blue)](https://github.com/RayZ3R0/sonami/tags)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-informational?style=flat-square)](https://github.com/RayZ3R0/sonami/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/RayZ3R0/sonami/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/RayZ3R0/sonami/actions)
 [![License](https://img.shields.io/github/license/RayZ3R0/sonami?style=flat-square)](LICENSE)
 [![AUR Version](https://img.shields.io/aur/version/sonami-bin?style=flat-square&logo=arch-linux&color=1793D1)](https://aur.archlinux.org/packages/sonami-bin)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-informational?style=flat-square)](https://github.com/RayZ3R0/sonami/releases)
 
-<!-- LINE 2: Activity & Stats -->
-[![Last Commit](https://img.shields.io/github/last-commit/RayZ3R0/sonami?style=flat-square)](https://github.com/RayZ3R0/sonami/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/RayZ3R0/sonami?style=flat-square)](https://github.com/RayZ3R0/sonami/commits/main)
-[![Repo Size](https://img.shields.io/github/repo-size/RayZ3R0/sonami?style=flat-square)](https://github.com/RayZ3R0/sonami)
+[![Roadmap](https://img.shields.io/badge/Roadmap-View_Progress-8A2BE2?style=flat-square&logo=github)](https://github.com/users/RayZ3R0/projects/1)
 [![Open Issues](https://img.shields.io/github/issues/RayZ3R0/sonami?style=flat-square)](https://github.com/RayZ3R0/sonami/issues)
+[![Commit Activity](https://img.shields.io/github/commit-activity/m/RayZ3R0/sonami?style=flat-square)](https://github.com/RayZ3R0/sonami/commits/main)
 
-<!-- LINE 3: Tech Stack Visuals -->
-[![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/Rust-black?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-
-<!-- Social -->
-<br />
 <a href="https://github.com/RayZ3R0/sonami/stargazers">
   <img src="https://img.shields.io/github/stars/RayZ3R0/sonami?style=social" alt="GitHub stars">
 </a>
