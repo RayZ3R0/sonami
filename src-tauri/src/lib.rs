@@ -11,6 +11,7 @@ pub mod lyrics;
 pub mod media_controls;
 pub mod playlist;
 pub mod queue;
+pub mod spotify;
 pub mod tidal;
 
 use audio::AudioManager;
@@ -254,12 +255,20 @@ pub fn run() {
             commands::library::search_library,
             commands::library::add_tidal_track,
             commands::library::rebuild_search_index,
+            // Spotify Import
+            commands::spotify::fetch_spotify_playlist,
+            commands::spotify::verify_spotify_track,
+            commands::spotify::verify_spotify_tracks,
+            commands::spotify::add_spotify_tracks_to_playlist,
+            commands::spotify::create_playlist_from_spotify,
             // DSP / Audio Processing
             commands::set_loudness_normalization,
             commands::get_loudness_normalization,
             // Discord Rich Presence
             commands::set_discord_rpc_enabled,
             commands::get_discord_rpc_enabled,
+            // Window Management
+            commands::is_tiling_wm,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

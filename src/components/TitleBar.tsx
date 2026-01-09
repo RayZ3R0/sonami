@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { Window } from "@tauri-apps/api/window";
+import { useEffect, useState, useCallback } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type } from "@tauri-apps/plugin-os";
+import { invoke } from "@tauri-apps/api/core";
 import { Settings, SettingsButton, ThemeButton } from "./Settings";
 
 const MinusIcon = () => (
@@ -40,6 +41,7 @@ export const TitleBar = ({
   setActiveTab,
 }: TitleBarProps) => {
   const [osType, setOsType] = useState<string>("windows");
+  const [isTilingWM, setIsTilingWM] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
     "appearance",
@@ -55,6 +57,12 @@ export const TitleBar = ({
       try {
         const platform = await type();
         setOsType(platform);
+
+        // Check if running on a tiling WM (Linux only)
+        if (platform === "linux") {
+          const tiling = await invoke<boolean>("is_tiling_wm");
+          setIsTilingWM(tiling);
+        }
       } catch (e) {
         console.error("Failed to get OS type", e);
       }
@@ -62,13 +70,49 @@ export const TitleBar = ({
     init();
   }, []);
 
-  const appWindow = new Window("main");
+  // Use getCurrentWindow() for proper window control
+  const minimize = useCallback(async () => {
+    try {
+      await getCurrentWindow().minimize();
+    } catch (e) {
+      console.error("Failed to minimize", e);
+    }
+  }, []);
 
-  const minimize = () => appWindow.minimize();
-  const maximize = () => appWindow.toggleMaximize();
-  const close = () => appWindow.close();
+  const maximize = useCallback(async () => {
+    try {
+      await getCurrentWindow().toggleMaximize();
+    } catch (e) {
+      console.error("Failed to toggle maximize", e);
+    }
+  }, []);
+
+  const close = useCallback(async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch (e) {
+      console.error("Failed to close", e);
+    }
+  }, []);
+
+  // Handle drag - only on the titlebar area itself
+  const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
+    // Don't start drag if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, [data-no-drag]")) {
+      return;
+    }
+
+    try {
+      await getCurrentWindow().startDragging();
+    } catch (err) {
+      // Ignore drag errors (e.g., on tiling WMs)
+    }
+  }, []);
 
   const isMac = osType === "macos";
+  // Hide window controls on tiling WMs or when not needed
+  const showWindowControls = !isTilingWM;
 
   return (
     <div
@@ -77,15 +121,16 @@ export const TitleBar = ({
         height: "var(--titlebar-h)",
         backgroundColor: "transparent",
       }}
-      data-tauri-drag-region
+      onMouseDown={handleMouseDown}
     >
       {/* Left Section (Mac Controls & Home) */}
       <div
-        className="flex items-center pl-4 h-full pointer-events-none gap-2"
+        className="flex items-center pl-4 h-full gap-2"
         style={{ width: "240px" }}
+        data-no-drag
       >
-        {isMac && (
-          <div className="flex gap-2 pointer-events-auto no-drag mr-2">
+        {showWindowControls && isMac && (
+          <div className="flex gap-2 mr-2">
             {/* Mac Traffic Lights */}
             <div
               onClick={close}
@@ -106,7 +151,7 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`pointer-events-auto no-drag flex items-center justify-center p-2 rounded-lg transition-all ${
+            className={`flex items-center justify-center p-2 rounded-lg transition-all ${
               activeTab === "home"
                 ? "bg-theme-surface-active text-theme-primary"
                 : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
@@ -128,17 +173,20 @@ export const TitleBar = ({
           </button>
         )}
 
-        <div className="pointer-events-auto no-drag flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <ThemeButton onClick={() => openSettings("appearance")} />
           <SettingsButton onClick={() => openSettings("playback")} />
         </div>
       </div>
 
       {/* Center Section - Search Button */}
-      <div className="flex-1 flex items-center justify-center pointer-events-none px-4 pl-32">
+      <div
+        className="flex-1 flex items-center justify-center px-4 pl-32"
+        data-no-drag
+      >
         <button
           onClick={onSearchClick}
-          className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-theme-surface/60 hover:bg-theme-surface/80 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all pointer-events-auto no-drag cursor-pointer group w-full max-w-xl shadow-lg hover:shadow-xl hover:scale-[1.01]"
+          className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-theme-surface/60 hover:bg-theme-surface/80 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all cursor-pointer group w-full max-w-xl shadow-lg hover:shadow-xl hover:scale-[1.01]"
         >
           <svg
             className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors"
@@ -166,9 +214,10 @@ export const TitleBar = ({
       <div
         className="flex items-center justify-end h-full"
         style={{ width: "200px" }}
+        data-no-drag
       >
-        {!isMac && (
-          <div className="flex h-full no-drag">
+        {showWindowControls && !isMac && (
+          <div className="flex h-full">
             <button onClick={minimize} className="window-control">
               <MinusIcon />
             </button>

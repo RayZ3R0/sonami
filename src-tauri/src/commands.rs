@@ -4,6 +4,7 @@ pub mod favorites;
 pub mod history;
 pub mod library;
 pub mod playlist;
+pub mod spotify;
 
 use crate::audio::AudioManager;
 use base64::{engine::general_purpose, Engine as _};
@@ -731,4 +732,87 @@ pub async fn get_discord_rpc_enabled(
     state: State<'_, crate::discord::DiscordRpcManager>,
 ) -> Result<bool, String> {
     Ok(state.is_enabled())
+}
+
+// ============================================================================
+// Window Management Commands
+// ============================================================================
+
+/// Detect if running on a tiling window manager (Linux only)
+/// Returns true for: hyprland, sway, i3, niri, bspwm, dwm, awesome, qtile, xmonad, herbstluftwm
+#[tauri::command]
+pub fn is_tiling_wm() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        // Check common environment variables that indicate a tiling WM
+        let tiling_wms = [
+            "hyprland",
+            "Hyprland",
+            "sway",
+            "Sway",
+            "i3",
+            "niri",
+            "bspwm",
+            "dwm",
+            "awesome",
+            "qtile",
+            "xmonad",
+            "herbstluftwm",
+            "river",
+            "leftwm",
+        ];
+
+        // Check XDG_CURRENT_DESKTOP
+        if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
+            let desktop_lower = desktop.to_lowercase();
+            for wm in &tiling_wms {
+                if desktop_lower.contains(&wm.to_lowercase()) {
+                    log::debug!("Detected tiling WM from XDG_CURRENT_DESKTOP: {}", desktop);
+                    return true;
+                }
+            }
+        }
+
+        // Check XDG_SESSION_DESKTOP
+        if let Ok(session) = std::env::var("XDG_SESSION_DESKTOP") {
+            let session_lower = session.to_lowercase();
+            for wm in &tiling_wms {
+                if session_lower.contains(&wm.to_lowercase()) {
+                    log::debug!("Detected tiling WM from XDG_SESSION_DESKTOP: {}", session);
+                    return true;
+                }
+            }
+        }
+
+        // Check HYPRLAND_INSTANCE_SIGNATURE (specific to Hyprland)
+        if std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
+            log::debug!("Detected Hyprland from HYPRLAND_INSTANCE_SIGNATURE");
+            return true;
+        }
+
+        // Check SWAYSOCK (specific to Sway)
+        if std::env::var("SWAYSOCK").is_ok() {
+            log::debug!("Detected Sway from SWAYSOCK");
+            return true;
+        }
+
+        // Check I3SOCK (specific to i3)
+        if std::env::var("I3SOCK").is_ok() {
+            log::debug!("Detected i3 from I3SOCK");
+            return true;
+        }
+
+        // Check NIRI_SOCKET (specific to Niri)
+        if std::env::var("NIRI_SOCKET").is_ok() {
+            log::debug!("Detected Niri from NIRI_SOCKET");
+            return true;
+        }
+
+        false
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
 }
