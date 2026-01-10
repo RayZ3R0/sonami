@@ -48,6 +48,31 @@
     </td>
   </tr>
 </table>
+
+<p><b>Seamless Spotify Integration</b></p>
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/87i2T70.png" alt="Import Step 1" width="100%">
+      <br><sub><b>1. Click the plus icon on Playlists</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/hbDBIe5.png" alt="Import Step 2" width="100%">
+      <br><sub><b>2. Paste the playlist URL</b></sub>
+    </td>
+    </tr>
+    <tr>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/F3EogQF.png" alt="Import Step 2" width="100%">
+      <br><sub><b>3. Wait for import</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/21paI5x.png" alt="Import Step 2" width="100%">
+      <br><sub><b>4. Select tracks to import</b></sub>
+    </td>
+  </tr>
+</table>
 <!-- VISUAL SHOWCASE END -->
 
 </div>
