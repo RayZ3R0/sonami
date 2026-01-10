@@ -196,6 +196,7 @@ pub fn run() {
             commands::playlist::get_playlists,
             commands::playlist::create_playlist,
             commands::playlist::delete_playlist,
+            commands::playlist::rename_playlist,
 
             commands::playlist::get_playlist_details,
             commands::playlist::add_tidal_track_to_playlist,

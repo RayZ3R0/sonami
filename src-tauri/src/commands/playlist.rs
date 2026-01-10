@@ -28,6 +28,15 @@ pub async fn delete_playlist(
 }
 
 #[command]
+pub async fn rename_playlist(
+    manager: State<'_, PlaylistManager>,
+    id: String,
+    new_name: String,
+) -> Result<(), String> {
+    manager.rename_playlist(&id, &new_name).await
+}
+
+#[command]
 pub async fn get_playlist_details(
     manager: State<'_, PlaylistManager>,
     id: String,

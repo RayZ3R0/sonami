@@ -168,6 +168,23 @@ impl PlaylistManager {
         Ok(())
     }
 
+    pub async fn rename_playlist(&self, id: &str, new_name: &str) -> Result<(), String> {
+        // Optimistic update: checks row count but doesn't return data.
+        // Frontend should update local cache or refetch.
+        let result = sqlx::query("UPDATE playlists SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            .bind(new_name)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if result.rows_affected() == 0 {
+            return Err("Playlist not found".to_string());
+        }
+
+        Ok(())
+    }
+
     pub async fn add_track_entry(&self, playlist_id: &str, track_id: &str) -> Result<(), String> {
         let max_pos: (i64,) = sqlx::query_as(
             "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?",

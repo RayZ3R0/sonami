@@ -354,8 +354,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const renamePlaylist = async (id: string, newName: string) => {
     try {
       await invoke("rename_playlist", { id, newName });
-      refreshPlaylists();
+      await refreshPlaylists();
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlist(id) });
     } catch (e) {
       console.error("Failed to rename playlist:", e);
     }

@@ -3,9 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { Playlist } from "../types";
 
 import { getRecentlyPlayed, getMostPlayed } from "../api/history";
+import { getPlaylistDetails } from "../api/playlist";
 
 export const QUERY_KEYS = {
     playlists: ["playlists"],
+    playlist: (id: string) => ["playlist", id],
     library: ["library"],
     history: ["history"],
     recentTracks: (limit: number) => ["history", "recent", limit],
@@ -36,5 +38,13 @@ export const useMostPlayed = (limit: number = 20) => {
     return useQuery({
         queryKey: QUERY_KEYS.mostPlayed(limit),
         queryFn: () => getMostPlayed(limit),
+    });
+};
+
+export const usePlaylistDetails = (id: string) => {
+    return useQuery({
+        queryKey: QUERY_KEYS.playlist(id),
+        queryFn: () => getPlaylistDetails(id),
+        enabled: !!id,
     });
 };

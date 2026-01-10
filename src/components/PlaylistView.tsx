@@ -1,15 +1,17 @@
 import { usePlayer } from "../context/PlayerContext";
 import { useState, useMemo, useEffect } from "react";
 import { UnifiedTrack } from "../api/library";
-import { Track, PlaylistDetails } from "../types";
+import { Track } from "../types";
 import {
-  getPlaylistDetails,
   getPlaylistsContainingTrack,
 } from "../api/playlist";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { usePlaylistDetails } from "../hooks/queries";
+import { DeletePlaylistModal } from "./DeletePlaylistModal";
 
 interface PlaylistViewProps {
   playlistId: string;
+  onNavigate?: (tab: string) => void;
 }
 
 const mapToTrack = (track: Track): Track => {
@@ -85,7 +87,7 @@ const PlaylistCover = ({
   );
 };
 
-export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
+export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
   const {
     playTrack,
     currentTrack,
@@ -95,15 +97,16 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
     shuffle,
     toggleShuffle,
     isPlaying,
-    dataVersion,
     favorites,
     addToPlaylist,
     playlists,
     toggleFavorite,
   } = usePlayer();
 
-  const [details, setDetails] = useState<PlaylistDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+
+  const { data: details = null, isLoading, error: queryError } = usePlaylistDetails(playlistId);
+  const error = queryError ? "Failed to load playlist." : null;
 
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -148,10 +151,9 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
     }
   };
 
-  const [error, setError] = useState<string | null>(null);
-
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const sortStorageKey = `sonami-playlist-sort-${playlistId}`;
   const [sortBy, setSortBy] = useState<
@@ -179,25 +181,6 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
       JSON.stringify({ sortBy, sortDirection }),
     );
   }, [sortBy, sortDirection, sortStorageKey]);
-
-  useEffect(() => {
-    const fetchDetails = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getPlaylistDetails(playlistId);
-        setDetails(data);
-        setEditName(data.playlist.title);
-      } catch (e) {
-        console.error("Failed to load playlist:", e);
-        setError("Failed to load playlist.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDetails();
-  }, [playlistId, dataVersion]);
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -258,9 +241,9 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
       {
@@ -341,15 +324,7 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
     if (editName.trim() && editName !== playlist.title) {
       try {
         await renamePlaylist(playlist.id, editName.trim());
-
-        setDetails((prev) =>
-          prev
-            ? {
-                ...prev,
-                playlist: { ...prev.playlist, title: editName.trim() },
-              }
-            : null,
-        );
+        // Invalidation in PlayerContext handles the update
       } catch (e) {
         console.error("Rename failed", e);
       }
@@ -358,14 +333,14 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
   };
 
   const startEdit = () => {
-    setEditName(playlist.title);
+    if (details) {
+      setEditName(details.playlist.title);
+    }
     setIsEditing(true);
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete "${playlist.title}"?`)) {
-      deletePlaylist(playlist.id);
-    }
+    setIsDeleteModalOpen(true);
   };
 
   const handlePlayAll = async () => {
@@ -459,11 +434,10 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -533,11 +507,10 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-theme-surface-active text-theme-accent"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-theme-surface-active text-theme-accent"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -629,6 +602,31 @@ export const PlaylistView = ({ playlistId }: PlaylistViewProps) => {
           items={menuItems}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={closeContextMenu}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {details && (
+        <DeletePlaylistModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={async () => {
+            const currentIndex = playlists.findIndex(p => p.id === playlistId);
+            let nextPath = "/";
+
+            if (playlists.length > 1) {
+              const nextPlaylist = playlists[currentIndex + 1] || playlists[currentIndex - 1];
+              if (nextPlaylist) {
+                nextPath = `/playlist/${nextPlaylist.id}`;
+              }
+            }
+
+            if (onNavigate) {
+              onNavigate(nextPath);
+            }
+            await deletePlaylist(playlistId);
+          }}
+          playlistName={details.playlist.title}
         />
       )}
     </div>
