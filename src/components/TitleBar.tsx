@@ -175,11 +175,10 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-              activeTab === "home"
+            className={`flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
                 ? "bg-theme-surface-active text-theme-primary"
                 : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
+              }`}
             title="Home"
           >
             <svg
@@ -200,31 +199,14 @@ export const TitleBar = ({
         <div className="flex items-center gap-1">
           <ThemeButton onClick={() => openSettings("appearance")} />
           <SettingsButton onClick={() => openSettings("playback")} />
-          {/* Screenshot button - dev only */}
+          {/* Screenshot button - dev only, invisible */}
           {import.meta.env.DEV && (
             <button
               onClick={handleScreenshot}
               disabled={isCapturing}
-              className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-                isCapturing
-                  ? "text-theme-primary animate-pulse"
-                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+              className="w-8 h-8 opacity-0 cursor-pointer"
               title="Capture Screenshot (Dev Only)"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-5 h-5"
-              >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </button>
+            />
           )}
         </div>
       </div>

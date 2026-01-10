@@ -97,3 +97,16 @@ CREATE INDEX IF NOT EXISTS idx_favorites_liked_at ON user_favorites(liked_at DES
 CREATE INDEX IF NOT EXISTS idx_favorites_track_id ON user_favorites(track_id);
 CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_play_history_track_id ON play_history(track_id);
+
+-- Lyrics Cache
+CREATE TABLE IF NOT EXISTS lyrics_cache (
+    id TEXT PRIMARY KEY, -- Format: "artist|title" (normalized)
+    track_title TEXT NOT NULL,
+    artist_name TEXT NOT NULL,
+    synced_lyrics TEXT,
+    plain_lyrics TEXT,
+    source TEXT, -- 'netease', 'lrclib'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lyrics_lookup ON lyrics_cache(artist_name, track_title);

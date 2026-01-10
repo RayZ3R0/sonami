@@ -480,11 +480,13 @@ use crate::lyrics;
 
 #[tauri::command]
 pub async fn get_lyrics(
+    db: State<'_, crate::database::DatabaseManager>,
     path: String,
     title: String,
     artist: String,
     album: String,
     duration: f64,
+    provider: String, // "netease" or "lrclib"
 ) -> Result<Option<lyrics::LyricsResult>, String> {
     Ok(lyrics::get_lyrics(
         if path.is_empty() { None } else { Some(path) },
@@ -492,6 +494,8 @@ pub async fn get_lyrics(
         &artist,
         &album,
         duration,
+        &provider,
+        db,
     )
     .await)
 }

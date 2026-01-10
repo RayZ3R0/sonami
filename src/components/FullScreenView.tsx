@@ -3,6 +3,7 @@ import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
 import { MiniPlayerBar } from "./MiniPlayerBar";
 import { SyncedLyrics, LyricsData } from "./SyncedLyrics";
 import { invoke } from "@tauri-apps/api/core";
+import { captureAppScreenshot } from "../utils/screenshot";
 
 import ColorThief from "colorthief";
 
@@ -18,7 +19,7 @@ const imageCache = new Map<string, string>();
 
 export const FullScreenView = memo(
   ({ isOpen, onClose }: FullScreenViewProps) => {
-    const { currentTrack, isPlaying } = usePlayer();
+    const { currentTrack, isPlaying, lyricsProvider } = usePlayer();
     const { currentTime } = usePlaybackProgress();
     const [lyrics, setLyrics] = useState<LyricsData | null>(null);
     const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
@@ -134,6 +135,7 @@ export const FullScreenView = memo(
             artist: currentTrack.artist,
             album: currentTrack.album || "",
             duration: currentTrack.duration,
+            provider: lyricsProvider,
           });
           setLyrics(result);
         } catch (error) {
@@ -510,6 +512,22 @@ export const FullScreenView = memo(
           </button>
         </div>
 
+        {/* Screenshot button - dev only, invisible, top right */}
+        {import.meta.env.DEV && (
+          <button
+            onClick={async () => {
+              const result = await captureAppScreenshot();
+              if (result.success) {
+                alert(`Screenshot saved!\n${result.path}`);
+              } else {
+                alert(`Screenshot failed: ${result.error}`);
+              }
+            }}
+            className="fixed top-0 right-0 w-12 h-12 opacity-0 cursor-pointer z-[110]"
+            title="Capture Screenshot (Dev Only)"
+          />
+        )}
+
         {/* Main Background with Album Art */}
         <div
           className="absolute inset-0 z-0 flex items-center justify-start bg-[#0a0a0f] fullscreen-bg-layer fullscreen-album-enter"
@@ -594,10 +612,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                  left: `${miniPlayerPosition.x}px`,
-                  top: `${miniPlayerPosition.y}px`,
-                  userSelect: "none",
-                }
+                left: `${miniPlayerPosition.x}px`,
+                top: `${miniPlayerPosition.y}px`,
+                userSelect: "none",
+              }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}

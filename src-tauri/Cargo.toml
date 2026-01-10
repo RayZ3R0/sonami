@@ -46,7 +46,7 @@ souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] 
 discord-rich-presence = "1.0"
 
 chrono = "0.4.42"
-reqwest = { version = "0.13.1", features = ["json", "blocking"] }
+reqwest = { version = "0.12.9", features = ["json", "blocking"] }
 dirs = "6.0.0"
 log = "0.4.29"
 env_logger = "0.11"

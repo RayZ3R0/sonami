@@ -79,6 +79,10 @@ interface PlayerContextType {
   discordRpcEnabled: boolean;
   setDiscordRpcEnabled: (enabled: boolean) => Promise<void>;
 
+  // Lyrics Provider
+  lyricsProvider: "netease" | "lrclib";
+  setLyricsProvider: (provider: "netease" | "lrclib") => void;
+
   favorites: Set<string>;
   toggleFavorite: (track: Track) => Promise<void>;
   refreshFavorites: () => Promise<void>;
@@ -99,10 +103,10 @@ const STORAGE_KEYS = {
   STREAM_QUALITY: "sonami-stream-quality",
   LOUDNESS_NORMALIZATION: "sonami-loudness-normalization",
   DISCORD_RPC: "sonami-discord-rpc",
+  LYRICS_PROVIDER: "sonami-lyrics-provider",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
-  // Tracks are now stored in SQL only - no localStorage cache
   const [tracks, setTracks] = useState<Track[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -162,6 +166,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return saved === "true";
   });
 
+  const [lyricsProvider, setLyricsProviderState] = useState<
+    "netease" | "lrclib"
+  >(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.LYRICS_PROVIDER);
+    return saved === "lrclib" ? "lrclib" : "netease";
+  });
+
   const seekTarget = useRef<{ time: number; timestamp: number } | null>(null);
 
   // Data version counter - incremented when playlist/favorites data changes
@@ -217,7 +228,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
           setDuration(info.duration);
           setIsPlaying(info.is_playing);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -533,6 +544,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setLyricsProvider = (provider: "netease" | "lrclib") => {
+    setLyricsProviderState(provider);
+    localStorage.setItem(STORAGE_KEYS.LYRICS_PROVIDER, provider);
+  };
+
   // Sync settings with backend on load
   useEffect(() => {
     const syncSettings = async () => {
@@ -636,6 +652,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setLoudnessNormalization,
       discordRpcEnabled,
       setDiscordRpcEnabled,
+      lyricsProvider,
+      setLyricsProvider,
       favorites,
       toggleFavorite,
       refreshFavorites,
@@ -656,7 +674,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       playerBarStyle,
       streamQuality,
       loudnessNormalization,
+      loudnessNormalization,
       discordRpcEnabled,
+      lyricsProvider,
       favorites,
       dataVersion,
     ],

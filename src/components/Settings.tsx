@@ -83,11 +83,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -231,6 +230,8 @@ export const Settings = ({
     setLoudnessNormalization,
     discordRpcEnabled,
     setDiscordRpcEnabled,
+    lyricsProvider,
+    setLyricsProvider,
   } = usePlayer();
   const [activeTab, setActiveTab] = useState<"appearance" | "playback">(
     defaultTab,
@@ -384,11 +385,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("floating")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "floating"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -433,11 +433,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("classic")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "classic"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -558,11 +557,10 @@ export const Settings = ({
                     <button
                       key={option.value}
                       onClick={() => setStreamQuality(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        streamQuality === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                      }`}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${streamQuality === option.value
+                        ? "ring-2"
+                        : "hover:scale-[1.02]"
+                        }`}
                       style={{
                         background:
                           streamQuality === option.value
@@ -713,6 +711,79 @@ export const Settings = ({
                   checked={discordRpcEnabled}
                   onChange={(checked) => setDiscordRpcEnabled(checked)}
                 />
+              </div>
+
+              {/* Lyrics Provider Section */}
+              <div
+                className="p-4 rounded-xl space-y-4"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Lyrics Provider
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Choose source for lyrics
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      {
+                        value: "netease",
+                        label: "NetEase Cloud Music",
+                        desc: "Best for coverage",
+                      },
+                      {
+                        value: "lrclib",
+                        label: "LRCLib",
+                        desc: "Open source database",
+                      },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setLyricsProvider(option.value)}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
+                        ? "ring-2"
+                        : "hover:scale-[1.02]"
+                        }`}
+                      style={{
+                        background:
+                          lyricsProvider === option.value
+                            ? theme.colors.accentMuted
+                            : theme.colors.surfaceHover,
+                        borderColor:
+                          lyricsProvider === option.value
+                            ? theme.colors.accent
+                            : theme.colors.border,
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        // @ts-ignore
+                        "--tw-ring-color": theme.colors.accent,
+                      }}
+                    >
+                      <div
+                        className="text-sm font-medium"
+                        style={{ color: theme.colors.textPrimary }}
+                      >
+                        {option.label}
+                      </div>
+                      <div
+                        className="text-xs mt-0.5"
+                        style={{ color: theme.colors.textMuted }}
+                      >
+                        {option.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
