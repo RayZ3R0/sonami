@@ -1,9 +1,9 @@
+use crate::database::DatabaseManager;
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
-use crate::database::DatabaseManager;
 use tauri::State;
 
 pub mod lrclib;
@@ -53,30 +53,32 @@ pub async fn get_lyrics(
     }
 
     let cache_id = format!("{}|{}", artist.trim(), title.trim()).to_lowercase();
-    
-    if let Ok(Some(row)) = sqlx::query(
-        "SELECT synced_lyrics, plain_lyrics, source FROM lyrics_cache WHERE id = ?", 
-    )
-    .bind(&cache_id)
-    .map(|row: sqlx::sqlite::SqliteRow| {
-        use sqlx::Row;
-        LyricsCacheEntry {
-            synced_lyrics: row.get("synced_lyrics"),
-            plain_lyrics: row.get("plain_lyrics"),
-            source: row.get("source"),
-        }
-    })
-    .fetch_optional(&db.pool)
-    .await {
-        
+
+    if let Ok(Some(row)) =
+        sqlx::query("SELECT synced_lyrics, plain_lyrics, source FROM lyrics_cache WHERE id = ?")
+            .bind(&cache_id)
+            .map(|row: sqlx::sqlite::SqliteRow| {
+                use sqlx::Row;
+                LyricsCacheEntry {
+                    synced_lyrics: row.get("synced_lyrics"),
+                    plain_lyrics: row.get("plain_lyrics"),
+                    source: row.get("source"),
+                }
+            })
+            .fetch_optional(&db.pool)
+            .await
+    {
         let cached_source = row.source.as_deref().unwrap_or("unknown");
-        
+
         if cached_source == target_provider || cached_source == "cache" {
-            log::info!("✓ Found valid lyrics in DB cache (source: {})", cached_source);
-            
+            log::info!(
+                "✓ Found valid lyrics in DB cache (source: {})",
+                cached_source
+            );
+
             let synced = row.synced_lyrics.as_deref();
             let plain = row.plain_lyrics.as_deref();
-            
+
             if let Some(s) = synced {
                 if let Some(parsed) = parse_lrc(s) {
                     let mut res = parsed;
@@ -84,7 +86,7 @@ pub async fn get_lyrics(
                     return Some(res);
                 }
             }
-            
+
             if let Some(p) = plain {
                 return Some(LyricsResult {
                     synced: false,
@@ -93,7 +95,11 @@ pub async fn get_lyrics(
                 });
             }
         } else {
-             log::info!("Cache hit but source mismatch (want: {}, got: {}). Refetching...", target_provider, cached_source);
+            log::info!(
+                "Cache hit but source mismatch (want: {}, got: {}). Refetching...",
+                target_provider,
+                cached_source
+            );
         }
     }
 
@@ -103,15 +109,23 @@ pub async fn get_lyrics(
         return fetch_lrclib(title, artist, album, duration, &cache_id, &db).await;
     }
 
-    log::warn!("Unknown provider: {}. Defaulting to NetEase.", target_provider);
+    log::warn!(
+        "Unknown provider: {}. Defaulting to NetEase.",
+        target_provider
+    );
     fetch_netease(title, artist, &cache_id, &db).await
 }
 
-async fn fetch_netease(title: &str, artist: &str, cache_id: &str, db: &State<'_, DatabaseManager>) -> Option<LyricsResult> {
+async fn fetch_netease(
+    title: &str,
+    artist: &str,
+    cache_id: &str,
+    db: &State<'_, DatabaseManager>,
+) -> Option<LyricsResult> {
     if let Ok(Some(lrc_content)) = netease::NetEaseClient::get_lyrics(title, artist).await {
         if let Some(parsed) = parse_lrc(&lrc_content) {
             log::info!("✓ Found synced lyrics on NetEase");
-            
+
             let _ = sqlx::query(
                 "INSERT OR REPLACE INTO lyrics_cache (id, track_title, artist_name, synced_lyrics, source) VALUES (?, ?, ?, ?, ?)",
             )
@@ -130,7 +144,14 @@ async fn fetch_netease(title: &str, artist: &str, cache_id: &str, db: &State<'_,
     None
 }
 
-async fn fetch_lrclib(title: &str, artist: &str, album: &str, duration: f64, cache_id: &str, db: &State<'_, DatabaseManager>) -> Option<LyricsResult> {
+async fn fetch_lrclib(
+    title: &str,
+    artist: &str,
+    album: &str,
+    duration: f64,
+    cache_id: &str,
+    db: &State<'_, DatabaseManager>,
+) -> Option<LyricsResult> {
     if let Ok(Some(response)) =
         lrclib::LrcLibClient::get_lyrics(title, artist, album, duration).await
     {
@@ -138,7 +159,7 @@ async fn fetch_lrclib(title: &str, artist: &str, album: &str, duration: f64, cac
             if !synced.trim().is_empty() {
                 if let Some(parsed) = parse_lrc(synced) {
                     log::info!("✓ Found synced lyrics on LRCLib");
-                    
+
                     let _ = sqlx::query(
                         "INSERT OR REPLACE INTO lyrics_cache (id, track_title, artist_name, synced_lyrics, plain_lyrics, source) VALUES (?, ?, ?, ?, ?, ?)",
                     )
@@ -159,7 +180,7 @@ async fn fetch_lrclib(title: &str, artist: &str, album: &str, duration: f64, cac
 
         if let Some(plain) = response.plain_lyrics {
             log::info!("✓ Using plain lyrics fallback from LRCLib");
-            
+
             let _ = sqlx::query(
                 "INSERT OR REPLACE INTO lyrics_cache (id, track_title, artist_name, plain_lyrics, source) VALUES (?, ?, ?, ?, ?)",
             )
@@ -282,7 +303,7 @@ fn parse_lrc_line(line: &str) -> Option<(f64, String)> {
 
     let minutes: f64 = parts[0].parse().ok()?;
     let seconds: f64 = parts[1].parse().ok()?;
-    
+
     let total_seconds = minutes * 60.0 + seconds;
     Some((total_seconds, text))
 }

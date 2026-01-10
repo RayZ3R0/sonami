@@ -136,7 +136,7 @@ impl PlaylistManager {
             let play_count: i64 = row.try_get("play_count").unwrap_or(0);
             let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
-            
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -171,12 +171,14 @@ impl PlaylistManager {
     pub async fn rename_playlist(&self, id: &str, new_name: &str) -> Result<(), String> {
         // Optimistic update: checks row count but doesn't return data.
         // Frontend should update local cache or refetch.
-        let result = sqlx::query("UPDATE playlists SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(new_name)
-            .bind(id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        let result = sqlx::query(
+            "UPDATE playlists SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
+        .bind(new_name)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
         if result.rows_affected() == 0 {
             return Err("Playlist not found".to_string());

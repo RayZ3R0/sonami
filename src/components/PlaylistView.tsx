@@ -2,9 +2,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useState, useMemo, useEffect } from "react";
 import { UnifiedTrack } from "../api/library";
 import { Track } from "../types";
-import {
-  getPlaylistsContainingTrack,
-} from "../api/playlist";
+import { getPlaylistsContainingTrack } from "../api/playlist";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 import { usePlaylistDetails } from "../hooks/queries";
 import { DeletePlaylistModal } from "./DeletePlaylistModal";
@@ -103,9 +101,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     toggleFavorite,
   } = usePlayer();
 
-
-
-  const { data: details = null, isLoading, error: queryError } = usePlaylistDetails(playlistId);
+  const {
+    data: details = null,
+    isLoading,
+    error: queryError,
+  } = usePlaylistDetails(playlistId);
   const error = queryError ? "Failed to load playlist." : null;
 
   const [contextMenu, setContextMenu] = useState<{
@@ -241,9 +241,9 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-              label: p.title,
-              action: () => addToPlaylist(p.id, track),
-            }))
+                label: p.title,
+                action: () => addToPlaylist(p.id, track),
+              }))
             : [{ label: "No available playlists", disabled: true }],
       },
       {
@@ -434,10 +434,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
-              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-              }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+              shuffle
+                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+            }`}
           >
             <svg
               className="w-5 h-5"
@@ -507,10 +508,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
-                  ? "bg-theme-surface-active text-theme-accent"
-                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                  }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
+                  isCurrentTrack
+                    ? "bg-theme-surface-active text-theme-accent"
+                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -611,11 +613,14 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={async () => {
-            const currentIndex = playlists.findIndex(p => p.id === playlistId);
+            const currentIndex = playlists.findIndex(
+              (p) => p.id === playlistId,
+            );
             let nextPath = "/";
 
             if (playlists.length > 1) {
-              const nextPlaylist = playlists[currentIndex + 1] || playlists[currentIndex - 1];
+              const nextPlaylist =
+                playlists[currentIndex + 1] || playlists[currentIndex - 1];
               if (nextPlaylist) {
                 nextPath = `/playlist/${nextPlaylist.id}`;
               }

@@ -28,6 +28,27 @@
 > [!WARNING]
 > **Alpha Status**: This project is in early alpha (v0.1.x). Core functionality is still under development and breaking changes may occur.
 
+
+## Core Capabilities
+
+### Premium Audio Experience
+*   **Direct Audio Control**: Built upon Symphonia and CPAL for low-level audio decoding and playback precision.
+*   **Resilient Streaming**: Implements advanced prefetching and smart seek algorithms for uninterrupted playback over unstable network conditions.
+*   **High-Quality Resampling**: Utilizes the Rubato library for professional-grade sample rate conversion.
+*   **Gapless Transition**: Engineered for seamless track transitions to maintain listeners' immersion.
+
+### Immersive Visual Design
+*   **Fluid Interface**: Modern glassmorphism aesthetics combined with dynamic layout transitions.
+*   **Dynamic Theming**: Real-time color extraction from album artwork to create a harmonized visual environment.
+*   **Immersive Fullscreen**: A dedicated playback view featuring high-fidelity synchronized lyrics and fluid background animations.
+*   **Responsive Mini-Player**: A draggable, snappable mini-interface for compact desktop control.
+
+### Library and Integration
+*   **Spotify Integration**: Deep integration for importing playlists and managing external libraries as a guest.
+*   **Tidal Integration**: Extremely fast high-fidelity streaming support.
+*   **Rich Lyrics Engine**: Multi-provider support (LRC Lib, Netease) with precise synchronization.
+*   **Discord Presence**: Real-time Spotify-style status updates shared via Discord Rich Presence.
+
 ## Installation
 
 Download the latest release for your platform from the [**Releases Page**](https://github.com/RayZ3R0/sonami/releases).
@@ -74,11 +95,34 @@ bun tauri dev
 bun tauri build
 ```
 
-## Tech Stack
+## Technology Stack
 
-*   **Frontend**: React, TypeScript, Tailwind CSS
-*   **Backend**: Rust, Tauri v2
-*   **Audio Engine**: Symphonia, CPAL
+### Backend Infrastructure (Rust)
+*   **Runtime**: Tauri v2 for secure, lightweight host-frontend communication.
+*   **Audio Pipeline**: Symphonia (Decoding), CPAL (Output), Rubato (SRC).
+*   **Persistence**: SQLite managed via SQLx with a custom automated migration system.
+*   **Interoperability**: Souvlaki for cross-platform system media controls (MPRIS/SMTC).
+*   **Metadata**: Custom Romanization engine for accurate Japanese metadata representation.
+
+### Frontend Environment (React)
+*   **Core**: React 19 and TypeScript for a type-safe, declarative user interface.
+*   **State Management**: TanStack React Query for sophisticated data synchronization and caching.
+*   **Styling**: Tailwind CSS for responsive and consistent design utility.
+*   **Efficiency**: Asset preloading and deferred execution strategies for optimal performance.
+
+### Disclaimer
+
+This project is intended **solely for private and educational purposes**. The developer neither supports nor promotes copyright infringement.
+
+**Sonami** is an independent third-party application and has no affiliation with, endorsement from, or association with Spotify, Tidal, or any other streaming platform.
+
+By using this software, you acknowledge that you are fully responsible for:
+
+1. Complying with all applicable local laws and regulations.
+2. Reviewing and following the Terms of Service of any platforms involved.
+3. Any legal or other consequences resulting from improper or unlawful use.
+
+The software is provided **“as is”**, without any warranties or guarantees. The author accepts no responsibility for account bans, damages, or legal issues that may arise from its use.
 
 ## License
 

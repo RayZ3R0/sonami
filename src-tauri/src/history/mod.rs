@@ -57,7 +57,11 @@ impl PlayHistoryManager {
 
         tx.commit().await.map_err(|e| e.to_string())?;
 
-        log::info!("Recorded playback for track {} (Context: {:?})", track_id, context_type);
+        log::info!(
+            "Recorded playback for track {} (Context: {:?})",
+            track_id,
+            context_type
+        );
         Ok(id)
     }
 

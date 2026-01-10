@@ -612,10 +612,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                left: `${miniPlayerPosition.x}px`,
-                top: `${miniPlayerPosition.y}px`,
-                userSelect: "none",
-              }
+                  left: `${miniPlayerPosition.x}px`,
+                  top: `${miniPlayerPosition.y}px`,
+                  userSelect: "none",
+                }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}

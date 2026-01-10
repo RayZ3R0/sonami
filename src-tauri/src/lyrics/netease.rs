@@ -1,6 +1,6 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use rand::Rng;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NetEaseLyricResponse {
@@ -48,15 +48,25 @@ pub struct NetEaseClient;
 impl NetEaseClient {
     fn get_random_china_ip() -> String {
         let mut rng = rand::rng();
-        format!("220.181.{}.{}", rng.random_range(0..255), rng.random_range(0..255))
+        format!(
+            "220.181.{}.{}",
+            rng.random_range(0..255),
+            rng.random_range(0..255)
+        )
     }
 
     fn get_client(fake_ip: &str) -> Result<reqwest::Client, String> {
         let headers = {
             let mut h = reqwest::header::HeaderMap::new();
             h.insert("User-Agent", reqwest::header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"));
-            h.insert("X-Real-IP", reqwest::header::HeaderValue::from_str(fake_ip).map_err(|e| e.to_string())?);
-            h.insert("Referer", reqwest::header::HeaderValue::from_static("http://music.163.com/"));
+            h.insert(
+                "X-Real-IP",
+                reqwest::header::HeaderValue::from_str(fake_ip).map_err(|e| e.to_string())?,
+            );
+            h.insert(
+                "Referer",
+                reqwest::header::HeaderValue::from_static("http://music.163.com/"),
+            );
             h
         };
 
@@ -71,11 +81,16 @@ impl NetEaseClient {
         let fake_ip = Self::get_random_china_ip();
         let client = Self::get_client(&fake_ip)?;
 
-        log::info!("Fetching NetEase lyrics for: {} - {} (IP: {})", title, artist, fake_ip);
+        log::info!(
+            "Fetching NetEase lyrics for: {} - {} (IP: {})",
+            title,
+            artist,
+            fake_ip
+        );
 
         let search_url = "http://music.163.com/api/search/get";
         let query = format!("{} {}", artist, title);
-        
+
         let params = [
             ("s", query.as_str()),
             ("type", "1"),
@@ -83,26 +98,36 @@ impl NetEaseClient {
             ("limit", "5"),
         ];
 
-        let search_resp = client.get(search_url)
+        let search_resp = client
+            .get(search_url)
             .query(&params)
             .send()
             .await
             .map_err(|e| format!("Search request failed: {}", e))?;
 
         if !search_resp.status().is_success() {
-            log::warn!("NetEase search failed with status: {}", search_resp.status());
+            log::warn!(
+                "NetEase search failed with status: {}",
+                search_resp.status()
+            );
             return Ok(None);
         }
 
-        let search_data: NetEaseSearchResponse = search_resp.json().await
+        let search_data: NetEaseSearchResponse = search_resp
+            .json()
+            .await
             .map_err(|e| format!("Failed to parse search response: {}", e))?;
 
-        let song_id = match search_data.result.and_then(|r| r.songs).and_then(|s| s.into_iter().next().map(|s| s.id)) {
-             Some(id) => id,
-             None => {
-                 log::info!("No NetEase song found for query: {}", query);
-                 return Ok(None);
-             }
+        let song_id = match search_data
+            .result
+            .and_then(|r| r.songs)
+            .and_then(|s| s.into_iter().next().map(|s| s.id))
+        {
+            Some(id) => id,
+            None => {
+                log::info!("No NetEase song found for query: {}", query);
+                return Ok(None);
+            }
         };
 
         log::info!("Found NetEase song ID: {}", song_id);
@@ -115,7 +140,8 @@ impl NetEaseClient {
             ("tv", "-1".to_string()),
         ];
 
-        let lyric_resp = client.get(lyric_url)
+        let lyric_resp = client
+            .get(lyric_url)
             .query(&params)
             .send()
             .await
@@ -125,7 +151,9 @@ impl NetEaseClient {
             return Ok(None);
         }
 
-        let lyric_data: NetEaseLyricResponse = lyric_resp.json().await
+        let lyric_data: NetEaseLyricResponse = lyric_resp
+            .json()
+            .await
             .map_err(|e| format!("Failed to parse lyric response: {}", e))?;
 
         if let Some(lrc) = lyric_data.lrc {

@@ -207,7 +207,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   }, [crossfadeEnabled, crossfadeDuration]);
 
   const currentTrackRef = useRef<Track | null>(null);
-  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
 
   const lastRecordedToken = useRef<string | null>(null);
   const recordingThreshold = 30; // seconds
@@ -248,13 +250,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             lastRecordedToken.current !== track.id
           ) {
             lastRecordedToken.current = track.id;
-            recordPlay(track.id).then(() => {
-              queryClient.invalidateQueries({ queryKey: QUERY_KEYS.history });
-            }).catch(e => console.error(e));
+            recordPlay(track.id)
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: QUERY_KEYS.history });
+              })
+              .catch((e) => console.error(e));
             bumpDataVersion();
           }
-
-        } catch (e) { }
+        } catch (e) {}
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -356,7 +359,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       await invoke("rename_playlist", { id, newName });
       await refreshPlaylists();
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlist(id) });
+      await queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.playlist(id),
+      });
     } catch (e) {
       console.error("Failed to rename playlist:", e);
     }

@@ -60,8 +60,9 @@ export const AppLayout = () => {
 
         {/* Main Content Area - Wrapped for rounded corners effect */}
         <div
-          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${isQueueOpen ? "rounded-tr-2xl" : ""
-            }`}
+          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${
+            isQueueOpen ? "rounded-tr-2xl" : ""
+          }`}
         >
           <MainStage activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>

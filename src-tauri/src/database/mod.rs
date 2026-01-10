@@ -42,17 +42,16 @@ impl DatabaseManager {
             .fetch_one(pool)
             .await
             .map_err(|e| format!("Failed to fetch user_version: {}", e))?;
-        
+
         let current_version = row.0;
         log::info!("Current database version: {}", current_version);
 
         // 2. Define Migrations
         // V1: Initial Schema
         // V2: Analytics & Context columns
-        let migrations = vec![
+        let migrations = [
             // Migration 1: Baseline
             include_str!("schema.sql"),
-            
             // Migration 2: Recently Played Enhancements
             r#"
             -- Tracks: Analytics
@@ -68,7 +67,6 @@ impl DatabaseManager {
             ALTER TABLE play_history ADD COLUMN context_uri TEXT;
             ALTER TABLE play_history ADD COLUMN context_type TEXT;
             "#,
-            
             // Migration 2.1: Fix added_at for existing rows to be "now" if they are 0
             r#"
             UPDATE tracks 
@@ -89,16 +87,20 @@ impl DatabaseManager {
 
         // 3. Apply Migrations
         let target_version = migrations.len() as i32;
-        
+
         if current_version < target_version {
-            log::info!("Migrating database from version {} to {}", current_version, target_version);
-            
+            log::info!(
+                "Migrating database from version {} to {}",
+                current_version,
+                target_version
+            );
+
             for (idx, migration_sql) in migrations.iter().enumerate() {
                 let version = (idx + 1) as i32;
-                
+
                 if version > current_version {
                     log::info!("Applying migration {}...", version);
-                    
+
                     let statements: Vec<&str> = migration_sql
                         .split(';')
                         .map(|s| s.trim())
@@ -108,17 +110,27 @@ impl DatabaseManager {
                     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
                     for sql in statements {
-                        if sql.is_empty() { continue; }
+                        if sql.is_empty() {
+                            continue;
+                        }
 
                         if let Err(e) = sqlx::query(sql).execute(tx.as_mut()).await {
-                            return Err(format!("Migration {} failed on statement '{}': {}", version, sql, e));
+                            return Err(format!(
+                                "Migration {} failed on statement '{}': {}",
+                                version, sql, e
+                            ));
                         }
                     }
 
                     let version_update = format!("PRAGMA user_version = {}", version);
-                    sqlx::query(&version_update).execute(tx.as_mut()).await.map_err(|e| e.to_string())?;
+                    sqlx::query(&version_update)
+                        .execute(tx.as_mut())
+                        .await
+                        .map_err(|e| e.to_string())?;
 
-                    tx.commit().await.map_err(|e| format!("Failed to commit migration {}: {}", version, e))?;
+                    tx.commit()
+                        .await
+                        .map_err(|e| format!("Failed to commit migration {}: {}", version, e))?;
                     log::info!("Migration {} applied successfully.", version);
                 }
             }

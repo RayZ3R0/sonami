@@ -70,7 +70,7 @@ impl LrcLibClient {
         log::info!("Falling back to LRCLib search...");
         let search_url = "https://lrclib.net/api/search";
         let search_params = [("q", title)];
-        
+
         let search_resp = client
             .get(search_url)
             .query(&search_params)
@@ -88,17 +88,29 @@ impl LrcLibClient {
             .map_err(|e| format!("Failed to parse search results: {}", e))?;
 
         for item in search_results {
-            if item.artist_name.to_lowercase().contains(&artist.to_lowercase()) || artist.to_lowercase().contains(&item.artist_name.to_lowercase()) {
+            if item
+                .artist_name
+                .to_lowercase()
+                .contains(&artist.to_lowercase())
+                || artist
+                    .to_lowercase()
+                    .contains(&item.artist_name.to_lowercase())
+            {
                 if let Some(dur) = item.duration {
-                     if (dur - duration).abs() < 3.0 {
-                         let details_url = format!("https://lrclib.net/api/get/{}", item.id);
-                         let details_resp = client.get(&details_url).send().await.map_err(|e| e.to_string())?;
-                         
-                         if details_resp.status().is_success() {
-                             let details: LrcLibResponse = details_resp.json().await.map_err(|e| e.to_string())?;
-                             return Ok(Some(details));
-                         }
-                     }
+                    if (dur - duration).abs() < 3.0 {
+                        let details_url = format!("https://lrclib.net/api/get/{}", item.id);
+                        let details_resp = client
+                            .get(&details_url)
+                            .send()
+                            .await
+                            .map_err(|e| e.to_string())?;
+
+                        if details_resp.status().is_success() {
+                            let details: LrcLibResponse =
+                                details_resp.json().await.map_err(|e| e.to_string())?;
+                            return Ok(Some(details));
+                        }
+                    }
                 }
             }
         }

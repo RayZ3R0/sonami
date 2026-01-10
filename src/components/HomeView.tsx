@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { usePlayer } from "../context/PlayerContext";
 import { useContextMenu } from "../context/ContextMenuContext";
@@ -8,13 +7,21 @@ import { Track } from "../types";
 import { TrackCarousel } from "./shared/TrackCarousel";
 
 export const HomeView = () => {
-  const { playTrack, currentTrack, addToPlaylist, toggleFavorite, isPlaying, playlists } =
-    usePlayer();
+  const {
+    playTrack,
+    currentTrack,
+    addToPlaylist,
+    toggleFavorite,
+    isPlaying,
+    playlists,
+  } = usePlayer();
   const { showMenu } = useContextMenu();
 
   // Use React Query hooks
-  const { data: recentTracks = [], isLoading: loadingRecent } = useRecentTracks(20);
-  const { data: mostPlayedTracks = [], isLoading: loadingMost } = useMostPlayed(20);
+  const { data: recentTracks = [], isLoading: loadingRecent } =
+    useRecentTracks(20);
+  const { data: mostPlayedTracks = [], isLoading: loadingMost } =
+    useMostPlayed(20);
 
   const loading = loadingRecent || loadingMost;
 
@@ -82,7 +89,7 @@ export const HomeView = () => {
           <div className="h-48 w-full bg-theme-secondary/50 rounded-xl" />
         </div>
       </div>
-    )
+    );
   }
 
   const isEmpty = recentTracks.length === 0 && mostPlayedTracks.length === 0;
@@ -100,11 +107,23 @@ export const HomeView = () => {
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-20 text-center px-4">
             <div className="w-24 h-24 rounded-full bg-theme-secondary/50 flex items-center justify-center mb-6">
-              <svg className="w-12 h-12 text-theme-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              <svg
+                className="w-12 h-12 text-theme-muted"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                />
               </svg>
             </div>
-            <p className="text-xl text-theme-secondary font-medium">Start listening to build your history</p>
+            <p className="text-xl text-theme-secondary font-medium">
+              Start listening to build your history
+            </p>
           </div>
         ) : (
           <div className="mt-8">
@@ -131,4 +150,3 @@ export const HomeView = () => {
     </div>
   );
 };
-

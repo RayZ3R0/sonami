@@ -31,7 +31,7 @@ pub fn run() {
 
             let discord_rpc = std::sync::Arc::new(DiscordRpcManager::new());
             let audio_manager = AudioManager::new(handle.clone(), Some(discord_rpc.clone()));
-            
+
             let _playlist_manager_placeholder = ();
             app.manage((*discord_rpc).clone());
 
