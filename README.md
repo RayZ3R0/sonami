@@ -21,6 +21,35 @@
   <b>A lightweight, cross-platform music player built with Tauri, React, and Rust.</b>
 </p>
 
+<!-- VISUAL SHOWCASE START -->
+<br />
+<img src="https://i.imgur.com/v6ok5h4.png" alt="Sonami Immersive Mode" width="100%">
+<br />
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/VQBFpVY.png" alt="Home Page" width="100%">
+      <br><sub><b>Home Dashboard</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/N2oeIAC.png" alt="Queue Management" width="100%">
+      <br><sub><b>Contextual Queue Panel</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/1lZT7RP.png" alt="Playlist View" width="100%">
+      <br><sub><b>Playlist Management</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://i.imgur.com/h0mYSWx.png" alt="Liked Songs" width="100%">
+      <br><sub><b>Liked Songs Library</b></sub>
+    </td>
+  </tr>
+</table>
+<!-- VISUAL SHOWCASE END -->
+
 </div>
 
 ---
@@ -30,6 +59,12 @@
 
 
 ## Core Capabilities
+
+### Library and Integration
+*   **Spotify Integration**: Deep integration for importing playlists and managing external libraries as a guest.
+*   **Tidal Integration**: Extremely fast high-fidelity streaming support.
+*   **Rich Lyrics Engine**: Multi-provider support (LRC Lib, Netease) with precise synchronization.
+*   **Discord Presence**: Real-time Spotify-style status updates shared via Discord Rich Presence.
 
 ### Premium Audio Experience
 *   **Direct Audio Control**: Built upon Symphonia and CPAL for low-level audio decoding and playback precision.
@@ -43,11 +78,6 @@
 *   **Immersive Fullscreen**: A dedicated playback view featuring high-fidelity synchronized lyrics and fluid background animations.
 *   **Responsive Mini-Player**: A draggable, snappable mini-interface for compact desktop control.
 
-### Library and Integration
-*   **Spotify Integration**: Deep integration for importing playlists and managing external libraries as a guest.
-*   **Tidal Integration**: Extremely fast high-fidelity streaming support.
-*   **Rich Lyrics Engine**: Multi-provider support (LRC Lib, Netease) with precise synchronization.
-*   **Discord Presence**: Real-time Spotify-style status updates shared via Discord Rich Presence.
 
 ## Installation
 
