@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { usePlayer } from "../context/PlayerContext";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 // All icons use identical viewBox and size
@@ -137,6 +136,8 @@ const icons = {
   ),
 };
 
+import { usePlaylists } from "../hooks/queries";
+
 export const Sidebar = ({
   activeTab,
   setActiveTab,
@@ -148,7 +149,7 @@ export const Sidebar = ({
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) => {
-  const { playlists } = usePlayer();
+  const { data: playlists = [] } = usePlaylists();
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
 
   return (
@@ -207,11 +208,10 @@ export const Sidebar = ({
           <nav className="flex flex-col gap-1">
             <button
               onClick={() => setActiveTab("favorites")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "favorites"
-                  ? "bg-theme-surface-active text-theme-primary"
-                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
+                ? "bg-theme-surface-active text-theme-primary"
+                : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
               title="Liked Songs"
             >
               <svg
@@ -233,11 +233,10 @@ export const Sidebar = ({
             </button>
             <button
               onClick={() => setActiveTab("recent")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "recent"
-                  ? "bg-theme-surface-active text-theme-primary"
-                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "recent"
+                ? "bg-theme-surface-active text-theme-primary"
+                : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
               title="Recently Played"
             >
               <svg
@@ -281,11 +280,10 @@ export const Sidebar = ({
               <button
                 key={pl.id}
                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${
-                  activeTab === `playlist:${pl.id}`
-                    ? "bg-theme-surface-active text-theme-primary"
-                    : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
+                  ? "bg-theme-surface-active text-theme-primary"
+                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                  }`}
                 title={pl.title}
               >
                 <div
@@ -297,7 +295,7 @@ export const Sidebar = ({
                       if (covers.length >= 4) {
                         return (
                           <div className="w-full h-full grid grid-cols-2 grid-rows-2">
-                            {covers.slice(0, 4).map((cover, i) => (
+                            {covers.slice(0, 4).map((cover: string, i: number) => (
                               <img
                                 key={i}
                                 src={cover}

@@ -150,6 +150,7 @@ impl LibraryManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM search_index si
@@ -186,6 +187,12 @@ impl LibraryManager {
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
             };
 
+            // Analytics with defaults
+            let play_count: i64 = row.try_get("play_count").unwrap_or(0);
+            let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
+            let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
+            let added_at: Option<i64> = row.try_get("added_at").ok();
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -197,8 +204,11 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                play_count: play_count as u64,
+                skip_count: skip_count as u64,
+                last_played_at,
                 liked_at: None,
-                added_at: None,
+                added_at,
             });
         }
 
@@ -210,6 +220,7 @@ impl LibraryManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM tracks t
@@ -237,6 +248,12 @@ impl LibraryManager {
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
             };
 
+            // Analytics with defaults
+            let play_count: i64 = row.try_get("play_count").unwrap_or(0);
+            let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
+            let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
+            let added_at: Option<i64> = row.try_get("added_at").ok();
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -248,8 +265,11 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                play_count: play_count as u64,
+                skip_count: skip_count as u64,
+                last_played_at,
                 liked_at: None,
-                added_at: None,
+                added_at,
             });
         }
 
@@ -343,8 +363,8 @@ impl LibraryManager {
 
             sqlx::query(
                 r#"
-                INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, tidal_id)
-                VALUES (?, ?, ?, ?, ?, 'TIDAL', ?)
+                INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, tidal_id, added_at)
+                VALUES (?, ?, ?, ?, ?, 'TIDAL', ?, strftime('%s', 'now'))
                 "#,
             )
             .bind(&new_id)

@@ -51,6 +51,7 @@ pub fn decoder_thread(
         app_handle,
         shutdown,
         url_resolver,
+        discord_rpc,
         ..
     } = context;
     let mut current_decoder: Option<DecoderState> = None;
@@ -326,6 +327,7 @@ pub fn decoder_thread(
                             &app_handle,
                             &url_resolver,
                             &mut prebuffer_failed_for_path,
+                            &discord_rpc,
                         );
                         continue;
                     }
@@ -467,6 +469,7 @@ fn handle_track_end(
     app_handle: &AppHandle,
     url_resolver: &UrlResolver,
     prebuffer_failed_for_path: &mut Option<String>,
+    discord_rpc: &Option<Arc<crate::discord::DiscordRpcManager>>,
 ) {
     let _ = app_handle.emit("track-ended", ());
 
@@ -540,6 +543,19 @@ fn handle_track_end(
             *state.current_path.write() = Some(track.path.clone());
             let _ = app_handle.emit("track-changed", track.clone());
 
+            if let Some(rpc) = discord_rpc {
+                rpc.set_playing(
+                    crate::discord::TrackInfo {
+                        title: track.title.clone(),
+                        artist: track.artist.clone(),
+                        album: track.album.clone(),
+                        duration_secs: track.duration,
+                        cover_url: track.cover_image.clone(),
+                    },
+                    0,
+                );
+            }
+
             {
                 let mut q = queue.write();
                 q.get_next_track(false);
@@ -592,7 +608,20 @@ fn handle_track_end(
     if let Some(track) = next_track_opt {
         let next_path = track.path.clone();
         *state.current_path.write() = Some(next_path.clone());
-        let _ = app_handle.emit("track-changed", track);
+        let _ = app_handle.emit("track-changed", track.clone());
+
+        if let Some(rpc) = discord_rpc {
+            rpc.set_playing(
+                crate::discord::TrackInfo {
+                    title: track.title.clone(),
+                    artist: track.artist.clone(),
+                    album: track.album.clone(),
+                    duration_secs: track.duration,
+                    cover_url: track.cover_image.clone(),
+                },
+                0,
+            );
+        }
 
         let source_res = resolve_source(&next_path, url_resolver);
         if let Ok(source) = source_res {

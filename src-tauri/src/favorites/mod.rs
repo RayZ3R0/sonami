@@ -71,6 +71,7 @@ impl FavoritesManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at,
                 a.name as artist_name,
                 COALESCE(al.title, '') as album_title,
                 COALESCE(al.cover_url, a.cover_url) as cover_url,
@@ -95,6 +96,12 @@ impl FavoritesManager {
                 TrackSource::Tidal
             };
 
+            // Analytics with defaults
+            let play_count: i64 = row.try_get("play_count").unwrap_or(0);
+            let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
+            let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
+            let added_at: Option<i64> = row.try_get("added_at").ok();
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -111,7 +118,10 @@ impl FavoritesManager {
                     .flatten()
                     .map(|v| v as u64),
                 liked_at: row.try_get("liked_at").ok(),
-                added_at: None,
+                play_count: play_count as u64,
+                skip_count: skip_count as u64,
+                last_played_at,
+                added_at,
             });
         }
 

@@ -24,6 +24,7 @@
     "release:tag": "git tag v$(node -p \"require('./package.json').version\") && git push --tags"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.16",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-opener": "^2",

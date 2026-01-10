@@ -23,6 +23,7 @@ pub struct AudioContext {
     pub app_handle: AppHandle,
     pub shutdown: Arc<AtomicBool>,
     pub url_resolver: UrlResolver,
+    pub discord_rpc: Option<Arc<crate::discord::DiscordRpcManager>>,
 }
 
 use serde::Serialize;

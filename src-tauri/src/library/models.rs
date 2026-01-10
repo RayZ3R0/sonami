@@ -36,6 +36,10 @@ pub struct DbTrack {
     pub file_path: Option<String>,
     pub file_modified: Option<i64>,
     pub tidal_id: Option<i64>,
+    pub play_count: i64,
+    pub skip_count: i64,
+    pub last_played_at: Option<i64>,
+    pub added_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -52,11 +56,18 @@ pub struct UnifiedTrack {
     pub local_path: Option<String>,
     pub tidal_id: Option<u64>,
 
+    // Analytics
+    pub play_count: u64,
+    pub skip_count: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_played_at: Option<i64>,
+
     // For favorites - when this track was liked
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liked_at: Option<i64>,
 
     // For playlist tracks - when this track was added to playlist
+    // Or library tracks - when added to library
     #[serde(skip_serializing_if = "Option::is_none")]
     pub added_at: Option<i64>,
 }

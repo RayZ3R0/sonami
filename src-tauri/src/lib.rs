@@ -28,8 +28,12 @@ pub fn run() {
         .plugin(tauri_plugin_screenshots::init())
         .setup(|app| {
             let handle = app.handle().clone();
-            let audio_manager = AudioManager::new(handle.clone());
+
+            let discord_rpc = std::sync::Arc::new(DiscordRpcManager::new());
+            let audio_manager = AudioManager::new(handle.clone(), Some(discord_rpc.clone()));
+            
             let _playlist_manager_placeholder = ();
+            app.manage((*discord_rpc).clone());
 
 
             let handle_clone = handle.clone();
@@ -146,12 +150,10 @@ pub fn run() {
                         media_controls_for_handler.set_stopped();
                     }
                     MediaControlEvent::SetPosition(position) => {
-                        // Seek to absolute position (in microseconds from souvlaki)
                         let seconds = position.0.as_secs_f64();
                         let _ = cmd_tx.send(audio::DecoderCommand::Seek(seconds));
                     }
                     MediaControlEvent::Seek(direction) => {
-                        // Relative seek (forward/backward)
                         use souvlaki::SeekDirection;
                         let current_pos = state_for_controls.get_position_seconds();
                         let duration = state_for_controls.get_duration_seconds();
@@ -162,14 +164,11 @@ pub fn run() {
                         let _ = cmd_tx.send(audio::DecoderCommand::Seek(new_pos));
                     }
                     MediaControlEvent::SetVolume(volume) => {
-                        // Volume is 0.0 to 1.0
                         state_for_controls.set_volume(volume as f32);
                     }
                     _ => {}
                 });
 
-            // Spawn a background thread to periodically update MPRIS position
-            // This is essential for the progress bar to work correctly
             let media_controls_for_position = audio_manager.media_controls.clone();
             let state_for_position = audio_manager.state.clone();
             std::thread::spawn(move || {
@@ -181,16 +180,13 @@ pub fn run() {
                         .load(std::sync::atomic::Ordering::Relaxed);
                     let position = state_for_position.get_position_seconds();
 
-                    // Only update if we have a valid position (track is loaded)
                     if position > 0.0 || is_playing {
                         media_controls_for_position.set_playback(is_playing, Some(position));
                     }
                 }
             });
 
-            // Initialize Discord RPC manager
-            let discord_rpc = DiscordRpcManager::new();
-            app.manage(discord_rpc);
+
 
             app.manage(audio_manager);
 
@@ -214,7 +210,8 @@ pub fn run() {
 
             commands::history::record_play,
             commands::history::update_play_completion,
-            commands::history::get_recent_plays,
+            commands::history::get_recently_played,
+            commands::history::get_most_played,
             commands::history::get_play_count,
 
             commands::import_music,

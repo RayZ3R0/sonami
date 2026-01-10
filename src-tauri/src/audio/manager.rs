@@ -33,7 +33,10 @@ unsafe impl Send for AudioManager {}
 unsafe impl Sync for AudioManager {}
 
 impl AudioManager {
-    pub fn new(app_handle: AppHandle) -> Self {
+    pub fn new(
+        app_handle: AppHandle,
+        discord_rpc: Option<Arc<crate::discord::DiscordRpcManager>>,
+    ) -> Self {
         let state = PlaybackState::new();
         let (command_tx, command_rx) = std::sync::mpsc::channel();
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -60,6 +63,7 @@ impl AudioManager {
             app_handle: app_handle.clone(),
             shutdown: shutdown.clone(),
             url_resolver,
+            discord_rpc,
         };
 
         let context_decoder = context.clone();

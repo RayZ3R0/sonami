@@ -11,6 +11,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Track, Playlist } from "../types";
 import { UnifiedTrack } from "../api/library";
+import { recordPlay } from "../api/history";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "../hooks/queries";
 
 interface PlaybackInfo {
   position: number;
@@ -107,6 +110,7 @@ const STORAGE_KEYS = {
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -202,6 +206,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     );
   }, [crossfadeEnabled, crossfadeDuration]);
 
+  const currentTrackRef = useRef<Track | null>(null);
+  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+
+  const lastRecordedToken = useRef<string | null>(null);
+  const recordingThreshold = 30; // seconds
+
   useEffect(() => {
     let animationId: number;
     let lastPollTime = 0;
@@ -228,6 +238,22 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
           setDuration(info.duration);
           setIsPlaying(info.is_playing);
+
+          // Recording Logic
+          const track = currentTrackRef.current;
+          if (
+            track &&
+            info.is_playing &&
+            info.position > recordingThreshold &&
+            lastRecordedToken.current !== track.id
+          ) {
+            lastRecordedToken.current = track.id;
+            recordPlay(track.id).then(() => {
+              queryClient.invalidateQueries({ queryKey: QUERY_KEYS.history });
+            }).catch(e => console.error(e));
+            bumpDataVersion();
+          }
+
         } catch (e) { }
       }
 
@@ -239,16 +265,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const unlisten = listen<Track>("track-changed", (event) => {
       console.log("Track changed event:", event.payload);
       setCurrentTrack(event.payload);
+      // Update ref immediately for the loop
+      currentTrackRef.current = event.payload;
+
       setDuration(event.payload.duration);
       setCurrentTime(0);
       seekTarget.current = null;
+      lastRecordedToken.current = null; // Reset recording for new track
     });
 
     return () => {
       cancelAnimationFrame(animationId);
       unlisten.then((f) => f());
     };
-  }, []);
+  }, []); // Run once, depend on refs
 
   useEffect(() => {
     const syncState = async () => {
@@ -292,6 +322,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     try {
       const list = await invoke<Playlist[]>("get_playlists");
       setPlaylists(list);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to fetch playlists:", e);
     }
@@ -304,6 +335,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         description,
       });
       setPlaylists((prev) => [...prev, newPlaylist]);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to create playlist:", e);
     }
@@ -313,6 +345,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     try {
       await invoke("delete_playlist", { id });
       setPlaylists((prev) => prev.filter((p) => p.id !== id));
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to delete playlist:", e);
     }
@@ -322,6 +355,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     try {
       await invoke("rename_playlist", { id, newName });
       refreshPlaylists();
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to rename playlist:", e);
     }
@@ -332,6 +366,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       await invoke("add_to_playlist", { playlistId, track });
       await refreshPlaylists();
       bumpDataVersion(); // Trigger reactive updates in views
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to add to playlist:", e);
     }
@@ -342,6 +377,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       await invoke("remove_from_playlist", { playlistId, trackId });
       await refreshPlaylists();
       bumpDataVersion(); // Trigger reactive updates in views
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
       console.error("Failed to remove from playlist:", e);
     }

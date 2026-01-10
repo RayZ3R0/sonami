@@ -6,9 +6,12 @@ use tauri::{command, State};
 pub async fn record_play(
     manager: State<'_, PlayHistoryManager>,
     track_id: String,
-    source: Option<String>,
+    context_uri: Option<String>,
+    context_type: Option<String>,
 ) -> Result<String, String> {
-    manager.record_play(&track_id, source).await
+    manager
+        .record_play(&track_id, context_uri, context_type)
+        .await
 }
 
 #[command]
@@ -24,11 +27,19 @@ pub async fn update_play_completion(
 }
 
 #[command]
-pub async fn get_recent_plays(
+pub async fn get_recently_played(
     manager: State<'_, PlayHistoryManager>,
     limit: Option<i64>,
 ) -> Result<Vec<UnifiedTrack>, String> {
     manager.get_unique_recent_tracks(limit.unwrap_or(50)).await
+}
+
+#[command]
+pub async fn get_most_played(
+    manager: State<'_, PlayHistoryManager>,
+    limit: Option<i64>,
+) -> Result<Vec<UnifiedTrack>, String> {
+    manager.get_most_played_tracks(limit.unwrap_or(50)).await
 }
 
 #[command]

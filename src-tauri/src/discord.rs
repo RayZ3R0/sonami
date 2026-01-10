@@ -37,6 +37,7 @@ enum PresenceState {
     },
 }
 
+#[derive(Clone)]
 pub struct DiscordRpcManager {
     enabled: Arc<AtomicBool>,
     connected: Arc<AtomicBool>,
