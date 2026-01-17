@@ -18,7 +18,7 @@
 </a>
 
 <p align="center">
-  <b>A lightweight, cross-platform music player built with Tauri, React, and Rust.</b>
+  <b>A lightweight, cross-platform music player built with Tauri. Stream lossless FLAC audio from Tidal, and import playlists from Spotify with no track limit.</b>
 </p>
 
 <!-- VISUAL SHOWCASE START -->
@@ -181,4 +181,4 @@ The software is provided **“as is”**, without any warranties or guarantees. 
 
 ## License
 
-Distributed under the AGPL-3.0 License. See [LICENSE](LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
