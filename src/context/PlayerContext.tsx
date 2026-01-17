@@ -164,9 +164,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return saved === "classic" || saved === "floating" ? saved : "floating";
   });
 
-  const [playbackQuality, setPlaybackQuality] = useState<PlaybackQuality | null>(
-    null,
-  );
+  const [playbackQuality, setPlaybackQuality] =
+    useState<PlaybackQuality | null>(null);
 
   const [streamQuality, setStreamQualityState] = useState<
     "LOSSLESS" | "HIGH" | "LOW"
@@ -288,7 +287,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) { }
+        } catch (e) {}
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -604,7 +603,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     try {
       await invoke("set_tidal_config", {
         quality,
-        preferHighQualityStream: preferHighQualityStream
+        preferHighQualityStream: preferHighQualityStream,
       });
     } catch (e) {
       console.error("Failed to sync stream quality:", e);
@@ -648,7 +647,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     try {
       await invoke("set_tidal_config", {
         quality: streamQuality,
-        preferHighQualityStream: enabled
+        preferHighQualityStream: enabled,
       });
     } catch (e) {
       console.error("Failed to sync prefer high quality:", e);
@@ -668,7 +667,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         // Sync Tidal Config
         await invoke("set_tidal_config", {
           quality: streamQuality,
-          preferHighQualityStream: preferHighQualityStream
+          preferHighQualityStream: preferHighQualityStream,
         });
       } catch (e) {
         console.error("Failed to sync settings:", e);

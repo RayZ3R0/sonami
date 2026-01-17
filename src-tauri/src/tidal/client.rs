@@ -251,9 +251,13 @@ impl TidalClient {
         );
 
         let url = Self::extract_stream_url(&data)?;
-        
+
         // Log the stream URL format (truncated for security)
-        let url_preview = if url.len() > 80 { format!("{}...", &url[..80]) } else { url.clone() };
+        let url_preview = if url.len() > 80 {
+            format!("{}...", &url[..80])
+        } else {
+            url.clone()
+        };
         log::info!("[get_track] Stream URL format: {}", url_preview);
 
         Ok(TrackStreamInfo {

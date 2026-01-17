@@ -66,11 +66,9 @@ impl UrlResolver {
     pub fn resolve(&self, uri: &str) -> Result<ResolvedAudio, String> {
         if !uri.starts_with("tidal:") {
             // For local file paths, verify the file exists
-            if !uri.starts_with("http://") && !uri.starts_with("https://") {
-                if !Path::new(uri).exists() {
-                    log::warn!("[Resolver] Local file not found: {}. Cannot play.", uri);
-                    return Err(format!("File not found: {}", uri));
-                }
+            if !uri.starts_with("http://") && !uri.starts_with("https://") && !Path::new(uri).exists() {
+                log::warn!("[Resolver] Local file not found: {}. Cannot play.", uri);
+                return Err(format!("File not found: {}", uri));
             }
             return Ok(ResolvedAudio {
                 path: uri.to_string(),
@@ -105,21 +103,31 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
         .map_err(|_| format!("Invalid Tidal ID: {}", id_str))?;
 
     // Get configuration
-    let (target_quality, prefer_high_quality) = if let Some(state) = app_handle.try_state::<crate::tidal::TidalConfigState>() {
-        let config = state.lock();
-        (config.quality.clone(), config.prefer_high_quality_stream)
-    } else {
-        (Quality::LOSSLESS, false)
-    };
+    let (target_quality, prefer_high_quality) =
+        if let Some(state) = app_handle.try_state::<crate::tidal::TidalConfigState>() {
+            let config = state.lock();
+            (config.quality.clone(), config.prefer_high_quality_stream)
+        } else {
+            (Quality::LOSSLESS, false)
+        };
 
-    log::debug!("[Resolver] resolving {} with Target: {:?}, PreferHighQuality: {}", id, target_quality, prefer_high_quality);
+    log::debug!(
+        "[Resolver] resolving {} with Target: {:?}, PreferHighQuality: {}",
+        id,
+        target_quality,
+        prefer_high_quality
+    );
 
     // 1. Try Local File
     if let Some(library) = app_handle.try_state::<LibraryManager>() {
         // We ignore db errors and fall back to streaming
         if let Ok(Some((path, quality_str))) = library.get_track_local_info(id).await {
-            log::debug!("[Resolver] Found local file: {} (Quality: {:?})", path, quality_str);
-            
+            log::debug!(
+                "[Resolver] Found local file: {} (Quality: {:?})",
+                path,
+                quality_str
+            );
+
             if Path::new(&path).exists() {
                 // Smart check: If user prefers high quality stream AND local file is lower quality than target
                 let local_is_sufficient = if prefer_high_quality {
@@ -141,7 +149,11 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                 };
 
                 if local_is_sufficient {
-                    log::debug!("[Resolver] Using local file: Path={}, Quality={:?}", path, quality_str);
+                    log::debug!(
+                        "[Resolver] Using local file: Path={}, Quality={:?}",
+                        path,
+                        quality_str
+                    );
                     return Ok(ResolvedAudio {
                         path,
                         source: "LOCAL".to_string(),
@@ -151,12 +163,16 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                     log::debug!("[Resolver] Local file insufficient. Fallback to stream.");
                 }
             } else {
-                 log::warn!("[Resolver] Local file record exists but file not found on disk: {}. Clearing download info.", path);
-                 // Clear the stale download info from database
-                 if let Err(e) = library.clear_download_info(id).await {
-                     log::error!("[Resolver] Failed to clear stale download info for {}: {}", id, e);
-                 }
-                 // Fall through to streaming
+                log::warn!("[Resolver] Local file record exists but file not found on disk: {}. Clearing download info.", path);
+                // Clear the stale download info from database
+                if let Err(e) = library.clear_download_info(id).await {
+                    log::error!(
+                        "[Resolver] Failed to clear stale download info for {}: {}",
+                        id,
+                        e
+                    );
+                }
+                // Fall through to streaming
             }
         } else {
             log::debug!("[Resolver] No local file found in library for {}", id);

@@ -105,7 +105,8 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     toggleFavorite,
   } = usePlayer();
 
-  const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } = useDownload();
+  const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } =
+    useDownload();
 
   const {
     data: details = null,
@@ -255,9 +256,9 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-              label: p.title,
-              action: () => addToPlaylist(p.id, track),
-            }))
+                label: p.title,
+                action: () => addToPlaylist(p.id, track),
+              }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -277,7 +278,14 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     });
 
     return items;
-  }, [contextMenu, playlists, playlistId, favorites, sortedTracks, downloadTrack]);
+  }, [
+    contextMenu,
+    playlists,
+    playlistId,
+    favorites,
+    sortedTracks,
+    downloadTrack,
+  ]);
 
   const handleSort = (
     column: "title" | "artist" | "album" | "duration" | "date_added",
@@ -473,10 +481,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
-              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-              }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+              shuffle
+                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+            }`}
           >
             <svg
               className="w-5 h-5"
@@ -517,7 +526,6 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
       </div>
 
       <div className="flex flex-col flex-1 overflow-auto px-8">
-
         {/* Header Row */}
         <div className="sticky top-0 bg-theme-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
           <span>#</span>
@@ -566,10 +574,21 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
 
             // Logic for download status
             const unifiedTrack = track as any;
-            const tidalId = unifiedTrack.tidal_id || (track.path?.startsWith("tidal:") ? track.path.split(":")[1] : null) || (track.id.match(/^\d+$/) ? track.id : null);
+            const tidalId =
+              unifiedTrack.tidal_id ||
+              (track.path?.startsWith("tidal:")
+                ? track.path.split(":")[1]
+                : null) ||
+              (track.id.match(/^\d+$/) ? track.id : null);
             const tidalIdStr = tidalId?.toString();
-            const downloadState = tidalIdStr ? downloads.get(tidalIdStr) : undefined;
-            const isDownloaded = (unifiedTrack.local_path && unifiedTrack.local_path !== "") || (unifiedTrack.audio_quality && unifiedTrack.audio_quality !== "") || (tidalIdStr && isTrackCompleted(tidalIdStr));
+            const downloadState = tidalIdStr
+              ? downloads.get(tidalIdStr)
+              : undefined;
+            const isDownloaded =
+              (unifiedTrack.local_path && unifiedTrack.local_path !== "") ||
+              (unifiedTrack.audio_quality &&
+                unifiedTrack.audio_quality !== "") ||
+              (tidalIdStr && isTrackCompleted(tidalIdStr));
             const isTidalTrack = !!tidalId;
 
             return (
@@ -577,10 +596,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
-                  ? "bg-theme-surface-active text-theme-accent"
-                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                  }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
+                  isCurrentTrack
+                    ? "bg-theme-surface-active text-theme-accent"
+                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -677,7 +697,9 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                         }
                       }}
                     />
-                  ) : <span />}
+                  ) : (
+                    <span />
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">

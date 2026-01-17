@@ -168,15 +168,17 @@ const QualityBadge = ({
 
   const getLabel = () => {
     if (source === "LOCAL") return "LOCAL";
-    if (quality === "LOSSLESS") return "HI-FI";
+    if (quality === "LOSSLESS") return "LOSSLESS";
     if (quality === "HIGH") return "HIGH";
     return "LOW";
   };
 
   const getColor = () => {
     if (source === "LOCAL") return "bg-theme-surface text-theme-secondary";
-    if (quality === "LOSSLESS") return "bg-yellow-400/10 text-yellow-400 border border-yellow-400/20";
-    if (quality === "HIGH") return "bg-cyan-400/10 text-cyan-400 border border-cyan-400/20";
+    if (quality === "LOSSLESS")
+      return "bg-yellow-400/10 text-yellow-400 border border-yellow-400/20";
+    if (quality === "HIGH")
+      return "bg-cyan-400/10 text-cyan-400 border border-cyan-400/20";
     return "bg-theme-surface text-theme-secondary border border-theme-border";
   };
 

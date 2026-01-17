@@ -89,7 +89,7 @@ impl HttpSource {
         // 2. Server supports ranges
         // 3. Range hasn't failed before
         let use_range = self.position > 0 && self.supports_ranges && !self.range_failed;
-        
+
         if use_range {
             req = req.header(RANGE, format!("bytes={}-", self.position));
         }
@@ -99,7 +99,7 @@ impl HttpSource {
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
         let status = resp.status();
-        
+
         // Handle 416 Range Not Satisfiable
         if status.as_u16() == 416 {
             log::warn!(
@@ -107,28 +107,27 @@ impl HttpSource {
             );
             self.range_failed = true;
             self.position = 0;
-            
+
             // Retry without range header
-            let resp = self.client.get(&self.url)
+            let resp = self
+                .client
+                .get(&self.url)
                 .send()
                 .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
-            
+
             if !resp.status().is_success() {
                 return Err(io::Error::other(format!(
                     "HTTP stream error: {}",
                     resp.status()
                 )));
             }
-            
+
             self.reader = Some(Box::new(resp));
             return Ok(());
         }
 
         if !status.is_success() {
-            return Err(io::Error::other(format!(
-                "HTTP stream error: {}",
-                status
-            )));
+            return Err(io::Error::other(format!("HTTP stream error: {}", status)));
         }
 
         self.reader = Some(Box::new(resp));
@@ -198,7 +197,7 @@ impl Seek for HttpSource {
                 )),
             };
         }
-        
+
         let new_pos = match pos {
             SeekFrom::Start(p) => p,
             SeekFrom::End(p) => {

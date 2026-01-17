@@ -12,17 +12,10 @@ pub async fn start_download(
     metadata: TrackMetadata,
     quality: String,
 ) -> Result<String, String> {
-    let quality = quality
-        .parse::<Quality>()
-        .unwrap_or(Quality::LOSSLESS);
+    let quality = quality.parse::<Quality>().unwrap_or(Quality::LOSSLESS);
 
     let path = download_manager
-        .download_tidal_track(
-            track_id,
-            metadata,
-            &tidal_client,
-            quality,
-        )
+        .download_tidal_track(track_id, metadata, &tidal_client, quality)
         .await?;
 
     Ok(path.to_string_lossy().to_string())
@@ -91,16 +84,15 @@ pub async fn delete_downloaded_track(
 ) -> Result<(), String> {
     // Clear from database and get the old path
     let old_path = library_manager.clear_download_info(tidal_id).await?;
-    
+
     // Delete the file if it exists
     if let Some(path) = old_path {
         let path_buf = std::path::PathBuf::from(&path);
         if path_buf.exists() {
-            std::fs::remove_file(&path_buf)
-                .map_err(|e| format!("Failed to delete file: {}", e))?;
+            std::fs::remove_file(&path_buf).map_err(|e| format!("Failed to delete file: {}", e))?;
             log::info!("Deleted downloaded file: {}", path);
         }
     }
-    
+
     Ok(())
 }

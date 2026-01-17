@@ -90,12 +90,7 @@ impl DownloadManager {
         }
 
         let result = self
-            .download_process(
-                track_id,
-                metadata,
-                tidal_client,
-                quality.clone(),
-            )
+            .download_process(track_id, metadata, tidal_client, quality.clone())
             .await;
 
         {
@@ -119,11 +114,7 @@ impl DownloadManager {
                 )
                 .await
             {
-                log::error!(
-                    "Failed to update database for download {}: {}",
-                    track_id,
-                    e
-                );
+                log::error!("Failed to update database for download {}: {}", track_id, e);
             }
         }
 
@@ -168,7 +159,6 @@ impl DownloadManager {
         };
         let file_path = album_dir.join(format!("{}.{}", safe_title, extension));
 
-
         // 4. Download Audio
         let response = self
             .client
@@ -178,7 +168,8 @@ impl DownloadManager {
             .map_err(|e| format!("Failed to request stream: {}", e))?;
 
         let total_size = response.content_length().unwrap_or(0);
-        let mut file = File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
         let mut stream = response.bytes_stream();
         let mut downloaded: u64 = 0;
         let mut last_emit = Instant::now();
@@ -257,7 +248,7 @@ impl DownloadManager {
             },
         );
         log::info!("Emitting download-complete for track {}", track_id);
-        
+
         // Emit completion with basic info
         let _ = self.app_handle.emit(
             "download-complete",
@@ -307,7 +298,8 @@ impl DownloadManager {
             ));
         }
 
-        tag.save_to_path(path, lofty::config::WriteOptions::default()).map_err(|e| e.to_string())?;
+        tag.save_to_path(path, lofty::config::WriteOptions::default())
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -325,5 +317,3 @@ fn sanitize_filename(name: &str) -> String {
         .trim()
         .to_string()
 }
-
-

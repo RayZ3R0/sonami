@@ -337,23 +337,25 @@ impl LibraryManager {
 
     pub async fn clear_download_info(&self, tidal_id: u64) -> Result<Option<String>, String> {
         let tid = tidal_id as i64;
-        
+
         // First get the current file path so we can return it for deletion
-        let row = sqlx::query("SELECT file_path FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL")
-            .bind(tid)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        
+        let row = sqlx::query(
+            "SELECT file_path FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL",
+        )
+        .bind(tid)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
         let old_path: Option<String> = row.and_then(|r| r.try_get("file_path").ok());
-        
+
         // Clear the download info
         sqlx::query("UPDATE tracks SET file_path = NULL, audio_quality = NULL WHERE tidal_id = ?")
             .bind(tid)
             .execute(&self.pool)
             .await
             .map_err(|e| e.to_string())?;
-        
+
         log::info!("Cleared download info for track {}", tidal_id);
         Ok(old_path)
     }

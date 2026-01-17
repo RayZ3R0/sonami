@@ -49,12 +49,12 @@ interface DownloadContextType {
 }
 
 const DownloadContext = createContext<DownloadContextType | undefined>(
-  undefined
+  undefined,
 );
 
 export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   const [downloads, setDownloads] = useState<Map<string, DownloadItem>>(
-    new Map()
+    new Map(),
   );
   const [downloadPath, setDownloadPathState] = useState<string>("");
 
@@ -80,7 +80,11 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     const unlistenProgress = listen<DownloadProgress>(
       "download-progress",
       (event) => {
-        const { track_id: rawId, progress, status: backendStatus } = event.payload;
+        const {
+          track_id: rawId,
+          progress,
+          status: backendStatus,
+        } = event.payload;
         const track_id = String(rawId);
         // Backend sends progress as 0.0-1.0 (e.g., 0.5 = 50%)
 
@@ -104,19 +108,16 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
             const isComplete = backendStatus === "complete" || progress >= 0.99;
             const newStatus = isComplete ? "complete" : "downloading";
 
-
-
             next.set(track_id, {
               ...existing,
               progress: progress,
               status: newStatus,
             });
           } else {
-
           }
           return next;
         });
-      }
+      },
     );
 
     const unlistenComplete = listen<DownloadComplete>(
@@ -124,7 +125,6 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
       (event) => {
         const { track_id: rawId } = event.payload;
         const track_id = String(rawId);
-
 
         setDownloads((prev) => {
           const next = new Map(prev);
@@ -140,11 +140,13 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
               status: "complete",
             });
           } else {
-            console.warn(`[DownloadContext] Track ${track_id} completed but not found in map`);
+            console.warn(
+              `[DownloadContext] Track ${track_id} completed but not found in map`,
+            );
           }
           return next;
         });
-      }
+      },
     );
 
     const unlistenError = listen<string>("download-error", (event) => {
@@ -174,89 +176,86 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const downloadTrack = useCallback(
-    async (track: Track) => {
-      let tidalId: number | undefined;
+  const downloadTrack = useCallback(async (track: Track) => {
+    let tidalId: number | undefined;
 
-      // Try to find Tidal ID from various sources
-      // 1. Check for tidal_id property (UnifiedTrack)
-      if ("tidal_id" in track && (track as any).tidal_id) {
-        tidalId = (track as any).tidal_id;
+    // Try to find Tidal ID from various sources
+    // 1. Check for tidal_id property (UnifiedTrack)
+    if ("tidal_id" in track && (track as any).tidal_id) {
+      tidalId = (track as any).tidal_id;
+    }
+    // 2. Check path for tidal: prefix
+    else if (track.path && track.path.startsWith("tidal:")) {
+      const parts = track.path.split(":");
+      if (parts.length > 1) {
+        tidalId = parseInt(parts[1], 10);
       }
-      // 2. Check path for tidal: prefix
-      else if (track.path && track.path.startsWith("tidal:")) {
-        const parts = track.path.split(":");
-        if (parts.length > 1) {
-          tidalId = parseInt(parts[1], 10);
-        }
-      }
-      // 3. Check if ID itself is numeric
-      else if (/^\d+$/.test(track.id)) {
-        tidalId = parseInt(track.id, 10);
-      }
-      // 4. If source is TIDAL but no ID found yet, log error
-      else if ("source" in track && (track as any).source === "TIDAL") {
-        console.warn("Tidal track found but no ID:", track);
-      }
+    }
+    // 3. Check if ID itself is numeric
+    else if (/^\d+$/.test(track.id)) {
+      tidalId = parseInt(track.id, 10);
+    }
+    // 4. If source is TIDAL but no ID found yet, log error
+    else if ("source" in track && (track as any).source === "TIDAL") {
+      console.warn("Tidal track found but no ID:", track);
+    }
 
-      if (!tidalId || isNaN(tidalId)) {
-        console.error("Cannot download track: No valid Tidal ID found", track);
-        return;
-      }
+    if (!tidalId || isNaN(tidalId)) {
+      console.error("Cannot download track: No valid Tidal ID found", track);
+      return;
+    }
 
-      const trackKey = tidalId.toString();
+    const trackKey = tidalId.toString();
 
-      // Add to downloads map
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        next.set(trackKey, {
-          trackId: trackKey,
+    // Add to downloads map
+    setDownloads((prev) => {
+      const next = new Map(prev);
+      next.set(trackKey, {
+        trackId: trackKey,
+        title: track.title,
+        artist: track.artist,
+        progress: 0,
+        status: "pending",
+      });
+      return next;
+    });
+
+    try {
+      await invoke("start_download", {
+        trackId: tidalId,
+        metadata: {
           title: track.title,
-          artist: track.artist,
-          progress: 0,
-          status: "pending",
-        });
-        return next;
+          artist: track.artist || "Unknown Artist",
+          album: track.album || "Unknown Album",
+          coverUrl: track.cover_image || null,
+        },
+        quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
       });
 
-      try {
-        await invoke("start_download", {
-          trackId: tidalId,
-          metadata: {
-            title: track.title,
-            artist: track.artist || "Unknown Artist",
-            album: track.album || "Unknown Album",
-            coverUrl: track.cover_image || null,
-          },
-          quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
-        });
-
-        setDownloads((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, { ...existing, status: "downloading" });
-          }
-          return next;
-        });
-      } catch (e) {
-        console.error("Failed to start download:", e);
-        setDownloads((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, {
-              ...existing,
-              status: "error",
-              error: String(e),
-            });
-          }
-          return next;
-        });
-      }
-    },
-    []
-  );
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackKey);
+        if (existing) {
+          next.set(trackKey, { ...existing, status: "downloading" });
+        }
+        return next;
+      });
+    } catch (e) {
+      console.error("Failed to start download:", e);
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackKey);
+        if (existing) {
+          next.set(trackKey, {
+            ...existing,
+            status: "error",
+            error: String(e),
+          });
+        }
+        return next;
+      });
+    }
+  }, []);
 
   const setDownloadPath = useCallback(async (path: string) => {
     try {
@@ -277,7 +276,7 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const isDownloading = Array.from(downloads.values()).some(
-    (d) => d.status === "downloading" || d.status === "pending"
+    (d) => d.status === "downloading" || d.status === "pending",
   );
 
   // Direct check on the persistent ref

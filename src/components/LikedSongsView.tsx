@@ -69,7 +69,8 @@ export const LikedSongsView = () => {
     addToPlaylist,
   } = usePlayer();
 
-  const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } = useDownload();
+  const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } =
+    useDownload();
 
   const [favorites, setFavorites] = useState<UnifiedTrack[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +237,7 @@ export const LikedSongsView = () => {
     const track = contextMenu.track;
 
     const availablePlaylists = playlists.filter(
-      (p) => !contextMenu.containingPlaylists.has(p.id)
+      (p) => !contextMenu.containingPlaylists.has(p.id),
     );
 
     // Check if track is Tidal track (has tidal_id or numeric ID or path starts with tidal:)
@@ -249,13 +250,13 @@ export const LikedSongsView = () => {
       {
         label: "Play",
         action: () => {
-          // Need to find the index in sortedFavorites to play appropriately if needed, 
-          // but playTrack usually handles the queue setup. 
+          // Need to find the index in sortedFavorites to play appropriately if needed,
+          // but playTrack usually handles the queue setup.
           // mapToTrack logic is needed here actually.
           const mappedTrack = mapToTrack(track as UnifiedTrack);
           const tracksForQueue = sortedFavorites.map(mapToTrack);
           playTrack(mappedTrack, tracksForQueue);
-        }
+        },
       },
       {
         label: "Remove from Liked Songs",
@@ -274,9 +275,9 @@ export const LikedSongsView = () => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-              label: p.title,
-              action: () => addToPlaylist(p.id, track),
-            }))
+                label: p.title,
+                action: () => addToPlaylist(p.id, track),
+              }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -289,7 +290,16 @@ export const LikedSongsView = () => {
     }
 
     return items;
-  }, [contextMenu, playlists, sortedFavorites, playTrack, addToPlaylist, removeFavorite, refreshFavorites, downloadTrack]);
+  }, [
+    contextMenu,
+    playlists,
+    sortedFavorites,
+    playTrack,
+    addToPlaylist,
+    removeFavorite,
+    refreshFavorites,
+    downloadTrack,
+  ]);
 
   const handleDownloadAll = async () => {
     // Filter for Tidal tracks
@@ -369,10 +379,11 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
-              ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-              }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+              shuffle
+                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+            }`}
           >
             <svg
               className="w-5 h-5"
@@ -468,16 +479,22 @@ export const LikedSongsView = () => {
 
           {sortedFavorites.map((track, index) => {
             const isCurrentTrack = currentTrack?.id === track.id;
-            if (index === 0) console.log("First Track Data:", { title: track.title, local_path: track.local_path, audio_quality: track.audio_quality });
+            if (index === 0)
+              console.log("First Track Data:", {
+                title: track.title,
+                local_path: track.local_path,
+                audio_quality: track.audio_quality,
+              });
             return (
               <div
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
-                  ? "bg-pink-500/10 text-pink-500"
-                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                  }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
+                  isCurrentTrack
+                    ? "bg-pink-500/10 text-pink-500"
+                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">
@@ -563,14 +580,24 @@ export const LikedSongsView = () => {
                 <div className="flex items-center justify-center">
                   {(() => {
                     const unifiedTrack = track as any;
-                    const tidalId = unifiedTrack.tidal_id || (track.path?.startsWith("tidal:") ? track.path.split(":")[1] : null) || (track.id.match(/^\d+$/) ? track.id : null);
+                    const tidalId =
+                      unifiedTrack.tidal_id ||
+                      (track.path?.startsWith("tidal:")
+                        ? track.path.split(":")[1]
+                        : null) ||
+                      (track.id.match(/^\d+$/) ? track.id : null);
                     const tidalIdStr = tidalId?.toString();
-                    const downloadState = tidalIdStr ? downloads.get(tidalIdStr) : undefined;
+                    const downloadState = tidalIdStr
+                      ? downloads.get(tidalIdStr)
+                      : undefined;
 
                     // Check both: local file exists OR completed in this session (via ref)
-                    const isDownloaded = (unifiedTrack.local_path && unifiedTrack.local_path !== "")
-                      || (unifiedTrack.audio_quality && unifiedTrack.audio_quality !== "")
-                      || (tidalIdStr && isTrackCompleted(tidalIdStr));
+                    const isDownloaded =
+                      (unifiedTrack.local_path &&
+                        unifiedTrack.local_path !== "") ||
+                      (unifiedTrack.audio_quality &&
+                        unifiedTrack.audio_quality !== "") ||
+                      (tidalIdStr && isTrackCompleted(tidalIdStr));
                     const isTidalTrack = !!tidalId;
 
                     return isTidalTrack ? (
@@ -594,7 +621,9 @@ export const LikedSongsView = () => {
                           }
                         }}
                       />
-                    ) : <span />;
+                    ) : (
+                      <span />
+                    );
                   })()}
                 </div>
 

@@ -128,11 +128,28 @@ impl FavoritesManager {
         }
 
         if let Some(first) = tracks.first() {
-             log::debug!("Favorites check - First track: id={}, title={}, local_path={:?}, quality={:?}", 
-                first.id, first.title, first.local_path, first.audio_quality);
+            log::debug!(
+                "Favorites check - First track: id={}, title={}, local_path={:?}, quality={:?}",
+                first.id,
+                first.title,
+                first.local_path,
+                first.audio_quality
+            );
         }
-        let downloaded_count = tracks.iter().filter(|t| t.local_path.as_deref().map(|p| !p.is_empty()).unwrap_or(false)).count();
-        log::debug!("Favorites check - Total tracks: {}, Downloaded: {}", tracks.len(), downloaded_count);
+        let downloaded_count = tracks
+            .iter()
+            .filter(|t| {
+                t.local_path
+                    .as_deref()
+                    .map(|p| !p.is_empty())
+                    .unwrap_or(false)
+            })
+            .count();
+        log::debug!(
+            "Favorites check - Total tracks: {}, Downloaded: {}",
+            tracks.len(),
+            downloaded_count
+        );
 
         Ok(tracks)
     }
