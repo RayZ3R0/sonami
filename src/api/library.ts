@@ -6,6 +6,7 @@ export interface UnifiedTrack extends Track {
     tidal_id?: number;
     local_path?: string;
     liked_at?: number;
+    audio_quality?: string;
 }
 
 export interface LibraryAlbum {

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTheme, Theme } from "../context/ThemeContext";
 import { usePlayer } from "../context/PlayerContext";
+import { useDownload } from "../context/DownloadContext";
+import { open } from "@tauri-apps/plugin-dialog";
 
 const CloseIcon = () => (
   <svg
@@ -83,11 +85,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -233,10 +234,20 @@ export const Settings = ({
     setDiscordRpcEnabled,
     lyricsProvider,
     setLyricsProvider,
+    preferHighQualityStream,
+    setPreferHighQualityStream,
   } = usePlayer();
   const [activeTab, setActiveTab] = useState<"appearance" | "playback">(
     defaultTab,
   );
+  const { downloadPath, setDownloadPath, openDownloadFolder, refreshDownloadPath } = useDownload();
+
+  // Refresh download path when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      refreshDownloadPath();
+    }
+  }, [isOpen, refreshDownloadPath]);
 
   // Reset active tab when modal opens or defaultTab changes
   useEffect(() => {
@@ -386,11 +397,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("floating")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "floating"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -435,11 +445,10 @@ export const Settings = ({
                     onClick={() => setPlayerBarStyle("classic")}
                     className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "classic"
+                        ? "ring-2 ring-offset-2 ring-offset-transparent"
+                        : "hover:scale-[1.02]"
+                      }
                                         `}
                     style={{
                       background: theme.colors.surface,
@@ -560,11 +569,10 @@ export const Settings = ({
                     <button
                       key={option.value}
                       onClick={() => setStreamQuality(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        streamQuality === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                      }`}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${streamQuality === option.value
+                        ? "ring-2"
+                        : "hover:scale-[1.02]"
+                        }`}
                       style={{
                         background:
                           streamQuality === option.value
@@ -595,6 +603,31 @@ export const Settings = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Prefer High Quality Stream Section */}
+              <div
+                className="flex items-center justify-between p-4 rounded-xl"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Prefer Streaming Quality
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Use online stream if quality is better than local file
+                  </p>
+                </div>
+                <Toggle
+                  checked={preferHighQualityStream}
+                  onChange={(checked) => setPreferHighQualityStream(checked)}
+                />
               </div>
 
               {/* Crossfade Section */}
@@ -754,11 +787,10 @@ export const Settings = ({
                     <button
                       key={option.value}
                       onClick={() => setLyricsProvider(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        lyricsProvider === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                      }`}
+                      className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
+                        ? "ring-2"
+                        : "hover:scale-[1.02]"
+                        }`}
                       style={{
                         background:
                           lyricsProvider === option.value
@@ -788,6 +820,73 @@ export const Settings = ({
                       </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Downloads Section */}
+              <div
+                className="p-4 rounded-xl space-y-4"
+                style={{ background: theme.colors.surface }}
+              >
+                <div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Download Location
+                  </h3>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Where downloaded tracks are saved
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <div
+                    className="flex-1 px-3 py-2 pt-[12px] rounded-lg text-sm truncate"
+                    style={{
+                      background: theme.colors.surfaceHover,
+                      color: theme.colors.textPrimary,
+                    }}
+                    title={downloadPath}
+                  >
+                    {downloadPath || "Loading..."}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const selected = await open({
+                          directory: true,
+                          multiple: false,
+                          title: "Select Download Folder",
+                        });
+                        if (selected && typeof selected === "string") {
+                          await setDownloadPath(selected);
+                        }
+                      } catch (e) {
+                        console.error("Failed to select folder:", e);
+                      }
+                    }}
+                    className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      background: theme.colors.surfaceHover,
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    onClick={openDownloadFolder}
+                    className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      background: theme.colors.accentMuted,
+                      color: theme.colors.accent,
+                    }}
+                    title="Open in file manager"
+                  >
+                    Open
+                  </button>
                 </div>
               </div>
             </div>

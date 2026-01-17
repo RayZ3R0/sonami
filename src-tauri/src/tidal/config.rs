@@ -1,4 +1,9 @@
+use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use super::models::Quality;
 
 pub const ENDPOINTS_URL: &str = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 pub const CACHE_TTL_SECONDS: u64 = 86400; // 24 hours
@@ -15,3 +20,20 @@ pub fn get_cache_dir() -> PathBuf {
 pub fn get_cache_file_path() -> PathBuf {
     get_cache_dir().join("tidal_cache.json")
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TidalConfig {
+    pub quality: Quality,
+    pub prefer_high_quality_stream: bool,
+}
+
+impl Default for TidalConfig {
+    fn default() -> Self {
+        Self {
+            quality: Quality::LOSSLESS,
+            prefer_high_quality_stream: true,
+        }
+    }
+}
+
+pub type TidalConfigState = Arc<Mutex<TidalConfig>>;

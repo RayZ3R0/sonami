@@ -11,12 +11,14 @@ pub struct HttpSource {
     reader: Option<Box<dyn Read + Send + Sync>>,
     client: Client,
     _content_type: Option<String>,
+    supports_ranges: bool,
+    range_failed: bool,
 }
 
 impl HttpSource {
     pub fn new(url: &str) -> io::Result<Self> {
         let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .map_err(io::Error::other)?;
 
@@ -44,12 +46,19 @@ impl HttpSource {
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
 
-        let _accept_ranges = resp
+        let supports_ranges = resp
             .headers()
             .get(ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
             .map(|v| v == "bytes")
             .unwrap_or(false);
+
+        log::debug!(
+            "[HttpSource] URL: {}... Content-Length: {:?}, Accept-Ranges: {}",
+            if url.len() > 60 { &url[..60] } else { url },
+            total_size,
+            supports_ranges
+        );
 
         Ok(Self {
             url: url.to_string(),
@@ -58,6 +67,8 @@ impl HttpSource {
             reader: None,
             client,
             _content_type,
+            supports_ranges,
+            range_failed: false,
         })
     }
 
@@ -73,7 +84,13 @@ impl HttpSource {
 
         let mut req = self.client.get(&self.url);
 
-        if self.position > 0 {
+        // Only use Range header if:
+        // 1. Position is not 0 (we need to seek)
+        // 2. Server supports ranges
+        // 3. Range hasn't failed before
+        let use_range = self.position > 0 && self.supports_ranges && !self.range_failed;
+        
+        if use_range {
             req = req.header(RANGE, format!("bytes={}-", self.position));
         }
 
@@ -81,10 +98,36 @@ impl HttpSource {
             .send()
             .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
-        if !resp.status().is_success() {
+        let status = resp.status();
+        
+        // Handle 416 Range Not Satisfiable
+        if status.as_u16() == 416 {
+            log::warn!(
+                "[HttpSource] Range request failed (416). Marking as non-seekable and restarting from beginning."
+            );
+            self.range_failed = true;
+            self.position = 0;
+            
+            // Retry without range header
+            let resp = self.client.get(&self.url)
+                .send()
+                .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
+            
+            if !resp.status().is_success() {
+                return Err(io::Error::other(format!(
+                    "HTTP stream error: {}",
+                    resp.status()
+                )));
+            }
+            
+            self.reader = Some(Box::new(resp));
+            return Ok(());
+        }
+
+        if !status.is_success() {
             return Err(io::Error::other(format!(
                 "HTTP stream error: {}",
-                resp.status()
+                status
             )));
         }
 
@@ -95,7 +138,7 @@ impl HttpSource {
 
 impl Read for HttpSource {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let max_retries = 5;
+        let max_retries = 3;
         let mut attempts = 0;
 
         loop {
@@ -144,6 +187,18 @@ impl Read for HttpSource {
 
 impl Seek for HttpSource {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        // If range requests don't work, we can't actually seek
+        if self.range_failed {
+            return match pos {
+                SeekFrom::Start(0) => Ok(0),
+                SeekFrom::Current(0) => Ok(self.position),
+                _ => Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "Server does not support seeking (Range requests failed)",
+                )),
+            };
+        }
+        
         let new_pos = match pos {
             SeekFrom::Start(p) => p,
             SeekFrom::End(p) => {
@@ -170,7 +225,8 @@ impl Seek for HttpSource {
 
 impl MediaSource for HttpSource {
     fn is_seekable(&self) -> bool {
-        true
+        // Only seekable if range requests work
+        self.supports_ranges && !self.range_failed
     }
 
     fn byte_len(&self) -> Option<u64> {

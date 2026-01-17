@@ -150,7 +150,7 @@ impl LibraryManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
-                t.play_count, t.skip_count, t.last_played_at, t.added_at,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM search_index si
@@ -192,6 +192,7 @@ impl LibraryManager {
             let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
             let added_at: Option<i64> = row.try_get("added_at").ok();
+            let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
@@ -204,6 +205,7 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
                 last_played_at,
@@ -220,7 +222,7 @@ impl LibraryManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
-                t.play_count, t.skip_count, t.last_played_at, t.added_at,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM tracks t
@@ -253,6 +255,7 @@ impl LibraryManager {
             let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
             let added_at: Option<i64> = row.try_get("added_at").ok();
+            let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
@@ -265,6 +268,7 @@ impl LibraryManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
                 last_played_at,
@@ -274,6 +278,84 @@ impl LibraryManager {
         }
 
         Ok(tracks)
+    }
+
+    pub async fn update_track_download_info(
+        &self,
+        track_id_numeric: u64,
+        path: &str,
+        quality: &str,
+    ) -> Result<(), String> {
+        let tid = track_id_numeric as i64;
+        let rows_affected =
+            sqlx::query("UPDATE tracks SET file_path = ?, audio_quality = ? WHERE tidal_id = ?")
+                .bind(path)
+                .bind(quality)
+                .bind(tid)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .rows_affected();
+
+        if rows_affected == 0 {
+            log::warn!(
+                "Downloaded track {} not found in library, offline playback may not work until imported.",
+                track_id_numeric
+            );
+        } else {
+            log::info!(
+                "Updated track {} with download info (path: {}, quality: {})",
+                track_id_numeric,
+                path,
+                quality
+            );
+        }
+        Ok(())
+    }
+
+    pub async fn get_track_local_info(
+        &self,
+        tidal_id: u64,
+    ) -> Result<Option<(String, Option<String>)>, String> {
+        let tid = tidal_id as i64;
+        let row =
+            sqlx::query("SELECT file_path, audio_quality FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL")
+                .bind(tid)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?;
+
+        if let Some(r) = row {
+            let path: String = r.try_get("file_path").unwrap_or_default();
+            let quality: Option<String> = r.try_get("audio_quality").ok();
+            if !path.is_empty() {
+                return Ok(Some((path, quality)));
+            }
+        }
+        Ok(None)
+    }
+
+    pub async fn clear_download_info(&self, tidal_id: u64) -> Result<Option<String>, String> {
+        let tid = tidal_id as i64;
+        
+        // First get the current file path so we can return it for deletion
+        let row = sqlx::query("SELECT file_path FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL")
+            .bind(tid)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        let old_path: Option<String> = row.and_then(|r| r.try_get("file_path").ok());
+        
+        // Clear the download info
+        sqlx::query("UPDATE tracks SET file_path = NULL, audio_quality = NULL WHERE tidal_id = ?")
+            .bind(tid)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        log::info!("Cleared download info for track {}", tidal_id);
+        Ok(old_path)
     }
 
     pub async fn import_tidal_track(

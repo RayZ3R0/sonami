@@ -681,14 +681,14 @@ use super::resolver::UrlResolver;
 use super::source::{file::FileSource, http::HttpSource, prefetch::PrefetchSource, MediaSource};
 
 fn resolve_source(uri: &str, resolver: &UrlResolver) -> Result<Box<dyn MediaSource>, String> {
-    let resolved_uri = resolver.resolve(uri)?;
+    let resolved = resolver.resolve(uri)?;
 
-    if resolved_uri.starts_with("http://") || resolved_uri.starts_with("https://") {
-        let http = HttpSource::new(&resolved_uri).map_err(|e| e.to_string())?;
+    if resolved.path.starts_with("http://") || resolved.path.starts_with("https://") {
+        let http = HttpSource::new(&resolved.path).map_err(|e| e.to_string())?;
         Ok(Box::new(PrefetchSource::new(Box::new(http))))
     } else {
         Ok(Box::new(
-            FileSource::new(&resolved_uri).map_err(|e| e.to_string())?,
+            FileSource::new(&resolved.path).map_err(|e| e.to_string())?,
         ))
     }
 }

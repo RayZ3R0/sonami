@@ -70,7 +70,7 @@ impl EndpointManager {
                 - cache_data.timestamp;
 
             if age < CACHE_TTL_SECONDS {
-                log::info!(
+                log::debug!(
                     "Loaded {} endpoints from cache (age: {}s)",
                     cache_data.endpoints.len(),
                     age
@@ -81,14 +81,14 @@ impl EndpointManager {
                     Some(Instant::now()),
                 ));
             } else {
-                log::info!("Cache expired (age: {}s), fetching from GitHub", age);
+                log::debug!("Cache expired (age: {}s), fetching from GitHub", age);
             }
         }
 
         // Try fetching from GitHub
         match Self::fetch_from_github().await {
             Ok(endpoints) => {
-                log::info!("Fetched {} endpoints from GitHub", endpoints.len());
+                log::debug!("Fetched {} endpoints from GitHub", endpoints.len());
                 Self::save_to_cache(cache_path, &endpoints, None)?;
                 Ok((endpoints, None, Some(Instant::now())))
             }
@@ -239,7 +239,7 @@ impl EndpointManager {
 
         if let Ok(mut sticky_guard) = self.sticky.write() {
             *sticky_guard = Some(new_sticky.clone());
-            log::info!("✓ Sticky endpoint set to: {}", endpoint.name);
+            log::debug!("✓ Sticky endpoint set to: {}", endpoint.name);
 
             // Save to cache
             let _ = Self::save_to_cache(&self.cache_path, &self.endpoints, Some(&new_sticky));
@@ -280,7 +280,7 @@ impl EndpointManager {
             *ts = Some(Instant::now());
         }
 
-        log::info!("Cache refreshed with {} endpoints", self.endpoints.len());
+        log::debug!("Cache refreshed with {} endpoints", self.endpoints.len());
         Ok(())
     }
 }

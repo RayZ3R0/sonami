@@ -157,6 +157,38 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
+const QualityBadge = ({
+  quality,
+  source,
+}: {
+  quality: string;
+  source: "LOCAL" | "STREAM";
+}) => {
+  if (!quality || quality === "UNKNOWN") return null;
+
+  const getLabel = () => {
+    if (source === "LOCAL") return "LOCAL";
+    if (quality === "LOSSLESS") return "HI-FI";
+    if (quality === "HIGH") return "HIGH";
+    return "LOW";
+  };
+
+  const getColor = () => {
+    if (source === "LOCAL") return "bg-theme-surface text-theme-secondary";
+    if (quality === "LOSSLESS") return "bg-yellow-400/10 text-yellow-400 border border-yellow-400/20";
+    if (quality === "HIGH") return "bg-cyan-400/10 text-cyan-400 border border-cyan-400/20";
+    return "bg-theme-surface text-theme-secondary border border-theme-border";
+  };
+
+  return (
+    <div
+      className={`px-1.5 py-[1px] pt-[2px] rounded-[4px] text-[8px] font-bold tracking-wider ml-2 flex items-center justify-center h-4 -mt-0.5 ${getColor()}`}
+    >
+      {getLabel()}
+    </div>
+  );
+};
+
 export const PlayerBar = () => {
   const {
     currentTrack,
@@ -174,6 +206,7 @@ export const PlayerBar = () => {
     isQueueOpen,
     setIsQueueOpen,
     playerBarStyle,
+    playbackQuality,
   } = usePlayer();
   const { currentTime, duration } = usePlaybackProgress();
   const seekBarRef = useRef<HTMLDivElement>(null);
@@ -347,11 +380,19 @@ export const PlayerBar = () => {
                   </div>
                 )}
               </div>
-              <div className="flex flex-col overflow-hidden min-w-0">
-                <MarqueeText
-                  text={currentTrack.title}
-                  className="text-sm font-semibold text-theme-primary leading-tight"
-                />
+              <div className="flex flex-col overflow-hidden min-w-0 justify-center">
+                <div className="flex items-center">
+                  <MarqueeText
+                    text={currentTrack.title}
+                    className="text-sm font-semibold text-theme-primary leading-tight"
+                  />
+                  {playbackQuality && (
+                    <QualityBadge
+                      quality={playbackQuality.quality}
+                      source={playbackQuality.source}
+                    />
+                  )}
+                </div>
                 <span className="text-xs text-theme-secondary truncate">
                   {currentTrack.artist}
                 </span>

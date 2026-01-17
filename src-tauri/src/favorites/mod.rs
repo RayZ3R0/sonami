@@ -71,7 +71,7 @@ impl FavoritesManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
-                t.play_count, t.skip_count, t.last_played_at, t.added_at,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 a.name as artist_name,
                 COALESCE(al.title, '') as album_title,
                 COALESCE(al.cover_url, a.cover_url) as cover_url,
@@ -101,6 +101,7 @@ impl FavoritesManager {
             let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
             let added_at: Option<i64> = row.try_get("added_at").ok();
+            let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
@@ -117,6 +118,7 @@ impl FavoritesManager {
                     .ok()
                     .flatten()
                     .map(|v| v as u64),
+                audio_quality,
                 liked_at: row.try_get("liked_at").ok(),
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
@@ -124,6 +126,13 @@ impl FavoritesManager {
                 added_at,
             });
         }
+
+        if let Some(first) = tracks.first() {
+             log::debug!("Favorites check - First track: id={}, title={}, local_path={:?}, quality={:?}", 
+                first.id, first.title, first.local_path, first.audio_quality);
+        }
+        let downloaded_count = tracks.iter().filter(|t| t.local_path.as_deref().map(|p| !p.is_empty()).unwrap_or(false)).count();
+        log::debug!("Favorites check - Total tracks: {}, Downloaded: {}", tracks.len(), downloaded_count);
 
         Ok(tracks)
     }

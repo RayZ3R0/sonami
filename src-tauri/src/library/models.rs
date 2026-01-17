@@ -40,6 +40,7 @@ pub struct DbTrack {
     pub skip_count: i64,
     pub last_played_at: Option<i64>,
     pub added_at: Option<i64>,
+    pub audio_quality: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -55,6 +56,7 @@ pub struct UnifiedTrack {
 
     pub local_path: Option<String>,
     pub tidal_id: Option<u64>,
+    pub audio_quality: Option<String>,
 
     // Analytics
     pub play_count: u64,

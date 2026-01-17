@@ -3,6 +3,7 @@ import "./styles.css";
 
 import { PlayerProvider } from "./context/PlayerContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { DownloadProvider } from "./context/DownloadContext";
 import { ToastProvider } from "./components/Toast";
 import { InputController } from "./components/InputController";
 import { ContextMenuProvider } from "./context/ContextMenuContext";
@@ -13,8 +14,10 @@ function App() {
       <ToastProvider>
         <ContextMenuProvider>
           <PlayerProvider>
-            <InputController />
-            <AppLayout />
+            <DownloadProvider>
+              <InputController />
+              <AppLayout />
+            </DownloadProvider>
           </PlayerProvider>
         </ContextMenuProvider>
       </ToastProvider>
@@ -23,3 +26,4 @@ function App() {
 }
 
 export default App;
+

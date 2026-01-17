@@ -21,6 +21,18 @@ interface PlaybackInfo {
   is_playing: boolean;
 }
 
+export interface PlaybackQuality {
+  path: string;
+  source: "LOCAL" | "STREAM";
+  quality: string;
+}
+
+export interface PlaybackQuality {
+  path: string;
+  source: "LOCAL" | "STREAM";
+  quality: string;
+}
+
 export type RepeatMode = "off" | "all" | "one";
 
 interface PlaybackProgressContextType {
@@ -86,12 +98,17 @@ interface PlayerContextType {
   lyricsProvider: "netease" | "lrclib";
   setLyricsProvider: (provider: "netease" | "lrclib") => void;
 
+  preferHighQualityStream: boolean;
+  setPreferHighQualityStream: (enabled: boolean) => void;
+
   favorites: Set<string>;
   toggleFavorite: (track: Track) => Promise<void>;
   refreshFavorites: () => Promise<void>;
 
   /** Incremented when playlist/favorites data changes - watch this to trigger re-fetches */
   dataVersion: number;
+
+  playbackQuality: PlaybackQuality | null;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -107,6 +124,7 @@ const STORAGE_KEYS = {
   LOUDNESS_NORMALIZATION: "sonami-loudness-normalization",
   DISCORD_RPC: "sonami-discord-rpc",
   LYRICS_PROVIDER: "sonami-lyrics-provider",
+  PREFER_HIGH_QUALITY_STREAM: "sonami-prefer-high-quality-stream",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -146,6 +164,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return saved === "classic" || saved === "floating" ? saved : "floating";
   });
 
+  const [playbackQuality, setPlaybackQuality] = useState<PlaybackQuality | null>(
+    null,
+  );
+
   const [streamQuality, setStreamQualityState] = useState<
     "LOSSLESS" | "HIGH" | "LOW"
   >(() => {
@@ -176,6 +198,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const saved = localStorage.getItem(STORAGE_KEYS.LYRICS_PROVIDER);
     return saved === "lrclib" ? "lrclib" : "netease";
   });
+
+  const [preferHighQualityStream, setPreferHighQualityStreamState] = useState(
+    () => {
+      const saved = localStorage.getItem(
+        STORAGE_KEYS.PREFER_HIGH_QUALITY_STREAM,
+      );
+      return saved === "true";
+    },
+  );
 
   const seekTarget = useRef<{ time: number; timestamp: number } | null>(null);
 
@@ -257,7 +288,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -277,9 +308,18 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       lastRecordedToken.current = null; // Reset recording for new track
     });
 
+    const unlistenQuality = listen<PlaybackQuality>(
+      "playback-quality-changed",
+      (event) => {
+        console.log("Playback quality changed:", event.payload);
+        setPlaybackQuality(event.payload);
+      },
+    );
+
     return () => {
       cancelAnimationFrame(animationId);
       unlisten.then((f) => f());
+      unlistenQuality.then((f) => f());
     };
   }, []); // Run once, depend on refs
 
@@ -558,9 +598,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(STORAGE_KEYS.PLAYER_BAR_STYLE, style);
   };
 
-  const setStreamQuality = (quality: "LOSSLESS" | "HIGH" | "LOW") => {
+  const setStreamQuality = async (quality: "LOSSLESS" | "HIGH" | "LOW") => {
     setStreamQualityState(quality);
     localStorage.setItem(STORAGE_KEYS.STREAM_QUALITY, quality);
+    try {
+      await invoke("set_tidal_config", {
+        quality,
+        preferHighQualityStream: preferHighQualityStream
+      });
+    } catch (e) {
+      console.error("Failed to sync stream quality:", e);
+    }
   };
 
   const setLoudnessNormalization = async (enabled: boolean) => {
@@ -591,6 +639,22 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(STORAGE_KEYS.LYRICS_PROVIDER, provider);
   };
 
+  const setPreferHighQualityStream = async (enabled: boolean) => {
+    setPreferHighQualityStreamState(enabled);
+    localStorage.setItem(
+      STORAGE_KEYS.PREFER_HIGH_QUALITY_STREAM,
+      enabled.toString(),
+    );
+    try {
+      await invoke("set_tidal_config", {
+        quality: streamQuality,
+        preferHighQualityStream: enabled
+      });
+    } catch (e) {
+      console.error("Failed to sync prefer high quality:", e);
+    }
+  };
+
   // Sync settings with backend on load
   useEffect(() => {
     const syncSettings = async () => {
@@ -601,11 +665,29 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         });
         // Sync Discord RPC
         await invoke("set_discord_rpc_enabled", { enabled: discordRpcEnabled });
+        // Sync Tidal Config
+        await invoke("set_tidal_config", {
+          quality: streamQuality,
+          preferHighQualityStream: preferHighQualityStream
+        });
       } catch (e) {
         console.error("Failed to sync settings:", e);
       }
     };
     syncSettings();
+
+    const unlistenDownloadComplete = listen("download-complete", () => {
+      console.log("Download complete, refreshing library data...");
+      refreshPlaylists();
+      refreshFavorites();
+      // If we had a way to refresh the current playlist details specifically, we'd do it here too.
+      // But bumping dataVersion should signal views to refetch if they depend on it.
+      bumpDataVersion();
+    });
+
+    return () => {
+      unlistenDownloadComplete.then((f) => f());
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -696,10 +778,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setDiscordRpcEnabled,
       lyricsProvider,
       setLyricsProvider,
+      preferHighQualityStream,
+      setPreferHighQualityStream,
       favorites,
       toggleFavorite,
       refreshFavorites,
       dataVersion,
+      playbackQuality,
     }),
     [
       tracks,
@@ -716,11 +801,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       playerBarStyle,
       streamQuality,
       loudnessNormalization,
-      loudnessNormalization,
       discordRpcEnabled,
       lyricsProvider,
+      preferHighQualityStream,
       favorites,
       dataVersion,
+      playbackQuality,
     ],
   );
 

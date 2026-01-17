@@ -99,7 +99,7 @@ impl PlaylistManager {
             r#"
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
-                t.play_count, t.skip_count, t.last_played_at, t.added_at as track_added_at,
+                t.play_count, t.skip_count, t.last_played_at, t.added_at as track_added_at, t.audio_quality,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url,
                 pt.added_at
@@ -136,6 +136,7 @@ impl PlaylistManager {
             let play_count: i64 = row.try_get("play_count").unwrap_or(0);
             let skip_count: i64 = row.try_get("skip_count").unwrap_or(0);
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
+            let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
@@ -148,6 +149,7 @@ impl PlaylistManager {
                 path,
                 local_path,
                 tidal_id: tidal_id.map(|id| id as u64),
+                audio_quality,
                 liked_at: None,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,

@@ -34,7 +34,7 @@ impl TidalClient {
     ) -> Result<Value, TidalError> {
         let endpoints = self.endpoint_manager.get_all_endpoints();
 
-        log::info!(
+        log::debug!(
             "Starting request for {} with {} endpoints",
             operation,
             endpoints.len()
@@ -241,7 +241,20 @@ impl TidalClient {
             )
             .await?;
 
+        // Debug: Log raw API response for quality debugging
+        log::info!(
+            "[get_track] Track {} with quality {:?} - API response keys: {:?}, codec: {:?}",
+            track_id,
+            quality,
+            data.as_object().map(|o| o.keys().collect::<Vec<_>>()),
+            data.get("codec")
+        );
+
         let url = Self::extract_stream_url(&data)?;
+        
+        // Log the stream URL format (truncated for security)
+        let url_preview = if url.len() > 80 { format!("{}...", &url[..80]) } else { url.clone() };
+        log::info!("[get_track] Stream URL format: {}", url_preview);
 
         Ok(TrackStreamInfo {
             url,
@@ -283,16 +296,6 @@ impl TidalClient {
         }
 
         Err(TidalError::NotFound("Stream URL not found".to_string()))
-    }
-
-    pub async fn get_track_metadata(&self, track_id: u64) -> Result<Track, TidalError> {
-        let result = self.search_tracks(&track_id.to_string()).await?;
-
-        result
-            .items
-            .into_iter()
-            .find(|t| t.id == track_id)
-            .ok_or_else(|| TidalError::NotFound(format!("Track {} not found", track_id)))
     }
 
     pub async fn get_album(&self, album_id: u64) -> Result<Album, TidalError> {

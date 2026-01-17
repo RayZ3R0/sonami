@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { getFavorites, removeFavorite, UnifiedTrack } from "../api/favorites";
 import { usePlayer } from "../context/PlayerContext";
+import { useDownload } from "../context/DownloadContext";
 import { Track } from "../types";
+import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { getPlaylistsContainingTrack } from "../api/playlist";
+import { DownloadIndicator } from "./DownloadIndicator";
 
 type SortColumn = "title" | "artist" | "album" | "duration" | "date_added";
 type SortDirection = "asc" | "desc";
@@ -9,7 +13,9 @@ type SortDirection = "asc" | "desc";
 const mapToTrack = (unified: UnifiedTrack): Track => {
   let trackPath = unified.path;
 
-  if ((!trackPath || trackPath.trim() === "") && unified.tidal_id) {
+  // For Tidal tracks, ALWAYS use tidal:ID format so the backend resolver
+  // can decide whether to use local file or stream based on quality preferences
+  if (unified.tidal_id) {
     trackPath = `tidal:${unified.tidal_id}`;
   } else if ((!trackPath || trackPath.trim() === "") && unified.local_path) {
     trackPath = unified.local_path;
@@ -59,7 +65,11 @@ export const LikedSongsView = () => {
     isPlaying,
     dataVersion,
     refreshFavorites,
+    playlists,
+    addToPlaylist,
   } = usePlayer();
+
+  const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } = useDownload();
 
   const [favorites, setFavorites] = useState<UnifiedTrack[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +187,123 @@ export const LikedSongsView = () => {
     }
   };
 
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    track: Track | null;
+    containingPlaylists: Set<string>;
+  }>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    track: null,
+    containingPlaylists: new Set(),
+  });
+
+  const closeContextMenu = () =>
+    setContextMenu((prev) => ({ ...prev, isOpen: false }));
+
+  const handleContextMenu = async (e: React.MouseEvent, track: Track) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("Context Menu Track:", track); // Debug logging
+
+    try {
+      const containing = await getPlaylistsContainingTrack(track.id);
+      setContextMenu({
+        isOpen: true,
+        x: e.clientX,
+        y: e.clientY,
+        track,
+        containingPlaylists: new Set(containing),
+      });
+    } catch (error) {
+      console.error("Failed to fetch containing playlists:", error);
+      setContextMenu({
+        isOpen: true,
+        x: e.clientX,
+        y: e.clientY,
+        track,
+        containingPlaylists: new Set(),
+      });
+    }
+  };
+
+  const menuItems: ContextMenuItem[] = useMemo(() => {
+    if (!contextMenu.track) return [];
+    const track = contextMenu.track;
+
+    const availablePlaylists = playlists.filter(
+      (p) => !contextMenu.containingPlaylists.has(p.id)
+    );
+
+    // Check if track is Tidal track (has tidal_id or numeric ID or path starts with tidal:)
+    const isTidalTrack =
+      "tidal_id" in track ||
+      (track.path && track.path.startsWith("tidal:")) ||
+      /^\d+$/.test(track.id);
+
+    const items: ContextMenuItem[] = [
+      {
+        label: "Play",
+        action: () => {
+          // Need to find the index in sortedFavorites to play appropriately if needed, 
+          // but playTrack usually handles the queue setup. 
+          // mapToTrack logic is needed here actually.
+          const mappedTrack = mapToTrack(track as UnifiedTrack);
+          const tracksForQueue = sortedFavorites.map(mapToTrack);
+          playTrack(mappedTrack, tracksForQueue);
+        }
+      },
+      {
+        label: "Remove from Liked Songs",
+        action: async () => {
+          try {
+            await removeFavorite(track.id);
+            setFavorites((prev) => prev.filter((t) => t.id !== track.id));
+            refreshFavorites();
+          } catch (err) {
+            console.error("Failed to unfavorite:", err);
+          }
+        },
+      },
+      {
+        label: "Add to Playlist",
+        submenu:
+          availablePlaylists.length > 0
+            ? availablePlaylists.map((p) => ({
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
+            : [{ label: "No available playlists", disabled: true }],
+      },
+    ];
+
+    if (isTidalTrack) {
+      items.push({
+        label: "Download",
+        action: () => downloadTrack(track),
+      });
+    }
+
+    return items;
+  }, [contextMenu, playlists, sortedFavorites, playTrack, addToPlaylist, removeFavorite, refreshFavorites, downloadTrack]);
+
+  const handleDownloadAll = async () => {
+    // Filter for Tidal tracks
+    const tidalTracks = sortedFavorites.filter(
+      (t) =>
+        t.tidal_id ||
+        (t.path && t.path.startsWith("tidal:")) ||
+        /^\d+$/.test(t.id),
+    );
+    for (const track of tidalTracks) {
+      await downloadTrack(mapToTrack(track));
+    }
+  };
+
   const SortIndicator = ({ column }: { column: SortColumn }) => {
     if (sortBy !== column) return null;
     return (
@@ -242,11 +369,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -262,6 +388,26 @@ export const LikedSongsView = () => {
               />
             </svg>
             <span className="pt-[2px]">Shuffle</span>
+          </button>
+          <button
+            onClick={handleDownloadAll}
+            disabled={favorites.length === 0}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-theme-surface hover:bg-theme-surface-hover text-theme-primary font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            <span className="pt-[2px]">Download</span>
           </button>
         </div>
       </div>
@@ -284,7 +430,7 @@ export const LikedSongsView = () => {
       ) : (
         <div className="flex flex-col flex-1 overflow-auto px-8">
           {/* Header Row */}
-          <div className="sticky top-0 bg-theme-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+          <div className="sticky top-0 bg-theme-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
             <span>#</span>
             <span
               className="cursor-pointer hover:text-theme-primary transition-colors"
@@ -310,6 +456,7 @@ export const LikedSongsView = () => {
             >
               Date Added <SortIndicator column="date_added" />
             </span>
+            <span></span>
             <span
               className="text-right cursor-pointer hover:text-theme-primary transition-colors"
               onClick={() => handleSort("duration")}
@@ -321,15 +468,16 @@ export const LikedSongsView = () => {
 
           {sortedFavorites.map((track, index) => {
             const isCurrentTrack = currentTrack?.id === track.id;
+            if (index === 0) console.log("First Track Data:", { title: track.title, local_path: track.local_path, audio_quality: track.audio_quality });
             return (
               <div
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-pink-500/10 text-pink-500"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-pink-500/10 text-pink-500"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">
@@ -390,6 +538,7 @@ export const LikedSongsView = () => {
                   >
                     {track.title}
                   </span>
+                  {/* Old download indicator removed */}
                 </div>
 
                 {/* Album */}
@@ -406,9 +555,47 @@ export const LikedSongsView = () => {
                   </span>
                 </div>
 
-                {/* Date Added */}
                 <div className="flex items-center text-sm text-theme-muted">
                   {formatRelativeDate(track.liked_at)}
+                </div>
+
+                {/* Download Indicator */}
+                <div className="flex items-center justify-center">
+                  {(() => {
+                    const unifiedTrack = track as any;
+                    const tidalId = unifiedTrack.tidal_id || (track.path?.startsWith("tidal:") ? track.path.split(":")[1] : null) || (track.id.match(/^\d+$/) ? track.id : null);
+                    const tidalIdStr = tidalId?.toString();
+                    const downloadState = tidalIdStr ? downloads.get(tidalIdStr) : undefined;
+
+                    // Check both: local file exists OR completed in this session (via ref)
+                    const isDownloaded = (unifiedTrack.local_path && unifiedTrack.local_path !== "")
+                      || (unifiedTrack.audio_quality && unifiedTrack.audio_quality !== "")
+                      || (tidalIdStr && isTrackCompleted(tidalIdStr));
+                    const isTidalTrack = !!tidalId;
+
+                    return isTidalTrack ? (
+                      <DownloadIndicator
+                        status={downloadState}
+                        isDownloaded={isDownloaded}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isDownloaded) {
+                            // Delete the downloaded track
+                            const numericTidalId = Number(tidalId);
+                            if (!isNaN(numericTidalId)) {
+                              deleteDownloadedTrack(numericTidalId).then(() => {
+                                // Refresh favorites to update UI
+                                refreshFavorites();
+                              });
+                            }
+                          } else if (!downloadState) {
+                            // Download the track
+                            downloadTrack(mapToTrack(track));
+                          }
+                        }}
+                      />
+                    ) : <span />;
+                  })()}
                 </div>
 
                 {/* Duration */}
@@ -436,6 +623,14 @@ export const LikedSongsView = () => {
             );
           })}
         </div>
+      )}
+      {/* Context Menu */}
+      {contextMenu.isOpen && (
+        <ContextMenu
+          items={menuItems}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={closeContextMenu}
+        />
       )}
     </div>
   );

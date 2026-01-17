@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { searchLibrary, UnifiedTrack, addTidalTrack } from "../api/library";
 import { addFavorite } from "../api/favorites";
 import { usePlayer } from "../context/PlayerContext";
+import { useDownload } from "../context/DownloadContext";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 
 interface TidalTrack {
@@ -49,6 +50,8 @@ const SearchResultItem = ({
   isAdded,
   onAdd,
   onContextMenu,
+  downloadState,
+  isDownloaded,
 }: {
   result: SearchResult;
   index: number;
@@ -60,6 +63,8 @@ const SearchResultItem = ({
   isAdded?: boolean;
   onAdd?: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  downloadState?: { progress: number; status: string };
+  isDownloaded?: boolean;
 }) => {
   return (
     <div
@@ -136,6 +141,31 @@ const SearchResultItem = ({
               Library
             </span>
           )}
+          {downloadState && downloadState.status === "downloading" ? (
+            <div className="w-4 h-4 flex items-center justify-center text-theme-accent" title={`Downloading: ${(downloadState.progress * 100).toFixed(0)}%`}>
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 24 24">
+                <circle className="text-white/10" strokeWidth="3" stroke="currentColor" fill="transparent" r="10" cx="12" cy="12" />
+                <circle
+                  className="text-theme-accent transition-all duration-300 ease-out"
+                  strokeWidth="3"
+                  strokeDasharray={2 * Math.PI * 10}
+                  strokeDashoffset={2 * Math.PI * 10 * (1 - downloadState.progress)}
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="transparent"
+                  r="10"
+                  cx="12"
+                  cy="12"
+                />
+              </svg>
+            </div>
+          ) : isDownloaded ? (
+            <div className="text-theme-accent" title="Downloaded">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          ) : null}
         </div>
         <div className="text-sm text-theme-muted truncate">
           {result.artist}
@@ -155,11 +185,10 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${
-                          isAdded
-                            ? "bg-pink-500/20 text-pink-400 cursor-default"
-                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-                        }
+                        ${isAdded
+              ? "bg-pink-500/20 text-pink-400 cursor-default"
+              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+            }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -248,6 +277,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     refreshFavorites,
     streamQuality,
   } = usePlayer();
+  const { downloads } = useDownload();
   const [query, setQuery] = useState("");
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [tidalResults, setTidalResults] = useState<SearchResult[]>([]);
@@ -546,17 +576,17 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         title: track.title,
         artist: track.artist
           ? {
-              id: track.artist.id || 0,
-              name: track.artist.name,
-              picture: track.artist.picture,
-            }
+            id: track.artist.id || 0,
+            name: track.artist.name,
+            picture: track.artist.picture,
+          }
           : undefined,
         album: track.album
           ? {
-              id: track.album.id || 0,
-              title: track.album.title,
-              cover: track.album.cover,
-            }
+            id: track.album.id || 0,
+            title: track.album.title,
+            cover: track.album.cover,
+          }
           : undefined,
         duration: track.duration,
         audioQuality: track.audioQuality || track.audio_quality,
@@ -794,6 +824,11 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                   onMouseEnter={() => setSelectedIndex(index)}
                   formatDuration={formatDuration}
                   onContextMenu={(e) => handleContextMenu(e, result)}
+                  downloadState={result.tidalId ? downloads.get(result.tidalId.toString()) : undefined}
+                  isDownloaded={(() => {
+                    const t = result.track as UnifiedTrack;
+                    return (!!t.local_path && t.local_path !== "") || (!!t.audio_quality && t.audio_quality !== "");
+                  })()}
                 />
               ))}
             </div>
@@ -825,6 +860,8 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                     isAdded={isAdded}
                     onAdd={(e) => handleAddToLikedSongs(result, e)}
                     onContextMenu={(e) => handleContextMenu(e, result)}
+                    downloadState={result.tidalId ? downloads.get(result.tidalId.toString()) : undefined}
+                    isDownloaded={false}
                   />
                 );
               })}

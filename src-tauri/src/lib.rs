@@ -16,6 +16,7 @@ pub mod tidal;
 
 use audio::AudioManager;
 use discord::DiscordRpcManager;
+use download::DownloadManager;
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -34,6 +35,14 @@ pub fn run() {
 
             let _playlist_manager_placeholder = ();
             app.manage((*discord_rpc).clone());
+
+            // Initialize DownloadManager
+            let download_manager = DownloadManager::new(&handle);
+            app.manage(download_manager);
+
+            // Initialize TidalConfig
+            let tidal_config = std::sync::Arc::new(parking_lot::Mutex::new(tidal::TidalConfig::default()));
+            app.manage(tidal_config);
 
 
             let handle_clone = handle.clone();
@@ -248,6 +257,7 @@ pub fn run() {
             commands::get_tidal_stream_url,
             commands::refresh_tidal_cache,
             commands::fetch_image_as_data_url,
+            commands::set_tidal_config,
             commands::library::get_library_tracks,
             commands::library::get_library_albums,
             commands::library::get_library_artists,
@@ -266,6 +276,12 @@ pub fn run() {
             // Discord Rich Presence
             commands::set_discord_rpc_enabled,
             commands::get_discord_rpc_enabled,
+            // Downloads
+            commands::download::start_download,
+            commands::download::get_download_path,
+            commands::download::set_download_path,
+            commands::download::open_download_folder,
+            commands::download::delete_downloaded_track,
             // Window Management
             commands::is_tiling_wm,
         ])

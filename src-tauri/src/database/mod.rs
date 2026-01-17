@@ -83,6 +83,10 @@ impl DatabaseManager {
                 WHERE play_history.track_id = tracks.id
             );
             "#,
+            // Migration 3: Offline capability
+            r#"
+            ALTER TABLE tracks ADD COLUMN audio_quality TEXT;
+            "#,
         ];
 
         // 3. Apply Migrations

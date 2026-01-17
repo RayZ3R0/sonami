@@ -1,5 +1,6 @@
 use tauri::{AppHandle, Emitter, State};
 
+pub mod download;
 pub mod favorites;
 pub mod history;
 pub mod library;
@@ -148,37 +149,20 @@ pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
     }
 }
 
-async fn resolve_path(
-    path: &str,
-    tidal_state: &crate::tidal::TidalClient,
-) -> Result<String, String> {
-    if path.starts_with("tidal:") {
-        let id_str = path.trim_start_matches("tidal:");
-        let id = id_str.parse::<u64>().map_err(|_| "Invalid Tidal ID")?;
-
-        let quality = crate::tidal::Quality::LOSSLESS;
-        let stream_info = tidal_state
-            .get_track(id, quality)
-            .await
-            .map_err(|e| format!("Failed to resolve Tidal track: {}", e))?;
-
-        Ok(stream_info.url)
-    } else {
-        Ok(path.to_string())
-    }
-}
-
 #[tauri::command]
 pub async fn play_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    tidal_state: State<'_, crate::tidal::TidalClient>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     path: String,
 ) -> Result<(), String> {
-    let play_path = resolve_path(&path, &tidal_state).await?;
+    // Use the smart resolver from audio/resolver.rs
+    let resolved = crate::audio::resolver::resolve_uri(&app, &path).await?;
 
-    state.play(play_path);
+    state.play(resolved.path.clone());
+
+    // Emit quality change event to frontend
+    let _ = app.emit("playback-quality-changed", resolved);
 
     let track = {
         let q = state.queue.read();
@@ -333,7 +317,6 @@ pub async fn set_repeat_mode(
 pub async fn next_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    tidal_state: State<'_, crate::tidal::TidalClient>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
 ) -> Result<(), String> {
     let next_track = {
@@ -342,9 +325,10 @@ pub async fn next_track(
     };
 
     if let Some(ref track) = next_track {
-        match resolve_path(&track.path, &tidal_state).await {
-            Ok(play_path) => {
-                state.play(play_path);
+        match crate::audio::resolver::resolve_uri(&app, &track.path).await {
+            Ok(resolved) => {
+                state.play(resolved.path.clone());
+                let _ = app.emit("playback-quality-changed", resolved);
                 // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
@@ -379,7 +363,6 @@ pub async fn next_track(
 pub async fn prev_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    tidal_state: State<'_, crate::tidal::TidalClient>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
 ) -> Result<(), String> {
     let prev_track = {
@@ -388,9 +371,10 @@ pub async fn prev_track(
     };
 
     if let Some(ref track) = prev_track {
-        match resolve_path(&track.path, &tidal_state).await {
-            Ok(play_path) => {
-                state.play(play_path);
+        match crate::audio::resolver::resolve_uri(&app, &track.path).await {
+            Ok(resolved) => {
+                state.play(resolved.path.clone());
+                let _ = app.emit("playback-quality-changed", resolved);
                 // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
@@ -693,6 +677,29 @@ pub async fn fetch_image_as_data_url(url: String) -> Result<String, String> {
 pub async fn refresh_tidal_cache(
     _state: State<'_, crate::tidal::TidalClient>,
 ) -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_tidal_config(
+    state: State<'_, crate::tidal::TidalConfigState>,
+    quality: String,
+    prefer_high_quality_stream: bool,
+) -> Result<(), String> {
+    let quality_enum = quality
+        .parse::<crate::tidal::Quality>()
+        .unwrap_or(crate::tidal::Quality::LOSSLESS);
+
+    let mut config = state.lock();
+    config.quality = quality_enum;
+    config.prefer_high_quality_stream = prefer_high_quality_stream;
+
+    log::debug!(
+        "Updated Tidal Config: Quality={:?}, PreferHighQuality={}",
+        config.quality,
+        config.prefer_high_quality_stream
+    );
+
     Ok(())
 }
 
