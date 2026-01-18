@@ -191,6 +191,42 @@ const QualityBadge = ({
   );
 };
 
+// Provider source badge for Subsonic/Jellyfin tracks
+const SourceBadge = ({ path }: { path?: string }) => {
+  if (!path) return null;
+
+  // Detect source from URL/path
+  const isSubsonic = path.includes("/rest/stream") || path.includes("subsonic");
+  const isJellyfin = path.includes("jellyfin") || path.includes("/Items/");
+  const isTidal = path.startsWith("tidal:") || path.includes("tidal.com") || path.includes("audio.tidal.com");
+
+  if (isSubsonic) {
+    return (
+      <div className="px-1.5 py-[1px] pt-[2px] rounded-[4px] text-[8px] font-bold tracking-wider ml-2 flex items-center justify-center h-4 -mt-0.5 bg-orange-400/10 text-orange-400 border border-orange-400/20">
+        SUBSONIC
+      </div>
+    );
+  }
+
+  if (isJellyfin) {
+    return (
+      <div className="px-1.5 py-[1px] pt-[2px] rounded-[4px] text-[8px] font-bold tracking-wider ml-2 flex items-center justify-center h-4 -mt-0.5 bg-purple-400/10 text-purple-400 border border-purple-400/20">
+        JELLYFIN
+      </div>
+    );
+  }
+
+  if (isTidal) {
+    return (
+      <div className="px-1.5 py-[1px] pt-[2px] rounded-[4px] text-[8px] font-bold tracking-wider ml-2 flex items-center justify-center h-4 -mt-0.5 bg-blue-400/10 text-blue-400 border border-blue-400/20">
+        TIDAL
+      </div>
+    );
+  }
+
+  return null;
+};
+
 export const PlayerBar = () => {
   const {
     currentTrack,
@@ -395,6 +431,8 @@ export const PlayerBar = () => {
                       source={playbackQuality.source}
                     />
                   )}
+                  <SourceBadge path={currentTrack.path} />
+
                 </div>
                 <span className="text-xs text-theme-secondary truncate">
                   {currentTrack.artist}

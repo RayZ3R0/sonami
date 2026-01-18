@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { searchLibrary, UnifiedTrack, addTidalTrack } from "../api/library";
 import { addFavorite } from "../api/favorites";
+import { getProviderConfigs, ProviderConfig } from "../api/providers";
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
@@ -18,7 +19,7 @@ interface TidalTrack {
 
 interface SearchResult {
   id: string;
-  type: "local" | "tidal";
+  type: "local" | "tidal" | "subsonic" | "jellyfin";
   title: string;
   artist: string;
   album: string;
@@ -141,6 +142,21 @@ const SearchResultItem = ({
               Library
             </span>
           )}
+          {result.type === "tidal" && (
+            <span className="text-[9px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
+              Tidal
+            </span>
+          )}
+          {result.type === "subsonic" && (
+            <span className="text-[9px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
+              Subsonic
+            </span>
+          )}
+          {result.type === "jellyfin" && (
+            <span className="text-[9px] font-bold text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
+              Jellyfin
+            </span>
+          )}
           {downloadState && downloadState.status === "downloading" ? (
             <div
               className="w-4 h-4 flex items-center justify-center text-theme-accent"
@@ -208,11 +224,10 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${
-                          isAdded
-                            ? "bg-pink-500/20 text-pink-400 cursor-default"
-                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-                        }
+                        ${isAdded
+              ? "bg-pink-500/20 text-pink-400 cursor-default"
+              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+            }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -305,8 +320,13 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   const [query, setQuery] = useState("");
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [tidalResults, setTidalResults] = useState<SearchResult[]>([]);
+  const [subsonicResults, setSubsonicResults] = useState<SearchResult[]>([]);
+  const [jellyfinResults, setJellyfinResults] = useState<SearchResult[]>([]);
   const [loadingLocal, setLoadingLocal] = useState(false);
   const [loadingTidal, setLoadingTidal] = useState(false);
+  const [loadingSubsonic, setLoadingSubsonic] = useState(false);
+  const [loadingJellyfin, setLoadingJellyfin] = useState(false);
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [addedTracks, setAddedTracks] = useState<Set<number>>(new Set());
 
@@ -336,17 +356,22 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   );
 
   const allResults = useMemo(() => {
-    return [...localResults, ...filteredTidalResults];
-  }, [localResults, filteredTidalResults]);
+    return [...localResults, ...filteredTidalResults, ...subsonicResults, ...jellyfinResults];
+  }, [localResults, filteredTidalResults, subsonicResults, jellyfinResults]);
 
   useEffect(() => {
     if (isOpen) {
       setQuery("");
       setLocalResults([]);
       setTidalResults([]);
+      setSubsonicResults([]);
+      setJellyfinResults([]);
       setSelectedIndex(0);
       setAddedTracks(new Set());
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      // Fetch configured providers
+      getProviderConfigs().then(setProviderConfigs).catch(console.error);
     }
   }, [isOpen]);
 
@@ -457,6 +482,106 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     return () => clearTimeout(timer);
   }, [debouncedQuery]);
 
+  // Subsonic search effect
+  useEffect(() => {
+    const activeQuery = debouncedQuery;
+    const subsonicConfigured = providerConfigs.some(c => c.provider_id === "subsonic");
+
+    if (!activeQuery || activeQuery.length < 2 || !subsonicConfigured) {
+      setSubsonicResults([]);
+      return;
+    }
+
+    const searchSubsonic = async () => {
+      setLoadingSubsonic(true);
+      try {
+        console.log("Searching Subsonic for:", activeQuery);
+        const response: any = await invoke("search_music", {
+          query: activeQuery,
+          providerId: "subsonic",
+        });
+
+        if (currentQueryRef.current !== activeQuery) return;
+
+        const tracks = response.tracks || [];
+        setSubsonicResults(
+          tracks.slice(0, 15).map((track: any) => ({
+            id: `subsonic-${track.id}`,
+            type: "subsonic" as const,
+            title: track.title,
+            artist: track.artist || "Unknown Artist",
+            album: track.album || "",
+            duration: track.duration || 0,
+            cover: track.cover_url,
+            track,
+          })),
+        );
+      } catch (e) {
+        if (currentQueryRef.current === activeQuery) {
+          console.error("Subsonic search failed:", e);
+          setSubsonicResults([]);
+        }
+      } finally {
+        if (currentQueryRef.current === activeQuery) {
+          setLoadingSubsonic(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(searchSubsonic, 200);
+    return () => clearTimeout(timer);
+  }, [debouncedQuery, providerConfigs]);
+
+  // Jellyfin search effect
+  useEffect(() => {
+    const activeQuery = debouncedQuery;
+    const jellyfinConfigured = providerConfigs.some(c => c.provider_id === "jellyfin");
+
+    if (!activeQuery || activeQuery.length < 2 || !jellyfinConfigured) {
+      setJellyfinResults([]);
+      return;
+    }
+
+    const searchJellyfin = async () => {
+      setLoadingJellyfin(true);
+      try {
+        console.log("Searching Jellyfin for:", activeQuery);
+        const response: any = await invoke("search_music", {
+          query: activeQuery,
+          providerId: "jellyfin",
+        });
+
+        if (currentQueryRef.current !== activeQuery) return;
+
+        const tracks = response.tracks || [];
+        setJellyfinResults(
+          tracks.slice(0, 15).map((track: any) => ({
+            id: `jellyfin-${track.id}`,
+            type: "jellyfin" as const,
+            title: track.title,
+            artist: track.artist || "Unknown Artist",
+            album: track.album || "",
+            duration: track.duration || 0,
+            cover: track.cover_url,
+            track,
+          })),
+        );
+      } catch (e) {
+        if (currentQueryRef.current === activeQuery) {
+          console.error("Jellyfin search failed:", e);
+          setJellyfinResults([]);
+        }
+      } finally {
+        if (currentQueryRef.current === activeQuery) {
+          setLoadingJellyfin(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(searchJellyfin, 200);
+    return () => clearTimeout(timer);
+  }, [debouncedQuery, providerConfigs]);
+
   useEffect(() => {
     setSelectedIndex(0);
   }, [allResults.length]);
@@ -559,7 +684,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
       const track = result.track as UnifiedTrack;
       playTrack(track as any, [track] as any);
       onClose();
-    } else {
+    } else if (result.type === "tidal") {
       const track = result.track as TidalTrack;
       try {
         const coverUrl = track.album?.cover
@@ -578,6 +703,25 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         onClose();
       } catch (e) {
         console.error("Failed to play Tidal track:", e);
+      }
+    } else if (result.type === "subsonic" || result.type === "jellyfin") {
+      // Use generic provider track play command
+      try {
+        const providerId = result.type;
+        const trackId = result.id.replace(`${providerId}-`, "");
+
+        await invoke("play_provider_track", {
+          providerId,
+          trackId,
+          title: result.title,
+          artist: result.artist,
+          album: result.album,
+          duration: result.duration,
+          coverUrl: result.cover,
+        });
+        onClose();
+      } catch (e) {
+        console.error(`Failed to play ${result.type} track:`, e);
       }
     }
   };
@@ -600,17 +744,17 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         title: track.title,
         artist: track.artist
           ? {
-              id: track.artist.id || 0,
-              name: track.artist.name,
-              picture: track.artist.picture,
-            }
+            id: track.artist.id || 0,
+            name: track.artist.name,
+            picture: track.artist.picture,
+          }
           : undefined,
         album: track.album
           ? {
-              id: track.album.id || 0,
-              title: track.album.title,
-              cover: track.album.cover,
-            }
+            id: track.album.id || 0,
+            title: track.album.title,
+            cover: track.album.cover,
+          }
           : undefined,
         duration: track.duration,
         audioQuality: track.audioQuality || track.audio_quality,
@@ -912,6 +1056,64 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 color="bg-blue-500"
                 count={4}
               />
+            </div>
+          )}
+
+          {/* Subsonic Results Section */}
+          {subsonicResults.length > 0 && (
+            <div className="py-2 border-t border-white/5">
+              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-orange-500" />
+                From Subsonic
+                {loadingSubsonic && (
+                  <span className="text-theme-muted/50">(loading...)</span>
+                )}
+              </div>
+              {subsonicResults.map((result, index) => {
+                const globalIndex = localResults.length + filteredTidalResults.length + index;
+                return (
+                  <SearchResultItem
+                    key={result.id}
+                    result={result}
+                    index={globalIndex}
+                    isSelected={selectedIndex === globalIndex}
+                    onPlay={() => handlePlay(result)}
+                    onMouseEnter={() => setSelectedIndex(globalIndex)}
+                    formatDuration={formatDuration}
+                    onContextMenu={(e) => handleContextMenu(e, result)}
+                    isDownloaded={false}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* Jellyfin Results Section */}
+          {jellyfinResults.length > 0 && (
+            <div className="py-2 border-t border-white/5">
+              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                From Jellyfin
+                {loadingJellyfin && (
+                  <span className="text-theme-muted/50">(loading...)</span>
+                )}
+              </div>
+              {jellyfinResults.map((result, index) => {
+                const globalIndex = localResults.length + filteredTidalResults.length + subsonicResults.length + index;
+                return (
+                  <SearchResultItem
+                    key={result.id}
+                    result={result}
+                    index={globalIndex}
+                    isSelected={selectedIndex === globalIndex}
+                    onPlay={() => handlePlay(result)}
+                    onMouseEnter={() => setSelectedIndex(globalIndex)}
+                    formatDuration={formatDuration}
+                    onContextMenu={(e) => handleContextMenu(e, result)}
+                    isDownloaded={false}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

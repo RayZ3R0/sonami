@@ -5,6 +5,7 @@ pub mod favorites;
 pub mod history;
 pub mod library;
 pub mod playlist;
+pub mod providers;
 pub mod spotify;
 
 use crate::audio::AudioManager;
@@ -15,6 +16,8 @@ use lofty::probe::Probe;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use crate::providers::ProviderManager;
+use crate::models::SearchResults;
 
 const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "aiff", "ape", "opus", "webm",
@@ -826,4 +829,121 @@ pub fn is_tiling_wm() -> bool {
     {
         false
     }
+}
+
+// ============================================================================
+// Generic Provider Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn search_music(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    query: String,
+    provider_id: Option<String>,
+) -> Result<SearchResults, String> {
+    let provider = if let Some(id) = provider_id {
+        state.get_provider(&id).await.ok_or("Provider not found".to_string())?
+    } else {
+        state.get_active_provider().await.ok_or("No active provider".to_string())?
+    };
+
+    provider.search(&query).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_music_stream_url(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    track_id: String,
+    provider_id: String,
+    quality: Option<String>,
+) -> Result<String, String> {
+    let provider = state.get_provider(&provider_id).await.ok_or("Provider not found".to_string())?;
+
+    let q = if let Some(qs) = quality {
+        qs.parse::<crate::models::Quality>().unwrap_or(crate::models::Quality::LOSSLESS)
+    } else {
+        crate::models::Quality::LOSSLESS 
+    };
+
+    let info = provider.get_stream_url(&track_id, q).await.map_err(|e| e.to_string())?;
+    Ok(info.url)
+}
+
+#[tauri::command]
+pub async fn get_providers_list(state: State<'_, std::sync::Arc<ProviderManager>>) -> Result<Vec<String>, String> {
+    Ok(state.list_providers().await)
+}
+
+#[tauri::command]
+pub async fn set_active_provider(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+) -> Result<(), String> {
+    state.set_active_provider(provider_id).await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn play_provider_track(
+    app: AppHandle,
+    audio_state: State<'_, AudioManager>,
+    provider_manager: State<'_, std::sync::Arc<ProviderManager>>,
+    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    provider_id: String,
+    track_id: String,
+    title: String,
+    artist: String,
+    album: String,
+    duration: u64,
+    cover_url: Option<String>,
+) -> Result<(), String> {
+    // Get stream URL from provider
+    let provider = provider_manager.get_provider(&provider_id).await
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
+    let stream_info = provider.get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let track = Track {
+        id: track_id,
+        title,
+        artist,
+        album,
+        duration,
+        cover_image: cover_url,
+        path: stream_info.url.clone(),
+    };
+
+    {
+        let mut q = audio_state.queue.write();
+        q.add_to_queue(track.clone());
+    }
+
+    audio_state.play(stream_info.url);
+
+    // Update media controls with track info
+    audio_state.media_controls.set_metadata(
+        &track.title,
+        &track.artist,
+        &track.album,
+        track.cover_image.as_deref(),
+        track.duration as f64,
+    );
+    audio_state.media_controls.set_playback(true, Some(0.0));
+
+    // Update Discord presence
+    discord_rpc.set_playing(
+        crate::discord::TrackInfo {
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            album: track.album.clone(),
+            duration_secs: track.duration,
+            cover_url: track.cover_image.clone(),
+        },
+        0,
+    );
+
+    let _ = app.emit("track-changed", track);
+    Ok(())
 }

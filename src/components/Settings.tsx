@@ -3,6 +3,13 @@ import { useTheme, Theme } from "../context/ThemeContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
 import { open } from "@tauri-apps/plugin-dialog";
+import {
+  configureSubsonic,
+  configureJellyfin,
+  getProviderConfigs,
+  removeProviderConfig,
+  ProviderConfig,
+} from "../api/providers";
 
 
 const ArrowRightIcon = () => (
@@ -213,7 +220,7 @@ const ThemePreviewCard = ({
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: "appearance" | "playback";
+  defaultTab?: "appearance" | "playback" | "services";
 }
 
 export const Settings = ({
@@ -228,8 +235,6 @@ export const Settings = ({
     setCrossfade,
     playerBarStyle,
     setPlayerBarStyle,
-    streamQuality,
-    setStreamQuality,
     loudnessNormalization,
     setLoudnessNormalization,
     discordRpcEnabled,
@@ -239,9 +244,73 @@ export const Settings = ({
     preferHighQualityStream,
     setPreferHighQualityStream,
   } = usePlayer();
-  const [activeTab, setActiveTab] = useState<"appearance" | "playback">(
+  const [activeTab, setActiveTab] = useState<"appearance" | "playback" | "services">(
     defaultTab,
   );
+
+  // Provider configuration state
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
+  const [subsonicForm, setSubsonicForm] = useState({ url: "", username: "", password: "" });
+  const [jellyfinForm, setJellyfinForm] = useState({ url: "", username: "", password: "" });
+  const [subsonicLoading, setSubsonicLoading] = useState(false);
+  const [jellyfinLoading, setJellyfinLoading] = useState(false);
+  const [subsonicError, setSubsonicError] = useState<string | null>(null);
+  const [jellyfinError, setJellyfinError] = useState<string | null>(null);
+
+  const subsonicConfig = providerConfigs.find(c => c.provider_id === "subsonic");
+  const jellyfinConfig = providerConfigs.find(c => c.provider_id === "jellyfin");
+
+  const loadProviderConfigs = async () => {
+    try {
+      const configs = await getProviderConfigs();
+      setProviderConfigs(configs);
+    } catch (e) {
+      console.error("Failed to load provider configs:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === "services") {
+      loadProviderConfigs();
+    }
+  }, [isOpen, activeTab]);
+
+  const handleSubsonicConnect = async () => {
+    setSubsonicError(null);
+    setSubsonicLoading(true);
+    try {
+      await configureSubsonic(subsonicForm.url, subsonicForm.username, subsonicForm.password);
+      await loadProviderConfigs();
+      setSubsonicForm({ url: "", username: "", password: "" });
+    } catch (e: any) {
+      setSubsonicError(e.toString());
+    } finally {
+      setSubsonicLoading(false);
+    }
+  };
+
+  const handleJellyfinConnect = async () => {
+    setJellyfinError(null);
+    setJellyfinLoading(true);
+    try {
+      await configureJellyfin(jellyfinForm.url, jellyfinForm.username, jellyfinForm.password);
+      await loadProviderConfigs();
+      setJellyfinForm({ url: "", username: "", password: "" });
+    } catch (e: any) {
+      setJellyfinError(e.toString());
+    } finally {
+      setJellyfinLoading(false);
+    }
+  };
+
+  const handleDisconnect = async (providerId: string) => {
+    try {
+      await removeProviderConfig(providerId);
+      await loadProviderConfigs();
+    } catch (e) {
+      console.error("Failed to disconnect:", e);
+    }
+  };
   const {
     downloadPath,
     setDownloadPath,
@@ -362,6 +431,24 @@ export const Settings = ({
             >
               Playback
               {activeTab === "playback" && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ background: theme.colors.accent }}
+                />
+              )}
+            </button>
+            <button
+              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "services" ? "text-theme-primary" : "text-theme-muted"}`}
+              onClick={() => setActiveTab("services")}
+              style={{
+                color:
+                  activeTab === "services"
+                    ? theme.colors.textPrimary
+                    : theme.colors.textSecondary,
+              }}
+            >
+              Services
+              {activeTab === "services" && (
                 <div
                   className="absolute bottom-0 left-0 right-0 h-0.5"
                   style={{ background: theme.colors.accent }}
@@ -524,75 +611,6 @@ export const Settings = ({
 
             {activeTab === "playback" && (
               <div className="space-y-6">
-                {/* Stream Quality Section */}
-                <div
-                  className="p-4 rounded-xl space-y-4"
-                  style={{ background: theme.colors.surface }}
-                >
-                  <div>
-                    <h3
-                      className="font-medium"
-                      style={{ color: theme.colors.textPrimary }}
-                    >
-                      Stream Quality
-                    </h3>
-                    <p
-                      className="text-xs mt-1"
-                      style={{ color: theme.colors.textSecondary }}
-                    >
-                      Audio quality for Tidal streaming
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        {
-                          value: "LOSSLESS",
-                          label: "Lossless",
-                          desc: "FLAC 16-bit/44.1kHz",
-                        },
-                        { value: "HIGH", label: "High", desc: "AAC 320kbps" },
-                        { value: "LOW", label: "Low", desc: "AAC 96kbps" },
-                      ] as const
-                    ).map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => setStreamQuality(option.value)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${streamQuality === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                          }`}
-                        style={{
-                          background:
-                            streamQuality === option.value
-                              ? theme.colors.accentMuted
-                              : theme.colors.surfaceHover,
-                          borderColor:
-                            streamQuality === option.value
-                              ? theme.colors.accent
-                              : theme.colors.border,
-                          borderWidth: "1px",
-                          borderStyle: "solid",
-                          // @ts-ignore
-                          "--tw-ring-color": theme.colors.accent,
-                        }}
-                      >
-                        <div
-                          className="text-sm font-medium"
-                          style={{ color: theme.colors.textPrimary }}
-                        >
-                          {option.label}
-                        </div>
-                        <div
-                          className="text-xs mt-0.5"
-                          style={{ color: theme.colors.textMuted }}
-                        >
-                          {option.desc}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Prefer High Quality Stream Section */}
                 <div
@@ -877,6 +895,263 @@ export const Settings = ({
                       Open
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "services" && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div>
+                  <h3
+                    className="text-xs font-semibold uppercase tracking-wider mb-1"
+                    style={{ color: theme.colors.textMuted }}
+                  >
+                    Self-Hosted Services
+                  </h3>
+                  <p
+                    className="text-xs"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Connect your own music servers
+                  </p>
+                </div>
+
+                {/* Subsonic / Navidrome Card */}
+                <div
+                  className="p-4 rounded-xl space-y-4"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                        style={{ background: theme.colors.surfaceHover }}
+                      >
+                        🎵
+                      </div>
+                      <div>
+                        <h3
+                          className="font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          Subsonic / Navidrome
+                        </h3>
+                        <p
+                          className="text-xs"
+                          style={{ color: subsonicConfig ? theme.colors.accent : theme.colors.textSecondary }}
+                        >
+                          {subsonicConfig ? `Connected to ${subsonicConfig.server_url}` : "Not configured"}
+                        </p>
+                      </div>
+                    </div>
+                    {subsonicConfig && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: theme.colors.accent }}
+                      />
+                    )}
+                  </div>
+
+                  {subsonicConfig ? (
+                    <button
+                      onClick={() => handleDisconnect("subsonic")}
+                      className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Server URL (e.g., https://music.example.com)"
+                          value={subsonicForm.url}
+                          onChange={(e) => setSubsonicForm(f => ({ ...f, url: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          style={{
+                            background: theme.colors.surfaceHover,
+                            color: theme.colors.textPrimary,
+                            border: `1px solid ${theme.colors.border}`,
+                          }}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Username"
+                            value={subsonicForm.username}
+                            onChange={(e) => setSubsonicForm(f => ({ ...f, username: e.target.value }))}
+                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: theme.colors.surfaceHover,
+                              color: theme.colors.textPrimary,
+                              border: `1px solid ${theme.colors.border}`,
+                            }}
+                          />
+                          <input
+                            type="password"
+                            placeholder="Password"
+                            value={subsonicForm.password}
+                            onChange={(e) => setSubsonicForm(f => ({ ...f, password: e.target.value }))}
+                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: theme.colors.surfaceHover,
+                              color: theme.colors.textPrimary,
+                              border: `1px solid ${theme.colors.border}`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {subsonicError && (
+                        <p
+                          className="text-xs"
+                          style={{ color: "#ef4444" }}
+                        >
+                          {subsonicError}
+                        </p>
+                      )}
+                      <button
+                        onClick={handleSubsonicConnect}
+                        disabled={subsonicLoading || !subsonicForm.url || !subsonicForm.username || !subsonicForm.password}
+                        className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        style={{
+                          background: theme.colors.accent,
+                          color: theme.colors.textInverse,
+                        }}
+                      >
+                        {subsonicLoading ? "Connecting..." : "Connect"}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Jellyfin Card */}
+                <div
+                  className="p-4 rounded-xl space-y-4"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                        style={{ background: theme.colors.surfaceHover }}
+                      >
+                        🍞
+                      </div>
+                      <div>
+                        <h3
+                          className="font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          Jellyfin
+                        </h3>
+                        <p
+                          className="text-xs"
+                          style={{ color: jellyfinConfig ? theme.colors.accent : theme.colors.textSecondary }}
+                        >
+                          {jellyfinConfig ? `Connected to ${jellyfinConfig.server_url}` : "Not configured"}
+                        </p>
+                      </div>
+                    </div>
+                    {jellyfinConfig && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: theme.colors.accent }}
+                      />
+                    )}
+                  </div>
+
+                  {jellyfinConfig ? (
+                    <button
+                      onClick={() => handleDisconnect("jellyfin")}
+                      className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Server URL (e.g., https://jellyfin.example.com)"
+                          value={jellyfinForm.url}
+                          onChange={(e) => setJellyfinForm(f => ({ ...f, url: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          style={{
+                            background: theme.colors.surfaceHover,
+                            color: theme.colors.textPrimary,
+                            border: `1px solid ${theme.colors.border}`,
+                          }}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Username"
+                            value={jellyfinForm.username}
+                            onChange={(e) => setJellyfinForm(f => ({ ...f, username: e.target.value }))}
+                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: theme.colors.surfaceHover,
+                              color: theme.colors.textPrimary,
+                              border: `1px solid ${theme.colors.border}`,
+                            }}
+                          />
+                          <input
+                            type="password"
+                            placeholder="Password"
+                            value={jellyfinForm.password}
+                            onChange={(e) => setJellyfinForm(f => ({ ...f, password: e.target.value }))}
+                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: theme.colors.surfaceHover,
+                              color: theme.colors.textPrimary,
+                              border: `1px solid ${theme.colors.border}`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {jellyfinError && (
+                        <p
+                          className="text-xs"
+                          style={{ color: "#ef4444" }}
+                        >
+                          {jellyfinError}
+                        </p>
+                      )}
+                      <button
+                        onClick={handleJellyfinConnect}
+                        disabled={jellyfinLoading || !jellyfinForm.url || !jellyfinForm.username || !jellyfinForm.password}
+                        className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        style={{
+                          background: theme.colors.accent,
+                          color: theme.colors.textInverse,
+                        }}
+                      >
+                        {jellyfinLoading ? "Connecting..." : "Connect"}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Info Note */}
+                <div
+                  className="p-3 rounded-lg text-xs"
+                  style={{
+                    background: theme.colors.surfaceHover,
+                    color: theme.colors.textSecondary,
+                  }}
+                >
+                  <p>
+                    After connecting, you can search for music from your server using the search palette.
+                  </p>
                 </div>
               </div>
             )}

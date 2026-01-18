@@ -83,9 +83,21 @@ impl DatabaseManager {
                 WHERE play_history.track_id = tracks.id
             );
             "#,
-            // Migration 3: Offline capability
+            // Migration 4: Offline capability
             r#"
             ALTER TABLE tracks ADD COLUMN audio_quality TEXT;
+            "#,
+            // Migration 5: Provider configs for self-hosted services
+            r#"
+            CREATE TABLE IF NOT EXISTS provider_configs (
+                provider_id TEXT PRIMARY KEY,
+                server_url TEXT NOT NULL,
+                username TEXT NOT NULL,
+                password TEXT NOT NULL,
+                enabled INTEGER DEFAULT 1,
+                created_at INTEGER DEFAULT (strftime('%s', 'now')),
+                updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+            );
             "#,
         ];
 

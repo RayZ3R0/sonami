@@ -12,6 +12,10 @@ pub mod media_controls;
 pub mod playlist;
 pub mod queue;
 pub mod spotify;
+pub mod models;
+pub mod providers;
+pub mod subsonic;
+pub mod jellyfin;
 pub mod tidal;
 
 use audio::AudioManager;
@@ -44,9 +48,15 @@ pub fn run() {
             let tidal_config = std::sync::Arc::new(parking_lot::Mutex::new(tidal::TidalConfig::default()));
             app.manage(tidal_config);
 
+            // Initialize ProviderManager
+            let provider_manager = std::sync::Arc::new(providers::ProviderManager::new());
+            app.manage(provider_manager.clone());
 
+
+            let provider_manager_clone = provider_manager.clone();
             let handle_clone = handle.clone();
             tauri::async_runtime::spawn(async move {
+                // Initialize Tidal Client
                 match tidal::TidalClient::new().await {
                     Ok(client) => {
                         handle_clone.manage(client);
@@ -56,9 +66,21 @@ pub fn run() {
                         log::error!("Failed to initialize Tidal client: {}", e);
                     }
                 }
+
+                // Initialize Tidal Provider
+                match tidal::provider::TidalProvider::new().await {
+                    Ok(provider) => {
+                        provider_manager_clone.register_provider(std::sync::Arc::new(provider)).await;
+                        log::info!("Tidal Provider registered successfully");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to initialize Tidal Provider: {}", e);
+                    }
+                }
             });
 
 
+            let provider_manager_for_db = provider_manager.clone();
             let handle_clone_db = handle.clone();
             tauri::async_runtime::spawn(async move {
                 match database::DatabaseManager::new(&handle_clone_db).await {
@@ -75,10 +97,45 @@ pub fn run() {
                         let fav_manager = favorites::FavoritesManager::new(pool.clone());
                         handle_clone_db.manage(fav_manager);
 
-                        let hist_manager = history::PlayHistoryManager::new(pool);
+                        let hist_manager = history::PlayHistoryManager::new(pool.clone());
                         handle_clone_db.manage(hist_manager);
 
                         log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
+
+                        // Load configured providers from database
+                        let configs: Vec<(String, String, String, String)> = sqlx::query_as(
+                            "SELECT provider_id, server_url, username, password FROM provider_configs WHERE enabled = 1"
+                        )
+                        .fetch_all(&pool)
+                        .await
+                        .unwrap_or_default();
+
+                        for (provider_id, server_url, username, password) in configs {
+                            match provider_id.as_str() {
+                                "subsonic" => {
+                                    let provider = subsonic::SubsonicProvider::with_config(
+                                        server_url.clone(), username, password
+                                    );
+                                    if provider.ping().await.is_ok() {
+                                        provider_manager_for_db.register_provider(std::sync::Arc::new(provider)).await;
+                                        log::info!("Loaded Subsonic provider from database for {}", server_url);
+                                    } else {
+                                        log::warn!("Failed to connect to saved Subsonic server: {}", server_url);
+                                    }
+                                }
+                                "jellyfin" => {
+                                    let mut provider = jellyfin::JellyfinProvider::new();
+                                    provider.server_url = server_url.clone();
+                                    if provider.authenticate(&username, &password).await.is_ok() {
+                                        provider_manager_for_db.register_provider(std::sync::Arc::new(provider)).await;
+                                        log::info!("Loaded Jellyfin provider from database for {}", server_url);
+                                    } else {
+                                        log::warn!("Failed to authenticate to saved Jellyfin server: {}", server_url);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                     Err(e) => {
                         log::error!("Failed to initialize database: {}", e);
@@ -284,6 +341,17 @@ pub fn run() {
             commands::download::delete_downloaded_track,
             // Window Management
             commands::is_tiling_wm,
+            // Generic Provider Commands
+            commands::search_music,
+            commands::get_music_stream_url,
+            commands::get_providers_list,
+            commands::set_active_provider,
+            commands::play_provider_track,
+            // Provider Configuration
+            commands::providers::configure_subsonic,
+            commands::providers::configure_jellyfin,
+            commands::providers::get_provider_configs,
+            commands::providers::remove_provider_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
