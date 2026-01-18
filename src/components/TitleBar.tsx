@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type } from "@tauri-apps/plugin-os";
 import { invoke } from "@tauri-apps/api/core";
-import { Settings, SettingsButton, ThemeButton } from "./Settings";
+import { SettingsButton, ThemeButton } from "./Settings";
 import { captureAppScreenshot } from "../utils/screenshot";
+import { usePlayer } from "../context/PlayerContext";
 
 const MinusIcon = () => (
   <svg width="10" height="10" viewBox="0 0 10.2 1" fill="currentColor">
@@ -34,23 +35,26 @@ interface TitleBarProps {
   onSearchClick?: () => void;
   activeTab?: string;
   setActiveTab?: (tab: string) => void;
+  onOpenSettings?: (tab: "appearance" | "playback") => void;
 }
 
 export const TitleBar = ({
   onSearchClick,
   activeTab,
   setActiveTab,
+  onOpenSettings
 }: TitleBarProps) => {
+  const { setIsSettingsOpen } = usePlayer();
   const [osType, setOsType] = useState<string>("windows");
   const [isTilingWM, setIsTilingWM] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
-    "appearance",
-  );
 
   const openSettings = (tab: "appearance" | "playback") => {
-    setSettingsTab(tab);
-    setIsSettingsOpen(true);
+    if (onOpenSettings) {
+      onOpenSettings(tab);
+    } else {
+      // Fallback if not provided (shouldn't happen in AppLayout)
+      setIsSettingsOpen(true);
+    }
   };
 
   const [isCapturing, setIsCapturing] = useState(false);
@@ -175,11 +179,10 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-              activeTab === "home"
-                ? "bg-theme-surface-active text-theme-primary"
-                : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
+            className={`flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
+              ? "bg-theme-surface-active text-theme-primary"
+              : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+              }`}
             title="Home"
           >
             <svg
@@ -269,11 +272,7 @@ export const TitleBar = ({
         )}
       </div>
 
-      <Settings
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        defaultTab={settingsTab}
-      />
+
     </div>
   );
 };

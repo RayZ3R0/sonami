@@ -4,10 +4,11 @@ import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
 import { open } from "@tauri-apps/plugin-dialog";
 
-const CloseIcon = () => (
+
+const ArrowRightIcon = () => (
   <svg
-    width="20"
-    height="20"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -15,7 +16,8 @@ const CloseIcon = () => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M18 6L6 18M6 6l12 12" />
+    <path d="M5 12h14" />
+    <path d="M12 5l7 7-7 7" />
   </svg>
 );
 
@@ -85,11 +87,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -262,7 +263,7 @@ export const Settings = ({
     }
   }, [isOpen, defaultTab]);
 
-  if (!isOpen) return null;
+  // if (!isOpen) return null; <-- Removed early return to allow AnimatePresence to work
 
   // Group themes by type (light/dark)
   const lightThemes = availableThemes.filter(
@@ -296,238 +297,198 @@ export const Settings = ({
     </button>
   );
 
+  // if (!isOpen) return null;
+
   return (
     <>
-      <div
-        className="fixed inset-0 z-[199] bg-black/50 backdrop-blur-[2px] animate-fade-in"
-        onClick={onClose}
-      />
+
 
       <div
-        className="fixed inset-y-0 right-0 z-[200] w-full max-w-lg flex flex-col animate-slide-in-right rounded-l-2xl overflow-hidden shadow-2xl"
-        style={{
-          background: `linear-gradient(135deg, ${theme.colors.background} 0%, ${theme.colors.backgroundSecondary} 100%)`,
-        }}
+        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${isOpen ? "w-[480px]" : "w-0"
+          }`}
       >
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: theme.colors.surfaceHover }}
-            >
-              <SettingsIcon />
-            </div>
-            <div>
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: theme.colors.textPrimary }}
+        <div className="w-[480px] h-full flex flex-col">
+          {/* Header matching QueueSidebar style */}
+          <div className="px-6 py-4 border-b border-theme flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: theme.colors.surfaceHover }}
               >
-                Settings
-              </h2>
-              <p className="text-xs" style={{ color: theme.colors.textMuted }}>
-                Manage your preferences
-              </p>
+                <SettingsIcon />
+              </div>
+              <div>
+                <h3 className="font-semibold text-theme-primary">Settings</h3>
+                <p className="text-xs text-theme-muted">Manage your preferences</p>
+              </div>
             </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 -mr-2 rounded-md text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
+            >
+              <ArrowRightIcon />
+            </button>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-            style={{
-              color: theme.colors.textSecondary,
-              background: "transparent",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = theme.colors.surfaceHover)
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
-            }
-          >
-            <CloseIcon />
-          </button>
-        </div>
+          <div className="flex border-b border-white/5">
+            <button
+              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "appearance" ? "text-theme-primary" : "text-theme-muted"}`}
+              onClick={() => setActiveTab("appearance")}
+              style={{
+                color:
+                  activeTab === "appearance"
+                    ? theme.colors.textPrimary
+                    : theme.colors.textSecondary,
+              }}
+            >
+              Appearance
+              {activeTab === "appearance" && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ background: theme.colors.accent }}
+                />
+              )}
+            </button>
+            <button
+              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "playback" ? "text-theme-primary" : "text-theme-muted"}`}
+              onClick={() => setActiveTab("playback")}
+              style={{
+                color:
+                  activeTab === "playback"
+                    ? theme.colors.textPrimary
+                    : theme.colors.textSecondary,
+              }}
+            >
+              Playback
+              {activeTab === "playback" && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-0.5"
+                  style={{ background: theme.colors.accent }}
+                />
+              )}
+            </button>
+          </div>
 
-        <div className="flex border-b border-white/5">
-          <button
-            className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "appearance" ? "text-theme-primary" : "text-theme-muted"}`}
-            onClick={() => setActiveTab("appearance")}
-            style={{
-              color:
-                activeTab === "appearance"
-                  ? theme.colors.textPrimary
-                  : theme.colors.textSecondary,
-            }}
-          >
-            Appearance
+          <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
             {activeTab === "appearance" && (
-              <div
-                className="absolute bottom-0 left-0 right-0 h-0.5"
-                style={{ background: theme.colors.accent }}
-              />
-            )}
-          </button>
-          <button
-            className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === "playback" ? "text-theme-primary" : "text-theme-muted"}`}
-            onClick={() => setActiveTab("playback")}
-            style={{
-              color:
-                activeTab === "playback"
-                  ? theme.colors.textPrimary
-                  : theme.colors.textSecondary,
-            }}
-          >
-            Playback
-            {activeTab === "playback" && (
-              <div
-                className="absolute bottom-0 left-0 right-0 h-0.5"
-                style={{ background: theme.colors.accent }}
-              />
-            )}
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
-          {activeTab === "appearance" && (
-            <div>
-              {/* Player Bar Style Section */}
-              <div className="mb-8">
-                <h3
-                  className="text-xs font-semibold uppercase tracking-wider mb-4"
-                  style={{ color: theme.colors.textMuted }}
-                >
-                  Player Bar Style
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setPlayerBarStyle("floating")}
-                    className={`
-                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
-                                        `}
-                    style={{
-                      background: theme.colors.surface,
-                      borderColor:
-                        playerBarStyle === "floating"
-                          ? theme.colors.accent
-                          : theme.colors.border,
-                      borderWidth: "1px",
-                      borderStyle: "solid",
-                      // @ts-ignore
-                      "--tw-ring-color": theme.colors.accent,
-                    }}
-                  >
-                    <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end p-2 border border-theme-border opacity-80">
-                      <div
-                        className="h-6 w-3/4 mx-auto bg-theme-surface-active rounded-full shadow-lg"
-                        style={{ background: theme.colors.surfaceActive }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: theme.colors.textPrimary }}
-                      >
-                        Floating
-                      </span>
-                      {playerBarStyle === "floating" && (
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{
-                            background: theme.colors.accent,
-                            color: theme.colors.textInverse,
-                          }}
-                        >
-                          <CheckIcon />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setPlayerBarStyle("classic")}
-                    className={`
-                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
-                                        `}
-                    style={{
-                      background: theme.colors.surface,
-                      borderColor:
-                        playerBarStyle === "classic"
-                          ? theme.colors.accent
-                          : theme.colors.border,
-                      borderWidth: "1px",
-                      borderStyle: "solid",
-                      // @ts-ignore
-                      "--tw-ring-color": theme.colors.accent,
-                    }}
-                  >
-                    <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end border border-theme-border opacity-80">
-                      <div
-                        className="h-6 w-full bg-theme-surface-active shadow-sm border-t border-theme-border"
-                        style={{ background: theme.colors.surfaceActive }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: theme.colors.textPrimary }}
-                      >
-                        Classic
-                      </span>
-                      {playerBarStyle === "classic" && (
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{
-                            background: theme.colors.accent,
-                            color: theme.colors.textInverse,
-                          }}
-                        >
-                          <CheckIcon />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h3
-                  className="text-xs font-semibold uppercase tracking-wider mb-4"
-                  style={{ color: theme.colors.textMuted }}
-                >
-                  Dark Themes
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {darkThemes.map((t) => (
-                    <ThemePreviewCard
-                      key={t.id}
-                      theme={t}
-                      isActive={themeId === t.id}
-                      onClick={() => setTheme(t.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {lightThemes.length > 0 && (
-                <div>
+              <div>
+                {/* Player Bar Style Section */}
+                <div className="mb-8">
                   <h3
                     className="text-xs font-semibold uppercase tracking-wider mb-4"
                     style={{ color: theme.colors.textMuted }}
                   >
-                    Light Themes
+                    Player Bar Style
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
-                    {lightThemes.map((t) => (
+                    <button
+                      onClick={() => setPlayerBarStyle("floating")}
+                      className={`
+                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
+                                            ${playerBarStyle === "floating"
+                          ? "ring-2 ring-offset-2 ring-offset-transparent"
+                          : "hover:scale-[1.02]"
+                        }
+                                        `}
+                      style={{
+                        background: theme.colors.surface,
+                        borderColor:
+                          playerBarStyle === "floating"
+                            ? theme.colors.accent
+                            : theme.colors.border,
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        // @ts-ignore
+                        "--tw-ring-color": theme.colors.accent,
+                      }}
+                    >
+                      <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end p-2 border border-theme-border opacity-80">
+                        <div
+                          className="h-6 w-3/4 mx-auto bg-theme-surface-active rounded-full shadow-lg"
+                          style={{ background: theme.colors.surfaceActive }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          Floating
+                        </span>
+                        {playerBarStyle === "floating" && (
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{
+                              background: theme.colors.accent,
+                              color: theme.colors.textInverse,
+                            }}
+                          >
+                            <CheckIcon />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPlayerBarStyle("classic")}
+                      className={`
+                                            relative group w-full p-3 rounded-xl transition-all duration-200 text-left
+                                            ${playerBarStyle === "classic"
+                          ? "ring-2 ring-offset-2 ring-offset-transparent"
+                          : "hover:scale-[1.02]"
+                        }
+                                        `}
+                      style={{
+                        background: theme.colors.surface,
+                        borderColor:
+                          playerBarStyle === "classic"
+                            ? theme.colors.accent
+                            : theme.colors.border,
+                        borderWidth: "1px",
+                        borderStyle: "solid",
+                        // @ts-ignore
+                        "--tw-ring-color": theme.colors.accent,
+                      }}
+                    >
+                      <div className="h-20 mb-3 bg-theme-background rounded-lg relative overflow-hidden flex flex-col justify-end border border-theme-border opacity-80">
+                        <div
+                          className="h-6 w-full bg-theme-surface-active shadow-sm border-t border-theme-border"
+                          style={{ background: theme.colors.surfaceActive }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          Classic
+                        </span>
+                        {playerBarStyle === "classic" && (
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{
+                              background: theme.colors.accent,
+                              color: theme.colors.textInverse,
+                            }}
+                          >
+                            <CheckIcon />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3
+                    className="text-xs font-semibold uppercase tracking-wider mb-4"
+                    style={{ color: theme.colors.textMuted }}
+                  >
+                    Dark Themes
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {darkThemes.map((t) => (
                       <ThemePreviewCard
                         key={t.id}
                         theme={t}
@@ -537,379 +498,398 @@ export const Settings = ({
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {activeTab === "playback" && (
-            <div className="space-y-6">
-              {/* Stream Quality Section */}
-              <div
-                className="p-4 rounded-xl space-y-4"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Stream Quality
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Audio quality for Tidal streaming
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      {
-                        value: "LOSSLESS",
-                        label: "Lossless",
-                        desc: "FLAC 16-bit/44.1kHz",
-                      },
-                      { value: "HIGH", label: "High", desc: "AAC 320kbps" },
-                      { value: "LOW", label: "Low", desc: "AAC 96kbps" },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setStreamQuality(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        streamQuality === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                      }`}
-                      style={{
-                        background:
-                          streamQuality === option.value
-                            ? theme.colors.accentMuted
-                            : theme.colors.surfaceHover,
-                        borderColor:
-                          streamQuality === option.value
-                            ? theme.colors.accent
-                            : theme.colors.border,
-                        borderWidth: "1px",
-                        borderStyle: "solid",
-                        // @ts-ignore
-                        "--tw-ring-color": theme.colors.accent,
-                      }}
+                {lightThemes.length > 0 && (
+                  <div>
+                    <h3
+                      className="text-xs font-semibold uppercase tracking-wider mb-4"
+                      style={{ color: theme.colors.textMuted }}
                     >
-                      <div
-                        className="text-sm font-medium"
-                        style={{ color: theme.colors.textPrimary }}
-                      >
-                        {option.label}
-                      </div>
-                      <div
-                        className="text-xs mt-0.5"
-                        style={{ color: theme.colors.textMuted }}
-                      >
-                        {option.desc}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      Light Themes
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {lightThemes.map((t) => (
+                        <ThemePreviewCard
+                          key={t.id}
+                          theme={t}
+                          isActive={themeId === t.id}
+                          onClick={() => setTheme(t.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* Prefer High Quality Stream Section */}
-              <div
-                className="flex items-center justify-between p-4 rounded-xl"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Prefer Streaming Quality
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Use online stream if quality is better than local file
-                  </p>
-                </div>
-                <Toggle
-                  checked={preferHighQualityStream}
-                  onChange={(checked) => setPreferHighQualityStream(checked)}
-                />
-              </div>
-
-              {/* Crossfade Section */}
-              <div
-                className="flex items-center justify-between p-4 rounded-xl"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Crossfade Songs
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Fade tracks into each other for seamless playback
-                  </p>
-                </div>
-                <Toggle
-                  checked={crossfadeEnabled}
-                  onChange={(checked) =>
-                    setCrossfade(checked, crossfadeDuration)
-                  }
-                />
-              </div>
-
-              {crossfadeEnabled && (
+            {activeTab === "playback" && (
+              <div className="space-y-6">
+                {/* Stream Quality Section */}
                 <div
                   className="p-4 rounded-xl space-y-4"
                   style={{ background: theme.colors.surface }}
                 >
-                  <div className="flex justify-between items-center">
+                  <div>
                     <h3
                       className="font-medium"
                       style={{ color: theme.colors.textPrimary }}
                     >
-                      Duration
+                      Stream Quality
                     </h3>
-                    <span
-                      className="text-sm font-mono"
-                      style={{ color: theme.colors.accent }}
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
                     >
-                      {crossfadeDuration / 1000}s
-                    </span>
+                      Audio quality for Tidal streaming
+                    </p>
                   </div>
-                  <input
-                    type="range"
-                    min="1000"
-                    max="12000"
-                    step="1000"
-                    value={crossfadeDuration}
-                    onChange={(e) =>
-                      setCrossfade(true, parseInt(e.target.value))
-                    }
-                    className="w-full h-1 rounded-full appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, ${theme.colors.accent} 0%, ${theme.colors.accent} ${((crossfadeDuration - 1000) / 11000) * 100}%, ${theme.colors.surfaceActive} ${((crossfadeDuration - 1000) / 11000) * 100}%, ${theme.colors.surfaceActive} 100%)`,
-                    }}
-                  />
-                  <div
-                    className="flex justify-between text-xs"
-                    style={{ color: theme.colors.textMuted }}
-                  >
-                    <span>1s</span>
-                    <span>12s</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Loudness Normalization Section */}
-              <div
-                className="flex items-center justify-between p-4 rounded-xl"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Loudness Normalization
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Normalize volume across tracks (-14 LUFS target)
-                  </p>
-                </div>
-                <Toggle
-                  checked={loudnessNormalization}
-                  onChange={(checked) => setLoudnessNormalization(checked)}
-                />
-              </div>
-
-              {/* Discord Rich Presence Section */}
-              <div
-                className="flex items-center justify-between p-4 rounded-xl"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Discord Rich Presence
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Show what you're listening to on Discord
-                  </p>
-                </div>
-                <Toggle
-                  checked={discordRpcEnabled}
-                  onChange={(checked) => setDiscordRpcEnabled(checked)}
-                />
-              </div>
-
-              {/* Lyrics Provider Section */}
-              <div
-                className="p-4 rounded-xl space-y-4"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Lyrics Provider
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Choose source for lyrics
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        value: "netease",
-                        label: "NetEase Cloud Music",
-                        desc: "Best for coverage",
-                      },
-                      {
-                        value: "lrclib",
-                        label: "LRCLib",
-                        desc: "Open source database",
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setLyricsProvider(option.value)}
-                      className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                        lyricsProvider === option.value
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          value: "LOSSLESS",
+                          label: "Lossless",
+                          desc: "FLAC 16-bit/44.1kHz",
+                        },
+                        { value: "HIGH", label: "High", desc: "AAC 320kbps" },
+                        { value: "LOW", label: "Low", desc: "AAC 96kbps" },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setStreamQuality(option.value)}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${streamQuality === option.value
                           ? "ring-2"
                           : "hover:scale-[1.02]"
-                      }`}
-                      style={{
-                        background:
-                          lyricsProvider === option.value
-                            ? theme.colors.accentMuted
-                            : theme.colors.surfaceHover,
-                        borderColor:
-                          lyricsProvider === option.value
-                            ? theme.colors.accent
-                            : theme.colors.border,
-                        borderWidth: "1px",
-                        borderStyle: "solid",
-                        // @ts-ignore
-                        "--tw-ring-color": theme.colors.accent,
-                      }}
+                          }`}
+                        style={{
+                          background:
+                            streamQuality === option.value
+                              ? theme.colors.accentMuted
+                              : theme.colors.surfaceHover,
+                          borderColor:
+                            streamQuality === option.value
+                              ? theme.colors.accent
+                              : theme.colors.border,
+                          borderWidth: "1px",
+                          borderStyle: "solid",
+                          // @ts-ignore
+                          "--tw-ring-color": theme.colors.accent,
+                        }}
+                      >
+                        <div
+                          className="text-sm font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          {option.label}
+                        </div>
+                        <div
+                          className="text-xs mt-0.5"
+                          style={{ color: theme.colors.textMuted }}
+                        >
+                          {option.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prefer High Quality Stream Section */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
                     >
-                      <div
-                        className="text-sm font-medium"
+                      Prefer Streaming Quality
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Use online stream if quality is better than local file
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={preferHighQualityStream}
+                    onChange={(checked) => setPreferHighQualityStream(checked)}
+                  />
+                </div>
+
+                {/* Crossfade Section */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      Crossfade Songs
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Fade tracks into each other for seamless playback
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={crossfadeEnabled}
+                    onChange={(checked) =>
+                      setCrossfade(checked, crossfadeDuration)
+                    }
+                  />
+                </div>
+
+                {crossfadeEnabled && (
+                  <div
+                    className="p-4 rounded-xl space-y-4"
+                    style={{ background: theme.colors.surface }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3
+                        className="font-medium"
                         style={{ color: theme.colors.textPrimary }}
                       >
-                        {option.label}
-                      </div>
-                      <div
-                        className="text-xs mt-0.5"
-                        style={{ color: theme.colors.textMuted }}
+                        Duration
+                      </h3>
+                      <span
+                        className="text-sm font-mono"
+                        style={{ color: theme.colors.accent }}
                       >
-                        {option.desc}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Downloads Section */}
-              <div
-                className="p-4 rounded-xl space-y-4"
-                style={{ background: theme.colors.surface }}
-              >
-                <div>
-                  <h3
-                    className="font-medium"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    Download Location
-                  </h3>
-                  <p
-                    className="text-xs mt-1"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    Where downloaded tracks are saved
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <div
-                    className="flex-1 px-3 py-2 pt-[12px] rounded-lg text-sm truncate"
-                    style={{
-                      background: theme.colors.surfaceHover,
-                      color: theme.colors.textPrimary,
-                    }}
-                    title={downloadPath}
-                  >
-                    {downloadPath || "Loading..."}
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const selected = await open({
-                          directory: true,
-                          multiple: false,
-                          title: "Select Download Folder",
-                        });
-                        if (selected && typeof selected === "string") {
-                          await setDownloadPath(selected);
-                        }
-                      } catch (e) {
-                        console.error("Failed to select folder:", e);
+                        {crossfadeDuration / 1000}s
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1000"
+                      max="12000"
+                      step="1000"
+                      value={crossfadeDuration}
+                      onChange={(e) =>
+                        setCrossfade(true, parseInt(e.target.value))
                       }
-                    }}
-                    className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
-                    style={{
-                      background: theme.colors.surfaceHover,
-                      color: theme.colors.textPrimary,
-                    }}
-                  >
-                    Browse
-                  </button>
-                  <button
-                    onClick={openDownloadFolder}
-                    className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
-                    style={{
-                      background: theme.colors.accentMuted,
-                      color: theme.colors.accent,
-                    }}
-                    title="Open in file manager"
-                  >
-                    Open
-                  </button>
+                      className="w-full h-1 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, ${theme.colors.accent} 0%, ${theme.colors.accent} ${((crossfadeDuration - 1000) / 11000) * 100}%, ${theme.colors.surfaceActive} ${((crossfadeDuration - 1000) / 11000) * 100}%, ${theme.colors.surfaceActive} 100%)`,
+                      }}
+                    />
+                    <div
+                      className="flex justify-between text-xs"
+                      style={{ color: theme.colors.textMuted }}
+                    >
+                      <span>1s</span>
+                      <span>12s</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loudness Normalization Section */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      Loudness Normalization
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Normalize volume across tracks (-14 LUFS target)
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={loudnessNormalization}
+                    onChange={(checked) => setLoudnessNormalization(checked)}
+                  />
+                </div>
+
+                {/* Discord Rich Presence Section */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      Discord Rich Presence
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Show what you're listening to on Discord
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={discordRpcEnabled}
+                    onChange={(checked) => setDiscordRpcEnabled(checked)}
+                  />
+                </div>
+
+                {/* Lyrics Provider Section */}
+                <div
+                  className="p-4 rounded-xl space-y-4"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      Lyrics Provider
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Choose source for lyrics
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        {
+                          value: "netease",
+                          label: "NetEase Cloud Music",
+                          desc: "Best for coverage",
+                        },
+                        {
+                          value: "lrclib",
+                          label: "LRCLib",
+                          desc: "Open source database",
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setLyricsProvider(option.value)}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
+                          ? "ring-2"
+                          : "hover:scale-[1.02]"
+                          }`}
+                        style={{
+                          background:
+                            lyricsProvider === option.value
+                              ? theme.colors.accentMuted
+                              : theme.colors.surfaceHover,
+                          borderColor:
+                            lyricsProvider === option.value
+                              ? theme.colors.accent
+                              : theme.colors.border,
+                          borderWidth: "1px",
+                          borderStyle: "solid",
+                          // @ts-ignore
+                          "--tw-ring-color": theme.colors.accent,
+                        }}
+                      >
+                        <div
+                          className="text-sm font-medium"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          {option.label}
+                        </div>
+                        <div
+                          className="text-xs mt-0.5"
+                          style={{ color: theme.colors.textMuted }}
+                        >
+                          {option.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Downloads Section */}
+                <div
+                  className="p-4 rounded-xl space-y-4"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div>
+                    <h3
+                      className="font-medium"
+                      style={{ color: theme.colors.textPrimary }}
+                    >
+                      Download Location
+                    </h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Where downloaded tracks are saved
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <div
+                      className="flex-1 px-3 py-2 pt-[12px] rounded-lg text-sm truncate"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                      }}
+                      title={downloadPath}
+                    >
+                      {downloadPath || "Loading..."}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const selected = await open({
+                            directory: true,
+                            multiple: false,
+                            title: "Select Download Folder",
+                          });
+                          if (selected && typeof selected === "string") {
+                            await setDownloadPath(selected);
+                          }
+                        } catch (e) {
+                          console.error("Failed to select folder:", e);
+                        }
+                      }}
+                      className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      Browse
+                    </button>
+                    <button
+                      onClick={openDownloadFolder}
+                      className="px-3 py-2 pt-[12px] rounded-lg text-sm font-medium transition-colors"
+                      style={{
+                        background: theme.colors.accentMuted,
+                        color: theme.colors.accent,
+                      }}
+                      title="Open in file manager"
+                    >
+                      Open
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="px-6 py-4 border-t border-white/5">
-          <p
-            className="text-xs text-center"
-            style={{ color: theme.colors.textMuted }}
-          >
-            Settings are saved automatically
-          </p>
+          <div className="px-6 py-4 border-t border-white/5">
+            <p
+              className="text-xs text-center"
+              style={{ color: theme.colors.textMuted }}
+            >
+              Settings are saved automatically
+            </p>
+          </div>
         </div>
       </div>
     </>

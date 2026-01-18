@@ -54,6 +54,8 @@ interface PlayerContextType {
   playlists: Playlist[];
   isQueueOpen: boolean;
   setIsQueueOpen: (open: boolean) => void;
+  isSettingsOpen: boolean;
+  setIsSettingsOpen: (open: boolean) => void;
   importMusic: () => Promise<void>;
   importFolder: () => Promise<void>;
   playTrack: (track: Track, contextQueue?: Track[]) => Promise<void>;
@@ -149,6 +151,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [queue, setQueue] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [crossfadeEnabled, setCrossfadeEnabled] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_ENABLED);
     return saved !== "false";
@@ -287,7 +290,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -743,6 +746,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       playlists,
       isQueueOpen,
       setIsQueueOpen,
+      isSettingsOpen,
+      setIsSettingsOpen,
       importMusic,
       importFolder,
       playTrack,
@@ -795,6 +800,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       queue,
       playlists,
       isQueueOpen,
+      isSettingsOpen,
       crossfadeEnabled,
       crossfadeDuration,
       playerBarStyle,

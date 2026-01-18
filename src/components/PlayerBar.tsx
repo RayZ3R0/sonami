@@ -209,6 +209,7 @@ export const PlayerBar = () => {
     setIsQueueOpen,
     playerBarStyle,
     playbackQuality,
+    setIsSettingsOpen,
   } = usePlayer();
   const { currentTime, duration } = usePlaybackProgress();
   const seekBarRef = useRef<HTMLDivElement>(null);
@@ -545,7 +546,10 @@ export const PlayerBar = () => {
                 </button>
 
                 <button
-                  onClick={() => setIsQueueOpen(!isQueueOpen)}
+                  onClick={() => {
+                    if (!isQueueOpen) setIsSettingsOpen(false);
+                    setIsQueueOpen(!isQueueOpen);
+                  }}
                   className={`player-control-sm relative ${isQueueOpen ? "text-theme-accent" : ""}`}
                   title="Queue"
                 >

@@ -4,6 +4,7 @@ import "./styles.css";
 import { PlayerProvider } from "./context/PlayerContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { DownloadProvider } from "./context/DownloadContext";
+import { SpotifyImportProvider } from "./context/SpotifyImportContext";
 import { ToastProvider } from "./components/Toast";
 import { InputController } from "./components/InputController";
 import { ContextMenuProvider } from "./context/ContextMenuContext";
@@ -15,8 +16,10 @@ function App() {
         <ContextMenuProvider>
           <PlayerProvider>
             <DownloadProvider>
-              <InputController />
-              <AppLayout />
+              <SpotifyImportProvider>
+                <InputController />
+                <AppLayout />
+              </SpotifyImportProvider>
             </DownloadProvider>
           </PlayerProvider>
         </ContextMenuProvider>
@@ -26,3 +29,4 @@ function App() {
 }
 
 export default App;
+

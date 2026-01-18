@@ -11,67 +11,81 @@ import {
   isValidSpotifyUrl,
 } from "../api/spotify";
 import { usePlayer } from "../context/PlayerContext";
+import { useSpotifyImport } from "../context/SpotifyImportContext";
 
 type ImportPhase =
-  | "input" // Initial URL input
-  | "fetching" // Fetching playlist from Spotify
-  | "verifying" // Verifying tracks against Tidal
-  | "review" // Showing results for user review
-  | "importing" // Adding tracks to playlist
-  | "complete" // Import finished
-  | "error"; // Error state
+  | "input"
+  | "fetching"
+  | "verifying"
+  | "review"
+  | "importing"
+  | "complete"
+  | "error";
 
 interface SpotifyImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  existingPlaylistId?: string; // If set, add to existing playlist
+  existingPlaylistId?: string;
 }
 
 export const SpotifyImportModal = ({
-  isOpen,
-  onClose,
+  isOpen: propIsOpen,
+  onClose: propOnClose,
   existingPlaylistId: _existingPlaylistId,
 }: SpotifyImportModalProps) => {
   const { refreshPlaylists } = usePlayer();
+  const spotifyImport = useSpotifyImport();
 
-  // Form state
+  // Use context modal state, OR prop state for backward compatibility
+  const isOpen = spotifyImport.isModalOpen || propIsOpen;
+
   const [spotifyUrl, setSpotifyUrl] = useState("");
-  const [playlistName, setPlaylistName] = useState("");
+  const [playlistNameInput, setPlaylistNameInput] = useState("");
   const [playlistDescription, setPlaylistDescription] = useState("");
 
-  // Import state
   const [phase, setPhase] = useState<ImportPhase>("input");
   const [error, setError] = useState<string | null>(null);
 
-  // Playlist data
   const [, setPlaylistResult] = useState<SpotifyPlaylistResult | null>(null);
   const [verifiedTracks, setVerifiedTracks] = useState<VerifiedSpotifyTrack[]>(
     [],
   );
   const [progress, setProgress] = useState<VerificationProgress | null>(null);
 
-  // Selection state
   const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set());
 
-  // Import result
   const [importResult, setImportResult] = useState<{
     added: number;
     skipped: number;
     errors?: string[];
   } | null>(null);
 
-  // Event listener cleanup ref
   const unlistenRef = useRef<UnlistenFn | null>(null);
+
+  // Sync local state from context when modal opens after being minimized
+  useEffect(() => {
+    if (isOpen && spotifyImport.isImporting) {
+      // Restore state from context when reopening a minimized import
+      setPhase(spotifyImport.phase);
+      setProgress(spotifyImport.progress);
+      setVerifiedTracks(spotifyImport.verifiedTracks);
+      setSelectedTracks(spotifyImport.selectedTracks);
+      setPlaylistNameInput(spotifyImport.playlistName);
+      setError(spotifyImport.error);
+      setImportResult(spotifyImport.importResult);
+    }
+  }, [isOpen, spotifyImport.isImporting]);
 
   // Listen for verification progress events
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !spotifyImport.isMinimized) return;
 
     const setupListener = async () => {
       unlistenRef.current = await listen<VerificationProgress>(
         "spotify-import-progress",
         (event) => {
           setProgress(event.payload);
+          spotifyImport.updateProgress(event.payload);
         },
       );
     };
@@ -84,16 +98,15 @@ export const SpotifyImportModal = ({
         unlistenRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, spotifyImport]);
 
-  // Reset state when modal closes
+  // Reset state when modal closes (but not if minimized)
   useEffect(() => {
-    if (!isOpen) {
-      // Reset after animation
+    if (!isOpen && !spotifyImport.isMinimized && !spotifyImport.isImporting) {
       const timer = setTimeout(() => {
         setPhase("input");
         setSpotifyUrl("");
-        setPlaylistName("");
+        setPlaylistNameInput("");
         setPlaylistDescription("");
         setError(null);
         setPlaylistResult(null);
@@ -101,52 +114,67 @@ export const SpotifyImportModal = ({
         setProgress(null);
         setSelectedTracks(new Set());
         setImportResult(null);
+        spotifyImport.reset();
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, spotifyImport]);
 
   const handleFetchPlaylist = useCallback(async () => {
     if (!spotifyUrl.trim()) return;
 
+    // Check if another import is in progress
+    if (!spotifyImport.canStartNewImport) {
+      setError("Another import is already in progress. Please wait for it to complete.");
+      return;
+    }
+
     setPhase("fetching");
+    spotifyImport.setPhase("fetching");
+    spotifyImport.openModal();
     setError(null);
 
     try {
       const result = await fetchSpotifyPlaylist(spotifyUrl.trim());
       setPlaylistResult(result);
 
-      // Default playlist name to Spotify playlist name
-      if (!playlistName) {
-        setPlaylistName(result.info.name);
+      if (!playlistNameInput) {
+        setPlaylistNameInput(result.info.name);
+        spotifyImport.setPlaylistName(result.info.name);
       }
       if (!playlistDescription && result.info.description) {
         setPlaylistDescription(result.info.description);
       }
 
-      // Start verification
       setPhase("verifying");
+      spotifyImport.setPhase("verifying");
+
       const verified = await verifySpotifyTracks(result.tracks);
       setVerifiedTracks(verified);
+      spotifyImport.setVerifiedTracks(verified);
 
-      // Select all found tracks by default
       const foundIndices = new Set<number>();
       verified.forEach((t, i) => {
         if (t.found) foundIndices.add(i);
       });
       setSelectedTracks(foundIndices);
+      spotifyImport.setSelectedTracks(foundIndices);
 
       setPhase("review");
+      spotifyImport.setPhase("review");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setError(errorMsg);
+      spotifyImport.setError(errorMsg);
       setPhase("error");
     }
-  }, [spotifyUrl, playlistName, playlistDescription]);
+  }, [spotifyUrl, playlistNameInput, playlistDescription, spotifyImport]);
 
   const handleImport = useCallback(async () => {
     if (selectedTracks.size === 0) return;
 
     setPhase("importing");
+    spotifyImport.setPhase("importing");
     setError(null);
 
     try {
@@ -155,29 +183,35 @@ export const SpotifyImportModal = ({
       );
 
       const result = await createPlaylistFromSpotify(
-        playlistName || "Spotify Import",
+        playlistNameInput || "Spotify Import",
         playlistDescription || undefined,
         tracksToImport,
       );
 
-      setImportResult({
+      const importRes = {
         added: result.tracks_added,
         skipped: result.tracks_skipped,
         errors: result.errors,
-      });
+      };
+
+      setImportResult(importRes);
+      spotifyImport.setImportResult(importRes);
 
       await refreshPlaylists();
       setPhase("complete");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setError(errorMsg);
+      spotifyImport.setError(errorMsg);
       setPhase("error");
     }
   }, [
     selectedTracks,
     verifiedTracks,
-    playlistName,
+    playlistNameInput,
     playlistDescription,
     refreshPlaylists,
+    spotifyImport,
   ]);
 
   const handleToggleTrack = (index: number) => {
@@ -188,6 +222,7 @@ export const SpotifyImportModal = ({
       } else {
         next.add(index);
       }
+      spotifyImport.setSelectedTracks(next);
       return next;
     });
   };
@@ -198,27 +233,30 @@ export const SpotifyImportModal = ({
       if (t.found) allFound.add(i);
     });
     setSelectedTracks(allFound);
+    spotifyImport.setSelectedTracks(allFound);
   };
 
   const handleSelectNone = () => {
     setSelectedTracks(new Set());
+    spotifyImport.setSelectedTracks(new Set());
   };
 
   const isUrlValid = isValidSpotifyUrl(spotifyUrl);
   const foundCount = verifiedTracks.filter((t) => t.found).length;
   const notFoundCount = verifiedTracks.length - foundCount;
 
-  // Prevent closing during active operations
-  const canClose =
-    phase === "input" ||
-    phase === "review" ||
-    phase === "complete" ||
-    phase === "error";
+  // Determine if we're in an active import phase
+  const isActivePhase = phase === "fetching" || phase === "verifying" || phase === "importing";
 
   const handleClose = () => {
-    if (canClose) {
-      onClose();
+    if (isActivePhase) {
+      // Minimize instead of close during active phases
+      spotifyImport.setPlaylistName(playlistNameInput || "Spotify Import");
+      spotifyImport.minimize();
+    } else {
+      spotifyImport.closeModal();
     }
+    propOnClose();
   };
 
   if (!isOpen) return null;
@@ -261,11 +299,24 @@ export const SpotifyImportModal = ({
             </div>
           </div>
 
-          {canClose && (
-            <button
-              onClick={handleClose}
-              className="text-theme-muted hover:text-theme-primary transition-colors p-2 rounded-lg hover:bg-theme-surface"
-            >
+          <button
+            onClick={handleClose}
+            className="text-theme-muted hover:text-theme-primary transition-colors p-2 rounded-lg hover:bg-theme-surface group relative"
+            title={isActivePhase ? "Minimize to background" : "Close"}
+          >
+            {isActivePhase ? (
+              // Minimize icon during active phase
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M5 12h14" />
+              </svg>
+            ) : (
+              // Close icon for other phases
               <svg
                 className="w-5 h-5"
                 viewBox="0 0 24 24"
@@ -275,8 +326,8 @@ export const SpotifyImportModal = ({
               >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
-            </button>
-          )}
+            )}
+          </button>
         </div>
 
         {/* Content */}
@@ -284,6 +335,29 @@ export const SpotifyImportModal = ({
           {/* Input Phase */}
           {phase === "input" && (
             <div className="space-y-6">
+              {/* Check if another import is running */}
+              {!spotifyImport.canStartNewImport && (
+                <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                  <svg
+                    className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-red-500">
+                      Import in Progress
+                    </p>
+                    <p className="text-sm text-red-500/80 mt-1">
+                      Another Spotify import is already running. Please wait for it to complete before starting a new one.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Warning Banner */}
               <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                 <svg
@@ -301,7 +375,7 @@ export const SpotifyImportModal = ({
                   </p>
                   <p className="text-sm text-amber-500/80 mt-1">
                     Each track will be verified against Tidal's catalog. Large
-                    playlists may take several minutes to process.
+                    playlists may take several minutes to process. You can minimize this window and it will continue in the background.
                   </p>
                 </div>
               </div>
@@ -318,6 +392,7 @@ export const SpotifyImportModal = ({
                   placeholder="https://open.spotify.com/playlist/..."
                   className="w-full px-4 pt-[14px] pb-[10px] bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
                   autoFocus
+                  disabled={!spotifyImport.canStartNewImport}
                 />
                 {spotifyUrl && !isUrlValid && (
                   <p className="text-sm text-red-400">
@@ -333,10 +408,11 @@ export const SpotifyImportModal = ({
                 </label>
                 <input
                   type="text"
-                  value={playlistName}
-                  onChange={(e) => setPlaylistName(e.target.value)}
+                  value={playlistNameInput}
+                  onChange={(e) => setPlaylistNameInput(e.target.value)}
                   placeholder="Will use Spotify playlist name if empty"
                   className="w-full px-4 pt-[14px] pb-[10px] bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all"
+                  disabled={!spotifyImport.canStartNewImport}
                 />
               </div>
 
@@ -350,6 +426,7 @@ export const SpotifyImportModal = ({
                   onChange={(e) => setPlaylistDescription(e.target.value)}
                   placeholder="Add an optional description..."
                   className="w-full px-4 py-3 bg-theme-surface border border-transparent rounded-xl text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-green-500/40 transition-all resize-none h-20"
+                  disabled={!spotifyImport.canStartNewImport}
                 />
               </div>
             </div>
@@ -361,6 +438,9 @@ export const SpotifyImportModal = ({
               <div className="w-16 h-16 rounded-full border-4 border-green-500/20 border-t-green-500 animate-spin" />
               <p className="mt-6 text-theme-secondary">
                 Fetching playlist from Spotify...
+              </p>
+              <p className="mt-2 text-sm text-theme-muted">
+                You can minimize this window - import will continue in background
               </p>
             </div>
           )}
@@ -397,7 +477,7 @@ export const SpotifyImportModal = ({
                 </div>
               </div>
 
-              {/* Warning */}
+              {/* Info */}
               <div className="flex items-center justify-center gap-2 text-sm text-theme-muted mt-12">
                 <svg
                   className="w-4 h-4"
@@ -409,7 +489,7 @@ export const SpotifyImportModal = ({
                   <path d="M12 15v.01M12 9v2" />
                   <circle cx="12" cy="12" r="10" />
                 </svg>
-                <span>Please don't close this window</span>
+                <span className="pt-[4.5px]">You can minimize this window - import will continue</span>
               </div>
             </div>
           )}
@@ -451,22 +531,20 @@ export const SpotifyImportModal = ({
                   {verifiedTracks.map((track, index) => (
                     <div
                       key={index}
-                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${
-                        track.found
-                          ? "hover:bg-theme-surface-hover cursor-pointer"
-                          : "opacity-50"
-                      }`}
+                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${track.found
+                        ? "hover:bg-theme-surface-hover cursor-pointer"
+                        : "opacity-50"
+                        }`}
                       onClick={() => track.found && handleToggleTrack(index)}
                     >
                       {/* Checkbox */}
                       <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                          selectedTracks.has(index)
-                            ? "bg-theme-accent border-theme-accent"
-                            : track.found
-                              ? "border-white/10 group-hover:border-white/20"
-                              : "border-white/5"
-                        }`}
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedTracks.has(index)
+                          ? "bg-theme-accent border-theme-accent"
+                          : track.found
+                            ? "border-white/10 group-hover:border-white/20"
+                            : "border-white/5"
+                          }`}
                       >
                         {selectedTracks.has(index) && (
                           <svg
@@ -564,6 +642,9 @@ export const SpotifyImportModal = ({
               <p className="mt-6 text-theme-secondary">
                 Adding tracks to your library...
               </p>
+              <p className="mt-2 text-sm text-theme-muted">
+                You can minimize this window - import will continue in background
+              </p>
             </div>
           )}
 
@@ -586,7 +667,7 @@ export const SpotifyImportModal = ({
               </h3>
               <p className="mt-2 text-theme-secondary">
                 Successfully added {importResult.added} tracks to "
-                {playlistName}"
+                {playlistNameInput}"
               </p>
               {importResult.skipped > 0 && (
                 <p className="text-sm text-theme-muted mt-1">
@@ -648,12 +729,30 @@ export const SpotifyImportModal = ({
               </button>
               <button
                 onClick={handleFetchPlaylist}
-                disabled={!isUrlValid}
+                disabled={!isUrlValid || !spotifyImport.canStartNewImport}
                 className="px-6 py-2.5 pt-[12.5px] rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95"
               >
                 Fetch Playlist
               </button>
             </>
+          )}
+
+          {(phase === "fetching" || phase === "verifying" || phase === "importing") && (
+            <button
+              onClick={handleClose}
+              className="px-5 py-2.5 pt-[11px] rounded-xl text-sm font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-all flex items-center gap-2"
+            >
+              {/* <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M5 12h14" />
+              </svg> */}
+              <span className="pt-[2.6px]">Minimize to Background</span>
+            </button>
           )}
 
           {phase === "review" && (
