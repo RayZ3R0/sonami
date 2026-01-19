@@ -243,6 +243,8 @@ export const Settings = ({
     setLyricsProvider,
     preferHighQualityStream,
     setPreferHighQualityStream,
+    searchProviderOrder,
+    setSearchProviderOrder,
   } = usePlayer();
   const [activeTab, setActiveTab] = useState<
     "appearance" | "playback" | "services"
@@ -916,6 +918,88 @@ export const Settings = ({
                     >
                       Open
                     </button>
+                  </div>
+                </div>
+
+                {/* Search Provider Order */}
+                <div
+                  className="p-4 rounded-xl"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <h3
+                    className="font-medium mb-1"
+                    style={{ color: theme.colors.textPrimary }}
+                  >
+                    Search Results Order
+                  </h3>
+                  <p
+                    className="text-xs mb-4"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Drag to reorder how search results are displayed
+                  </p>
+                  <div className="space-y-2">
+                    {searchProviderOrder.map((providerId, index) => {
+                      const providerInfo: Record<string, { name: string; icon: string }> = {
+                        local: { name: "Local Library", icon: "📁" },
+                        tidal: { name: "Tidal", icon: "🎵" },
+                        subsonic: { name: "Subsonic / Navidrome", icon: "🎶" },
+                        jellyfin: { name: "Jellyfin", icon: "🍞" },
+                      };
+                      const info = providerInfo[providerId] || { name: providerId, icon: "❓" };
+
+                      return (
+                        <div
+                          key={providerId}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", index.toString());
+                            e.currentTarget.style.opacity = "0.5";
+                          }}
+                          onDragEnd={(e) => {
+                            e.currentTarget.style.opacity = "1";
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.borderColor = theme.colors.accent;
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.style.borderColor = "transparent";
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.style.borderColor = "transparent";
+                            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                            const toIndex = index;
+                            if (fromIndex !== toIndex) {
+                              const newOrder = [...searchProviderOrder];
+                              const [moved] = newOrder.splice(fromIndex, 1);
+                              newOrder.splice(toIndex, 0, moved);
+                              setSearchProviderOrder(newOrder);
+                            }
+                          }}
+                          className="flex items-center gap-3 p-3 rounded-lg cursor-grab active:cursor-grabbing transition-all border-2 border-transparent"
+                          style={{ background: theme.colors.surfaceHover }}
+                        >
+                          <span className="text-lg">{info.icon}</span>
+                          <span
+                            className="flex-1 font-medium text-sm"
+                            style={{ color: theme.colors.textPrimary }}
+                          >
+                            {info.name}
+                          </span>
+                          <svg
+                            className="w-4 h-4 opacity-40"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                          </svg>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

@@ -103,6 +103,9 @@ interface PlayerContextType {
   preferHighQualityStream: boolean;
   setPreferHighQualityStream: (enabled: boolean) => void;
 
+  searchProviderOrder: string[];
+  setSearchProviderOrder: (order: string[]) => void;
+
   favorites: Set<string>;
   toggleFavorite: (track: Track) => Promise<void>;
   refreshFavorites: () => Promise<void>;
@@ -127,6 +130,7 @@ const STORAGE_KEYS = {
   DISCORD_RPC: "sonami-discord-rpc",
   LYRICS_PROVIDER: "sonami-lyrics-provider",
   PREFER_HIGH_QUALITY_STREAM: "sonami-prefer-high-quality-stream",
+  SEARCH_PROVIDER_ORDER: "sonami-search-provider-order",
 };
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -209,6 +213,25 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       return saved === "true";
     },
   );
+
+  const DEFAULT_PROVIDER_ORDER = ["local", "tidal", "subsonic", "jellyfin"];
+  const [searchProviderOrder, setSearchProviderOrderState] = useState<string[]>(
+    () => {
+      const saved = localStorage.getItem(STORAGE_KEYS.SEARCH_PROVIDER_ORDER);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        } catch { }
+      }
+      return DEFAULT_PROVIDER_ORDER;
+    },
+  );
+
+  const setSearchProviderOrder = (order: string[]) => {
+    setSearchProviderOrderState(order);
+    localStorage.setItem(STORAGE_KEYS.SEARCH_PROVIDER_ORDER, JSON.stringify(order));
+  };
 
   const seekTarget = useRef<{ time: number; timestamp: number } | null>(null);
 
@@ -804,6 +827,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setLyricsProvider,
       preferHighQualityStream,
       setPreferHighQualityStream,
+      searchProviderOrder,
+      setSearchProviderOrder,
       favorites,
       toggleFavorite,
       refreshFavorites,
@@ -829,6 +854,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       discordRpcEnabled,
       lyricsProvider,
       preferHighQualityStream,
+      searchProviderOrder,
       favorites,
       dataVersion,
       playbackQuality,

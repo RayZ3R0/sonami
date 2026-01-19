@@ -314,6 +314,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     toggleFavorite,
     refreshFavorites,
     streamQuality,
+    searchProviderOrder,
   } = usePlayer();
   const { downloads } = useDownload();
   const [query, setQuery] = useState("");
@@ -355,13 +356,15 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   );
 
   const allResults = useMemo(() => {
-    return [
-      ...localResults,
-      ...filteredTidalResults,
-      ...subsonicResults,
-      ...jellyfinResults,
-    ];
-  }, [localResults, filteredTidalResults, subsonicResults, jellyfinResults]);
+    const resultsByType: Record<string, SearchResult[]> = {
+      local: localResults,
+      tidal: filteredTidalResults,
+      subsonic: subsonicResults,
+      jellyfin: jellyfinResults,
+    };
+
+    return searchProviderOrder.flatMap(type => resultsByType[type] || []);
+  }, [localResults, filteredTidalResults, subsonicResults, jellyfinResults, searchProviderOrder]);
 
   useEffect(() => {
     if (isOpen) {
@@ -960,152 +963,63 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
             </div>
           )}
 
-          {/* Local Results Section */}
-          {localResults.length > 0 && (
-            <div className="py-2">
-              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                In Your Library
-              </div>
-              {localResults.map((result, index) => (
-                <SearchResultItem
-                  key={result.id}
-                  result={result}
-                  index={index}
-                  isSelected={selectedIndex === index}
-                  onPlay={() => handlePlay(result)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  formatDuration={formatDuration}
-                  onContextMenu={(e) => handleContextMenu(e, result)}
-                  downloadState={
-                    result.tidalId
-                      ? downloads.get(result.tidalId.toString())
-                      : undefined
-                  }
-                  isDownloaded={(() => {
-                    const t = result.track as UnifiedTrack;
-                    return (
-                      (!!t.local_path && t.local_path !== "") ||
-                      (!!t.audio_quality && t.audio_quality !== "")
-                    );
-                  })()}
-                />
-              ))}
-            </div>
-          )}
+          {/* Dynamic Results Sections - respects user's provider order */}
+          {(() => {
+            let lastType: string | null = null;
+            const sectionConfig: Record<string, { label: string; color: string; loading?: boolean }> = {
+              local: { label: "In Your Library", color: "bg-emerald-500" },
+              tidal: { label: "From Tidal", color: "bg-blue-500", loading: loadingTidal },
+              subsonic: { label: "From Subsonic", color: "bg-orange-500", loading: loadingSubsonic },
+              jellyfin: { label: "From Jellyfin", color: "bg-purple-500", loading: loadingJellyfin },
+            };
 
-          {/* Tidal Results Section */}
-          {filteredTidalResults.length > 0 && (
-            <div className="py-2 border-t border-white/5">
-              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                From Tidal
-                {loadingTidal && (
-                  <span className="text-theme-muted/50">(loading...)</span>
-                )}
-              </div>
-              {filteredTidalResults.map((result, index) => {
-                const globalIndex = localResults.length + index;
-                const isAdded = addedTracks.has(result.tidalId!);
-                return (
+            return allResults.map((result, index) => {
+              const showHeader = result.type !== lastType;
+              const isFirstSection = lastType === null;
+              lastType = result.type;
+              const config = sectionConfig[result.type] || { label: result.type, color: "bg-gray-500" };
+
+              const isAdded = result.type === "tidal" && addedTracks.has(result.tidalId!);
+              const isDownloaded = result.type === "local" && (() => {
+                const t = result.track as UnifiedTrack;
+                return (!!t.local_path && t.local_path !== "") || (!!t.audio_quality && t.audio_quality !== "");
+              })();
+
+              return (
+                <div key={result.id}>
+                  {showHeader && (
+                    <div className={`py-2 ${!isFirstSection ? "border-t border-white/5" : ""}`}>
+                      <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${config.color}`} />
+                        {config.label}
+                        {config.loading && (
+                          <span className="text-theme-muted/50">(loading...)</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <SearchResultItem
-                    key={result.id}
                     result={result}
-                    index={globalIndex}
-                    isSelected={selectedIndex === globalIndex}
+                    index={index}
+                    isSelected={selectedIndex === index}
                     onPlay={() => handlePlay(result)}
-                    onMouseEnter={() => setSelectedIndex(globalIndex)}
+                    onMouseEnter={() => setSelectedIndex(index)}
                     formatDuration={formatDuration}
-                    showAddButton
+                    showAddButton={result.type === "tidal"}
                     isAdded={isAdded}
-                    onAdd={(e) => handleAddToLikedSongs(result, e)}
+                    onAdd={result.type === "tidal" ? (e) => handleAddToLikedSongs(result, e) : undefined}
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
                       result.tidalId
                         ? downloads.get(result.tidalId.toString())
                         : undefined
                     }
-                    isDownloaded={false}
+                    isDownloaded={isDownloaded}
                   />
-                );
-              })}
-            </div>
-          )}
-
-          {hasQuery && loadingTidal && filteredTidalResults.length === 0 && (
-            <div
-              className={`py-2 ${localResults.length > 0 ? "border-t border-white/5" : ""}`}
-            >
-              <SkeletonSection
-                title="Searching Tidal..."
-                color="bg-blue-500"
-                count={4}
-              />
-            </div>
-          )}
-
-          {/* Subsonic Results Section */}
-          {subsonicResults.length > 0 && (
-            <div className="py-2 border-t border-white/5">
-              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-orange-500" />
-                From Subsonic
-                {loadingSubsonic && (
-                  <span className="text-theme-muted/50">(loading...)</span>
-                )}
-              </div>
-              {subsonicResults.map((result, index) => {
-                const globalIndex =
-                  localResults.length + filteredTidalResults.length + index;
-                return (
-                  <SearchResultItem
-                    key={result.id}
-                    result={result}
-                    index={globalIndex}
-                    isSelected={selectedIndex === globalIndex}
-                    onPlay={() => handlePlay(result)}
-                    onMouseEnter={() => setSelectedIndex(globalIndex)}
-                    formatDuration={formatDuration}
-                    onContextMenu={(e) => handleContextMenu(e, result)}
-                    isDownloaded={false}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* Jellyfin Results Section */}
-          {jellyfinResults.length > 0 && (
-            <div className="py-2 border-t border-white/5">
-              <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-500" />
-                From Jellyfin
-                {loadingJellyfin && (
-                  <span className="text-theme-muted/50">(loading...)</span>
-                )}
-              </div>
-              {jellyfinResults.map((result, index) => {
-                const globalIndex =
-                  localResults.length +
-                  filteredTidalResults.length +
-                  subsonicResults.length +
-                  index;
-                return (
-                  <SearchResultItem
-                    key={result.id}
-                    result={result}
-                    index={globalIndex}
-                    isSelected={selectedIndex === globalIndex}
-                    onPlay={() => handlePlay(result)}
-                    onMouseEnter={() => setSelectedIndex(globalIndex)}
-                    formatDuration={formatDuration}
-                    onContextMenu={(e) => handleContextMenu(e, result)}
-                    isDownloaded={false}
-                  />
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {hasResults && (
