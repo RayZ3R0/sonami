@@ -224,10 +224,11 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${isAdded
-              ? "bg-pink-500/20 text-pink-400 cursor-default"
-              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-            }
+                        ${
+                          isAdded
+                            ? "bg-pink-500/20 text-pink-400 cursor-default"
+                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+                        }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -356,7 +357,12 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   );
 
   const allResults = useMemo(() => {
-    return [...localResults, ...filteredTidalResults, ...subsonicResults, ...jellyfinResults];
+    return [
+      ...localResults,
+      ...filteredTidalResults,
+      ...subsonicResults,
+      ...jellyfinResults,
+    ];
   }, [localResults, filteredTidalResults, subsonicResults, jellyfinResults]);
 
   useEffect(() => {
@@ -485,7 +491,9 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   // Subsonic search effect
   useEffect(() => {
     const activeQuery = debouncedQuery;
-    const subsonicConfigured = providerConfigs.some(c => c.provider_id === "subsonic");
+    const subsonicConfigured = providerConfigs.some(
+      (c) => c.provider_id === "subsonic",
+    );
 
     if (!activeQuery || activeQuery.length < 2 || !subsonicConfigured) {
       setSubsonicResults([]);
@@ -535,7 +543,9 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
   // Jellyfin search effect
   useEffect(() => {
     const activeQuery = debouncedQuery;
-    const jellyfinConfigured = providerConfigs.some(c => c.provider_id === "jellyfin");
+    const jellyfinConfigured = providerConfigs.some(
+      (c) => c.provider_id === "jellyfin",
+    );
 
     if (!activeQuery || activeQuery.length < 2 || !jellyfinConfigured) {
       setJellyfinResults([]);
@@ -744,17 +754,17 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
         title: track.title,
         artist: track.artist
           ? {
-            id: track.artist.id || 0,
-            name: track.artist.name,
-            picture: track.artist.picture,
-          }
+              id: track.artist.id || 0,
+              name: track.artist.name,
+              picture: track.artist.picture,
+            }
           : undefined,
         album: track.album
           ? {
-            id: track.album.id || 0,
-            title: track.album.title,
-            cover: track.album.cover,
-          }
+              id: track.album.id || 0,
+              title: track.album.title,
+              cover: track.album.cover,
+            }
           : undefined,
         duration: track.duration,
         audioQuality: track.audioQuality || track.audio_quality,
@@ -1070,7 +1080,8 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 )}
               </div>
               {subsonicResults.map((result, index) => {
-                const globalIndex = localResults.length + filteredTidalResults.length + index;
+                const globalIndex =
+                  localResults.length + filteredTidalResults.length + index;
                 return (
                   <SearchResultItem
                     key={result.id}
@@ -1099,7 +1110,11 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 )}
               </div>
               {jellyfinResults.map((result, index) => {
-                const globalIndex = localResults.length + filteredTidalResults.length + subsonicResults.length + index;
+                const globalIndex =
+                  localResults.length +
+                  filteredTidalResults.length +
+                  subsonicResults.length +
+                  index;
                 return (
                   <SearchResultItem
                     key={result.id}

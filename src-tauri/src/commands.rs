@@ -9,6 +9,8 @@ pub mod providers;
 pub mod spotify;
 
 use crate::audio::AudioManager;
+use crate::models::SearchResults;
+use crate::providers::ProviderManager;
 use base64::{engine::general_purpose, Engine as _};
 use lofty::picture::MimeType;
 use lofty::prelude::*;
@@ -16,8 +18,6 @@ use lofty::probe::Probe;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
-use crate::providers::ProviderManager;
-use crate::models::SearchResults;
 
 const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "wma", "aiff", "ape", "opus", "webm",
@@ -842,9 +842,15 @@ pub async fn search_music(
     provider_id: Option<String>,
 ) -> Result<SearchResults, String> {
     let provider = if let Some(id) = provider_id {
-        state.get_provider(&id).await.ok_or("Provider not found".to_string())?
+        state
+            .get_provider(&id)
+            .await
+            .ok_or("Provider not found".to_string())?
     } else {
-        state.get_active_provider().await.ok_or("No active provider".to_string())?
+        state
+            .get_active_provider()
+            .await
+            .ok_or("No active provider".to_string())?
     };
 
     provider.search(&query).await.map_err(|e| e.to_string())
@@ -857,20 +863,29 @@ pub async fn get_music_stream_url(
     provider_id: String,
     quality: Option<String>,
 ) -> Result<String, String> {
-    let provider = state.get_provider(&provider_id).await.ok_or("Provider not found".to_string())?;
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or("Provider not found".to_string())?;
 
     let q = if let Some(qs) = quality {
-        qs.parse::<crate::models::Quality>().unwrap_or(crate::models::Quality::LOSSLESS)
+        qs.parse::<crate::models::Quality>()
+            .unwrap_or(crate::models::Quality::LOSSLESS)
     } else {
-        crate::models::Quality::LOSSLESS 
+        crate::models::Quality::LOSSLESS
     };
 
-    let info = provider.get_stream_url(&track_id, q).await.map_err(|e| e.to_string())?;
+    let info = provider
+        .get_stream_url(&track_id, q)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(info.url)
 }
 
 #[tauri::command]
-pub async fn get_providers_list(state: State<'_, std::sync::Arc<ProviderManager>>) -> Result<Vec<String>, String> {
+pub async fn get_providers_list(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+) -> Result<Vec<String>, String> {
     Ok(state.list_providers().await)
 }
 
@@ -898,10 +913,13 @@ pub async fn play_provider_track(
     cover_url: Option<String>,
 ) -> Result<(), String> {
     // Get stream URL from provider
-    let provider = provider_manager.get_provider(&provider_id).await
+    let provider = provider_manager
+        .get_provider(&provider_id)
+        .await
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
-    let stream_info = provider.get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
+    let stream_info = provider
+        .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
         .await
         .map_err(|e| e.to_string())?;
 

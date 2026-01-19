@@ -65,7 +65,10 @@ impl UrlResolver {
     pub fn resolve(&self, uri: &str) -> Result<ResolvedAudio, String> {
         if !uri.starts_with("tidal:") {
             // For local file paths, verify the file exists
-            if !uri.starts_with("http://") && !uri.starts_with("https://") && !Path::new(uri).exists() {
+            if !uri.starts_with("http://")
+                && !uri.starts_with("https://")
+                && !Path::new(uri).exists()
+            {
                 log::warn!("[Resolver] Local file not found: {}. Cannot play.", uri);
                 return Err(format!("File not found: {}", uri));
             }
@@ -90,10 +93,12 @@ impl UrlResolver {
 pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAudio, String> {
     // Try to find a matching provider
     if let Some((scheme, id_str)) = uri.split_once(':') {
-        if let Some(state) = app_handle.try_state::<std::sync::Arc<crate::providers::ProviderManager>>() {
-             if let Some(provider) = state.get_provider(scheme).await {
+        if let Some(state) =
+            app_handle.try_state::<std::sync::Arc<crate::providers::ProviderManager>>()
+        {
+            if let Some(provider) = state.get_provider(scheme).await {
                 // Found a valid provider!
-                
+
                 // 1. Get Quality Config
                 let (target_quality, prefer_high_quality) =
                     if let Some(state) = app_handle.try_state::<crate::tidal::TidalConfigState>() {
@@ -103,34 +108,48 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                         (crate::tidal::Quality::LOSSLESS, false)
                     };
 
-                 // Map to Unified Quality
-                 let unified_quality = match target_quality {
-                     crate::tidal::Quality::LOW => crate::models::Quality::LOW,
-                     crate::tidal::Quality::HIGH => crate::models::Quality::HIGH,
-                     crate::tidal::Quality::LOSSLESS => crate::models::Quality::LOSSLESS,
-                 };
+                // Map to Unified Quality
+                let unified_quality = match target_quality {
+                    crate::tidal::Quality::LOW => crate::models::Quality::LOW,
+                    crate::tidal::Quality::HIGH => crate::models::Quality::HIGH,
+                    crate::tidal::Quality::LOSSLESS => crate::models::Quality::LOSSLESS,
+                };
 
-                 // 2. (Optional) Check Local Library for Offline Playback
-                 // Currently only supported for Tidal IDs (numeric)
-                 if scheme == "tidal" {
-                     if let Ok(tid) = id_str.parse::<u64>() {
-                         if let Some(library) = app_handle.try_state::<LibraryManager>() {
-                            if let Ok(Some((path, quality_str))) = library.get_track_local_info(tid).await {
-                                log::debug!("[Resolver] Found local file: {} (Quality: {:?})", path, quality_str);
-                                
+                // 2. (Optional) Check Local Library for Offline Playback
+                // Currently only supported for Tidal IDs (numeric)
+                if scheme == "tidal" {
+                    if let Ok(tid) = id_str.parse::<u64>() {
+                        if let Some(library) = app_handle.try_state::<LibraryManager>() {
+                            if let Ok(Some((path, quality_str))) =
+                                library.get_track_local_info(tid).await
+                            {
+                                log::debug!(
+                                    "[Resolver] Found local file: {} (Quality: {:?})",
+                                    path,
+                                    quality_str
+                                );
+
                                 if Path::new(&path).exists() {
                                     // Smart Quality Check
                                     let local_is_sufficient = if prefer_high_quality {
                                         if let Some(ref q_str) = quality_str {
-                                            if let Ok(local_quality) = q_str.parse::<crate::tidal::Quality>() {
+                                            if let Ok(local_quality) =
+                                                q_str.parse::<crate::tidal::Quality>()
+                                            {
                                                 let sufficient = local_quality >= target_quality;
                                                 if !sufficient {
                                                     log::warn!("[Resolver] Local quality {:?} < Target {:?}. Streaming preferred.", local_quality, target_quality);
                                                 }
                                                 sufficient
-                                            } else { true }
-                                        } else { true }
-                                    } else { true };
+                                            } else {
+                                                true
+                                            }
+                                        } else {
+                                            true
+                                        }
+                                    } else {
+                                        true
+                                    };
 
                                     if local_is_sufficient {
                                         return Ok(ResolvedAudio {
@@ -141,24 +160,26 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                                     }
                                 } else {
                                     // Stale record cleanup
-                                     let _ = library.clear_download_info(tid).await;
+                                    let _ = library.clear_download_info(tid).await;
                                 }
                             }
-                         }
-                     }
-                 }
+                        }
+                    }
+                }
 
-                 // 3. Stream from Provider
-                 log::debug!("[Resolver] Streaming {} from {}", id_str, scheme);
-                 let stream_info = provider.get_stream_url(id_str, unified_quality).await
+                // 3. Stream from Provider
+                log::debug!("[Resolver] Streaming {} from {}", id_str, scheme);
+                let stream_info = provider
+                    .get_stream_url(id_str, unified_quality)
+                    .await
                     .map_err(|e| format!("Failed to resolve stream from {}: {}", scheme, e))?;
 
-                 return Ok(ResolvedAudio {
-                     path: stream_info.url,
-                     source: "STREAM".to_string(),
-                     quality: format!("{:?}", stream_info.quality),
-                 });
-             }
+                return Ok(ResolvedAudio {
+                    path: stream_info.url,
+                    source: "STREAM".to_string(),
+                    quality: format!("{:?}", stream_info.quality),
+                });
+            }
         }
     }
 
@@ -167,7 +188,7 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
         log::warn!("[Resolver] Local file not found: {}. Cannot play.", uri);
         return Err(format!("File not found: {}", uri));
     }
-    
+
     Ok(ResolvedAudio {
         path: uri.to_string(),
         source: "LOCAL".to_string(),

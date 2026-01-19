@@ -1,10 +1,10 @@
-use async_trait::async_trait;
-use crate::models::{Quality, SearchResults, StreamInfo, Track, Artist, Album};
+use crate::models::{Album, Artist, Quality, SearchResults, StreamInfo, Track};
 use crate::providers::traits::MusicProvider;
-use anyhow::{Result, anyhow};
-use serde_json::Value;
-use reqwest::Client;
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
+use reqwest::Client;
+use serde_json::Value;
 
 use super::models::*;
 
@@ -15,6 +15,12 @@ pub struct JellyfinProvider {
     access_token: String,
     device_id: String,
     initialized: bool,
+}
+
+impl Default for JellyfinProvider {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl JellyfinProvider {
@@ -52,14 +58,17 @@ impl JellyfinProvider {
         let mut headers = HeaderMap::new();
         headers.insert(
             AUTHORIZATION,
-            HeaderValue::from_str(&self.build_auth_header()).unwrap()
+            HeaderValue::from_str(&self.build_auth_header()).unwrap(),
         );
         headers
     }
 
     fn image_url(&self, item_id: &str, max_width: u32) -> String {
         let base = self.server_url.trim_end_matches('/');
-        format!("{}/Items/{}/Images/Primary?maxWidth={}", base, item_id, max_width)
+        format!(
+            "{}/Items/{}/Images/Primary?maxWidth={}",
+            base, item_id, max_width
+        )
     }
 
     pub async fn authenticate(&mut self, username: &str, password: &str) -> Result<()> {
@@ -76,7 +85,7 @@ impl JellyfinProvider {
         );
         headers.insert(
             reqwest::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json")
+            HeaderValue::from_static("application/json"),
         );
 
         let body = serde_json::json!({
@@ -84,17 +93,24 @@ impl JellyfinProvider {
             "Pw": password
         });
 
-        let resp: AuthenticationResult = self.client.post(&url)
+        let resp: AuthenticationResult = self
+            .client
+            .post(&url)
             .headers(headers)
             .json(&body)
-            .send().await?
-            .json().await?;
+            .send()
+            .await?
+            .json()
+            .await?;
 
         self.user_id = resp.user.id;
         self.access_token = resp.access_token;
         self.initialized = true;
 
-        log::info!("Jellyfin authentication successful for user: {}", resp.user.name);
+        log::info!(
+            "Jellyfin authentication successful for user: {}",
+            resp.user.name
+        );
         Ok(())
     }
 }
@@ -110,15 +126,18 @@ impl MusicProvider for JellyfinProvider {
     }
 
     async fn initialize(&mut self, config: Value) -> Result<()> {
-        self.server_url = config.get("server_url")
+        self.server_url = config
+            .get("server_url")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing server_url"))?
             .to_string();
 
-        let username = config.get("username")
+        let username = config
+            .get("username")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing username"))?;
-        let password = config.get("password")
+        let password = config
+            .get("password")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing password"))?;
 
@@ -138,10 +157,14 @@ impl MusicProvider for JellyfinProvider {
             self.user_id
         );
 
-        let resp: ItemsResult = self.client.get(&url)
+        let resp: ItemsResult = self
+            .client
+            .get(&url)
             .headers(self.headers())
-            .send().await?
-            .json().await?;
+            .send()
+            .await?
+            .json()
+            .await?;
 
         let mut tracks = Vec::new();
         let mut albums = Vec::new();
@@ -196,7 +219,7 @@ impl MusicProvider for JellyfinProvider {
         }
 
         let base = self.server_url.trim_end_matches('/');
-        
+
         let (container, audio_codec, bit_rate) = match quality {
             Quality::LOW => ("mp3", "mp3", "128000"),
             Quality::HIGH => ("mp3", "mp3", "320000"),
@@ -205,12 +228,7 @@ impl MusicProvider for JellyfinProvider {
 
         let url = format!(
             "{}/Audio/{}/universal?Container={}&AudioCodec={}&audioBitRate={}&api_key={}",
-            base,
-            track_id,
-            container,
-            audio_codec,
-            bit_rate,
-            self.access_token
+            base, track_id, container, audio_codec, bit_rate, self.access_token
         );
 
         Ok(StreamInfo {
@@ -228,10 +246,14 @@ impl MusicProvider for JellyfinProvider {
         let base = self.server_url.trim_end_matches('/');
         let url = format!("{}/Items/{}?UserId={}", base, track_id, self.user_id);
 
-        let item: BaseItemDto = self.client.get(&url)
+        let item: BaseItemDto = self
+            .client
+            .get(&url)
             .headers(self.headers())
-            .send().await?
-            .json().await?;
+            .send()
+            .await?
+            .json()
+            .await?;
 
         Ok(Track {
             id: item.id.clone(),
@@ -253,10 +275,14 @@ impl MusicProvider for JellyfinProvider {
         let base = self.server_url.trim_end_matches('/');
         let url = format!("{}/Items/{}?UserId={}", base, artist_id, self.user_id);
 
-        let item: BaseItemDto = self.client.get(&url)
+        let item: BaseItemDto = self
+            .client
+            .get(&url)
             .headers(self.headers())
-            .send().await?
-            .json().await?;
+            .send()
+            .await?
+            .json()
+            .await?;
 
         Ok(Artist {
             id: item.id.clone(),
@@ -273,10 +299,14 @@ impl MusicProvider for JellyfinProvider {
         let base = self.server_url.trim_end_matches('/');
         let url = format!("{}/Items/{}?UserId={}", base, album_id, self.user_id);
 
-        let item: BaseItemDto = self.client.get(&url)
+        let item: BaseItemDto = self
+            .client
+            .get(&url)
             .headers(self.headers())
-            .send().await?
-            .json().await?;
+            .send()
+            .await?
+            .json()
+            .await?;
 
         Ok(Album {
             id: item.id.clone(),

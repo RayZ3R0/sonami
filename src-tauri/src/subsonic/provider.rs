@@ -1,11 +1,11 @@
-use async_trait::async_trait;
-use crate::models::{Quality, SearchResults, StreamInfo, Track, Artist, Album};
+use crate::models::{Album, Artist, Quality, SearchResults, StreamInfo, Track};
 use crate::providers::traits::MusicProvider;
-use anyhow::{Result, anyhow};
-use serde_json::Value;
-use reqwest::Client;
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use md5;
 use rand::Rng;
+use reqwest::Client;
+use serde_json::Value;
 
 use super::models::*;
 
@@ -15,6 +15,12 @@ pub struct SubsonicProvider {
     username: String,
     password: String,
     initialized: bool,
+}
+
+impl Default for SubsonicProvider {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SubsonicProvider {
@@ -40,14 +46,16 @@ impl SubsonicProvider {
 
     fn generate_salt() -> String {
         let mut rng = rand::rng();
-        (0..16).map(|_| format!("{:x}", rng.random::<u8>())).collect()
+        (0..16)
+            .map(|_| format!("{:x}", rng.random::<u8>()))
+            .collect()
     }
 
     fn build_auth_params(&self) -> String {
         let salt = Self::generate_salt();
         let token_input = format!("{}{}", self.password, salt);
         let token = format!("{:x}", md5::compute(token_input.as_bytes()));
-        
+
         format!(
             "u={}&t={}&s={}&v=1.16.1&c=sonami&f=json",
             urlencoding::encode(&self.username),
@@ -69,15 +77,16 @@ impl SubsonicProvider {
     fn cover_art_url(&self, cover_art_id: &str, size: u32) -> String {
         let auth = self.build_auth_params();
         let base = self.server_url.trim_end_matches('/');
-        format!("{}/rest/getCoverArt?id={}&size={}&{}", base, cover_art_id, size, auth)
+        format!(
+            "{}/rest/getCoverArt?id={}&size={}&{}",
+            base, cover_art_id, size, auth
+        )
     }
 
     pub async fn ping(&self) -> Result<bool> {
         let url = self.build_url("ping", "");
-        let resp: SubsonicResponse<()> = self.client.get(&url)
-            .send().await?
-            .json().await?;
-        
+        let resp: SubsonicResponse<()> = self.client.get(&url).send().await?.json().await?;
+
         if resp.subsonic_response.status == "ok" {
             Ok(true)
         } else if let Some(err) = resp.subsonic_response.error {
@@ -99,19 +108,22 @@ impl MusicProvider for SubsonicProvider {
     }
 
     async fn initialize(&mut self, config: Value) -> Result<()> {
-        self.server_url = config.get("server_url")
+        self.server_url = config
+            .get("server_url")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing server_url"))?
             .to_string();
-        self.username = config.get("username")
+        self.username = config
+            .get("username")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing username"))?
             .to_string();
-        self.password = config.get("password")
+        self.password = config
+            .get("password")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing password"))?
             .to_string();
-        
+
         self.ping().await?;
         self.initialized = true;
         Ok(())
@@ -122,14 +134,16 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Subsonic provider not initialized"));
         }
 
-        let url = self.build_url("search3", &format!(
-            "query={}&artistCount=20&albumCount=20&songCount=50",
-            urlencoding::encode(query)
-        ));
+        let url = self.build_url(
+            "search3",
+            &format!(
+                "query={}&artistCount=20&albumCount=20&songCount=50",
+                urlencoding::encode(query)
+            ),
+        );
 
-        let resp: SubsonicResponse<SearchResult3Data> = self.client.get(&url)
-            .send().await?
-            .json().await?;
+        let resp: SubsonicResponse<SearchResult3Data> =
+            self.client.get(&url).send().await?.json().await?;
 
         if resp.subsonic_response.status != "ok" {
             if let Some(err) = resp.subsonic_response.error {
@@ -138,12 +152,20 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Unknown Subsonic error"));
         }
 
-        let search_data = resp.subsonic_response.data
+        let search_data = resp
+            .subsonic_response
+            .data
             .and_then(|d| d.search_result3)
-            .unwrap_or(SearchResult3 { artist: vec![], album: vec![], song: vec![] });
+            .unwrap_or(SearchResult3 {
+                artist: vec![],
+                album: vec![],
+                song: vec![],
+            });
 
-        let tracks: Vec<Track> = search_data.song.into_iter().map(|s| {
-            Track {
+        let tracks: Vec<Track> = search_data
+            .song
+            .into_iter()
+            .map(|s| Track {
                 id: s.id.clone(),
                 title: s.title,
                 artist: s.artist.unwrap_or_default(),
@@ -152,27 +174,31 @@ impl MusicProvider for SubsonicProvider {
                 album_id: s.album_id,
                 duration: s.duration.unwrap_or(0),
                 cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
-            }
-        }).collect();
+            })
+            .collect();
 
-        let albums: Vec<Album> = search_data.album.into_iter().map(|a| {
-            Album {
+        let albums: Vec<Album> = search_data
+            .album
+            .into_iter()
+            .map(|a| Album {
                 id: a.id.clone(),
                 title: a.name,
                 artist: a.artist.unwrap_or_default(),
                 artist_id: a.artist_id,
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
                 year: a.year.map(|y| y.to_string()),
-            }
-        }).collect();
+            })
+            .collect();
 
-        let artists: Vec<Artist> = search_data.artist.into_iter().map(|a| {
-            Artist {
+        let artists: Vec<Artist> = search_data
+            .artist
+            .into_iter()
+            .map(|a| Artist {
                 id: a.id.clone(),
                 name: a.name,
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(SearchResults {
             tracks,
@@ -195,7 +221,10 @@ impl MusicProvider for SubsonicProvider {
         };
 
         // format=mp3 forces transcoding to MP3 which streams progressively without seeking
-        let url = self.build_url("stream", &format!("id={}&maxBitRate={}&format=mp3", track_id, max_bit_rate));
+        let url = self.build_url(
+            "stream",
+            &format!("id={}&maxBitRate={}&format=mp3", track_id, max_bit_rate),
+        );
 
         Ok(StreamInfo {
             url,
@@ -210,9 +239,7 @@ impl MusicProvider for SubsonicProvider {
         }
 
         let url = self.build_url("getSong", &format!("id={}", track_id));
-        let resp: SubsonicResponse<SongData> = self.client.get(&url)
-            .send().await?
-            .json().await?;
+        let resp: SubsonicResponse<SongData> = self.client.get(&url).send().await?.json().await?;
 
         if resp.subsonic_response.status != "ok" {
             if let Some(err) = resp.subsonic_response.error {
@@ -221,7 +248,9 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Unknown Subsonic error"));
         }
 
-        let song = resp.subsonic_response.data
+        let song = resp
+            .subsonic_response
+            .data
             .ok_or_else(|| anyhow!("No song data"))?
             .song;
 
@@ -243,9 +272,7 @@ impl MusicProvider for SubsonicProvider {
         }
 
         let url = self.build_url("getArtist", &format!("id={}", artist_id));
-        let resp: SubsonicResponse<ArtistData> = self.client.get(&url)
-            .send().await?
-            .json().await?;
+        let resp: SubsonicResponse<ArtistData> = self.client.get(&url).send().await?.json().await?;
 
         if resp.subsonic_response.status != "ok" {
             if let Some(err) = resp.subsonic_response.error {
@@ -254,7 +281,9 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Unknown Subsonic error"));
         }
 
-        let artist = resp.subsonic_response.data
+        let artist = resp
+            .subsonic_response
+            .data
             .ok_or_else(|| anyhow!("No artist data"))?
             .artist;
 
@@ -271,9 +300,7 @@ impl MusicProvider for SubsonicProvider {
         }
 
         let url = self.build_url("getAlbum", &format!("id={}", album_id));
-        let resp: SubsonicResponse<AlbumData> = self.client.get(&url)
-            .send().await?
-            .json().await?;
+        let resp: SubsonicResponse<AlbumData> = self.client.get(&url).send().await?.json().await?;
 
         if resp.subsonic_response.status != "ok" {
             if let Some(err) = resp.subsonic_response.error {
@@ -282,7 +309,9 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Unknown Subsonic error"));
         }
 
-        let album = resp.subsonic_response.data
+        let album = resp
+            .subsonic_response
+            .data
             .ok_or_else(|| anyhow!("No album data"))?
             .album;
 

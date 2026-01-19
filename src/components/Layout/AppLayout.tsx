@@ -17,18 +17,23 @@ export const AppLayout = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">("appearance");
+  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
+    "appearance",
+  );
   const { setIsSettingsOpen, isSettingsOpen, setIsQueueOpen } = usePlayer();
 
-  const handleOpenSettings = useCallback((tab: "appearance" | "playback") => {
-    if (isSettingsOpen && settingsTab === tab) {
-      setIsSettingsOpen(false);
-    } else {
-      setSettingsTab(tab);
-      setIsSettingsOpen(true);
-      setIsQueueOpen(false);
-    }
-  }, [isSettingsOpen, settingsTab, setIsSettingsOpen, setIsQueueOpen]);
+  const handleOpenSettings = useCallback(
+    (tab: "appearance" | "playback") => {
+      if (isSettingsOpen && settingsTab === tab) {
+        setIsSettingsOpen(false);
+      } else {
+        setSettingsTab(tab);
+        setIsSettingsOpen(true);
+        setIsQueueOpen(false);
+      }
+    },
+    [isSettingsOpen, settingsTab, setIsSettingsOpen, setIsQueueOpen],
+  );
 
   // Global keyboard shortcut for search (Cmd/Ctrl + K)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -75,8 +80,9 @@ export const AppLayout = () => {
 
         {/* Main Content Area - Wrapped for rounded corners effect */}
         <div
-          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${isQueueOpen || isSettingsOpen ? "rounded-tr-2xl" : ""
-            }`}
+          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${
+            isQueueOpen || isSettingsOpen ? "rounded-tr-2xl" : ""
+          }`}
         >
           <MainStage activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
@@ -97,6 +103,6 @@ export const AppLayout = () => {
 
       {/* Spotify Import Indicator (floating) */}
       <SpotifyImportIndicator />
-    </div >
+    </div>
   );
 };

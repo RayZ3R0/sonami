@@ -290,7 +290,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) { }
+        } catch (e) {}
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);

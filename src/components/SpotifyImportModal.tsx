@@ -125,7 +125,9 @@ export const SpotifyImportModal = ({
 
     // Check if another import is in progress
     if (!spotifyImport.canStartNewImport) {
-      setError("Another import is already in progress. Please wait for it to complete.");
+      setError(
+        "Another import is already in progress. Please wait for it to complete.",
+      );
       return;
     }
 
@@ -246,7 +248,8 @@ export const SpotifyImportModal = ({
   const notFoundCount = verifiedTracks.length - foundCount;
 
   // Determine if we're in an active import phase
-  const isActivePhase = phase === "fetching" || phase === "verifying" || phase === "importing";
+  const isActivePhase =
+    phase === "fetching" || phase === "verifying" || phase === "importing";
 
   const handleClose = () => {
     if (isActivePhase) {
@@ -352,7 +355,8 @@ export const SpotifyImportModal = ({
                       Import in Progress
                     </p>
                     <p className="text-sm text-red-500/80 mt-1">
-                      Another Spotify import is already running. Please wait for it to complete before starting a new one.
+                      Another Spotify import is already running. Please wait for
+                      it to complete before starting a new one.
                     </p>
                   </div>
                 </div>
@@ -375,7 +379,8 @@ export const SpotifyImportModal = ({
                   </p>
                   <p className="text-sm text-amber-500/80 mt-1">
                     Each track will be verified against Tidal's catalog. Large
-                    playlists may take several minutes to process. You can minimize this window and it will continue in the background.
+                    playlists may take several minutes to process. You can
+                    minimize this window and it will continue in the background.
                   </p>
                 </div>
               </div>
@@ -440,7 +445,8 @@ export const SpotifyImportModal = ({
                 Fetching playlist from Spotify...
               </p>
               <p className="mt-2 text-sm text-theme-muted">
-                You can minimize this window - import will continue in background
+                You can minimize this window - import will continue in
+                background
               </p>
             </div>
           )}
@@ -489,7 +495,9 @@ export const SpotifyImportModal = ({
                   <path d="M12 15v.01M12 9v2" />
                   <circle cx="12" cy="12" r="10" />
                 </svg>
-                <span className="pt-[4.5px]">You can minimize this window - import will continue</span>
+                <span className="pt-[4.5px]">
+                  You can minimize this window - import will continue
+                </span>
               </div>
             </div>
           )}
@@ -531,20 +539,22 @@ export const SpotifyImportModal = ({
                   {verifiedTracks.map((track, index) => (
                     <div
                       key={index}
-                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${track.found
-                        ? "hover:bg-theme-surface-hover cursor-pointer"
-                        : "opacity-50"
-                        }`}
+                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${
+                        track.found
+                          ? "hover:bg-theme-surface-hover cursor-pointer"
+                          : "opacity-50"
+                      }`}
                       onClick={() => track.found && handleToggleTrack(index)}
                     >
                       {/* Checkbox */}
                       <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedTracks.has(index)
-                          ? "bg-theme-accent border-theme-accent"
-                          : track.found
-                            ? "border-white/10 group-hover:border-white/20"
-                            : "border-white/5"
-                          }`}
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                          selectedTracks.has(index)
+                            ? "bg-theme-accent border-theme-accent"
+                            : track.found
+                              ? "border-white/10 group-hover:border-white/20"
+                              : "border-white/5"
+                        }`}
                       >
                         {selectedTracks.has(index) && (
                           <svg
@@ -643,7 +653,8 @@ export const SpotifyImportModal = ({
                 Adding tracks to your library...
               </p>
               <p className="mt-2 text-sm text-theme-muted">
-                You can minimize this window - import will continue in background
+                You can minimize this window - import will continue in
+                background
               </p>
             </div>
           )}
@@ -737,7 +748,9 @@ export const SpotifyImportModal = ({
             </>
           )}
 
-          {(phase === "fetching" || phase === "verifying" || phase === "importing") && (
+          {(phase === "fetching" ||
+            phase === "verifying" ||
+            phase === "importing") && (
             <button
               onClick={handleClose}
               className="px-5 py-2.5 pt-[11px] rounded-xl text-sm font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-all flex items-center gap-2"

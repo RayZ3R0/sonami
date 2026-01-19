@@ -73,7 +73,8 @@ impl BaseItemDto {
     }
 
     pub fn primary_artist_id(&self) -> Option<String> {
-        self.artist_items.as_ref()
+        self.artist_items
+            .as_ref()
             .and_then(|items| items.first())
             .map(|item| item.id.clone())
     }

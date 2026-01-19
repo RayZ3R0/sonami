@@ -198,7 +198,10 @@ const SourceBadge = ({ path }: { path?: string }) => {
   // Detect source from URL/path
   const isSubsonic = path.includes("/rest/stream") || path.includes("subsonic");
   const isJellyfin = path.includes("jellyfin") || path.includes("/Items/");
-  const isTidal = path.startsWith("tidal:") || path.includes("tidal.com") || path.includes("audio.tidal.com");
+  const isTidal =
+    path.startsWith("tidal:") ||
+    path.includes("tidal.com") ||
+    path.includes("audio.tidal.com");
 
   if (isSubsonic) {
     return (
@@ -432,7 +435,6 @@ export const PlayerBar = () => {
                     />
                   )}
                   <SourceBadge path={currentTrack.path} />
-
                 </div>
                 <span className="text-xs text-theme-secondary truncate">
                   {currentTrack.artist}

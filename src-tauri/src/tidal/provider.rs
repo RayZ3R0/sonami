@@ -1,8 +1,8 @@
-use async_trait::async_trait;
-use crate::models::{Quality, SearchResults, StreamInfo, Track, Artist, Album, Playlist};
-use crate::tidal::client::TidalClient;
+use crate::models::{Album, Artist, Playlist, Quality, SearchResults, StreamInfo, Track};
 use crate::providers::traits::MusicProvider;
-use anyhow::{Result, anyhow};
+use crate::tidal::client::TidalClient;
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use serde_json::Value;
 
 pub struct TidalProvider {
@@ -11,7 +11,9 @@ pub struct TidalProvider {
 
 impl TidalProvider {
     pub async fn new() -> Result<Self> {
-        let client = TidalClient::new().await.map_err(|e| anyhow!(e.to_string()))?;
+        let client = TidalClient::new()
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
         Ok(Self { client })
     }
 }
@@ -32,52 +34,96 @@ impl MusicProvider for TidalProvider {
     }
 
     async fn search(&self, query: &str) -> Result<SearchResults> {
-        let tracks_res = self.client.search_tracks(query).await.map_err(|e| anyhow!(e.to_string()))?;
-        let albums_res = self.client.search_albums(query).await.map_err(|e| anyhow!(e.to_string()))?;
-        let artists_res = self.client.search_artists(query).await.map_err(|e| anyhow!(e.to_string()))?;
-        let playlists_res = self.client.search_playlists(query).await.map_err(|e| anyhow!(e.to_string()))?;
+        let tracks_res = self
+            .client
+            .search_tracks(query)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let albums_res = self
+            .client
+            .search_albums(query)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let artists_res = self
+            .client
+            .search_artists(query)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let playlists_res = self
+            .client
+            .search_playlists(query)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-        let tracks: Vec<Track> = tracks_res.items.into_iter().map(|t| {
-            Track {
+        let tracks: Vec<Track> = tracks_res
+            .items
+            .into_iter()
+            .map(|t| Track {
                 id: t.id.to_string(),
                 title: t.title,
-                artist: t.artist.as_ref().map(|a| a.name.clone()).unwrap_or_default(),
+                artist: t
+                    .artist
+                    .as_ref()
+                    .map(|a| a.name.clone())
+                    .unwrap_or_default(),
                 artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
-                album: t.album.as_ref().map(|a| a.title.clone()).unwrap_or_default(),
+                album: t
+                    .album
+                    .as_ref()
+                    .map(|a| a.title.clone())
+                    .unwrap_or_default(),
                 album_id: t.album.as_ref().map(|a| a.id.to_string()),
                 duration: t.duration.unwrap_or(0) as u64,
-                cover_url: t.cover.map(|c| crate::tidal::models::get_cover_url(&c, 640)), 
-            }
-        }).collect();
+                cover_url: t
+                    .cover
+                    .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+            })
+            .collect();
 
-        let albums: Vec<Album> = albums_res.items.into_iter().map(|a| {
-            Album {
+        let albums: Vec<Album> = albums_res
+            .items
+            .into_iter()
+            .map(|a| Album {
                 id: a.id.to_string(),
                 title: a.title,
-                artist: a.artist.as_ref().map(|ar| ar.name.clone()).unwrap_or_default(),
+                artist: a
+                    .artist
+                    .as_ref()
+                    .map(|ar| ar.name.clone())
+                    .unwrap_or_default(),
                 artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
-                cover_url: a.cover.map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+                cover_url: a
+                    .cover
+                    .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
                 year: None,
-            }
-        }).collect();
+            })
+            .collect();
 
-        let artists: Vec<Artist> = artists_res.items.into_iter().map(|a| {
-            Artist {
+        let artists: Vec<Artist> = artists_res
+            .items
+            .into_iter()
+            .map(|a| Artist {
                 id: a.id.to_string(),
                 name: a.name,
-                cover_url: a.picture.map(|p| crate::tidal::models::get_cover_url(&p, 640)),
-            }
-        }).collect();
+                cover_url: a
+                    .picture
+                    .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
+            })
+            .collect();
 
-        let playlists: Vec<Playlist> = playlists_res.items.into_iter().map(|p| {
-            Playlist {
+        let playlists: Vec<Playlist> = playlists_res
+            .items
+            .into_iter()
+            .map(|p| Playlist {
                 id: p.id,
                 title: p.title,
                 description: p.description,
-                cover_url: p.cover.map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+                cover_url: p
+                    .cover
+                    .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
                 track_count: p.number_of_tracks.unwrap_or(0),
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(SearchResults {
             tracks,
@@ -88,7 +134,9 @@ impl MusicProvider for TidalProvider {
     }
 
     async fn get_stream_url(&self, track_id: &str, quality: Quality) -> Result<StreamInfo> {
-        let tid = track_id.parse::<u64>().map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let tid = track_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
         // Map generic Quality to Tidal Quality
         let tidal_quality = match quality {
             Quality::LOW => crate::tidal::Quality::LOW,
@@ -96,7 +144,11 @@ impl MusicProvider for TidalProvider {
             Quality::LOSSLESS => crate::tidal::Quality::LOSSLESS,
         };
 
-        let info = self.client.get_track(tid, tidal_quality).await.map_err(|e| anyhow!(e.to_string()))?;
+        let info = self
+            .client
+            .get_track(tid, tidal_quality)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
 
         Ok(StreamInfo {
             url: info.url,
@@ -106,8 +158,14 @@ impl MusicProvider for TidalProvider {
     }
 
     async fn get_track_details(&self, track_id: &str) -> Result<Track> {
-        let tid = track_id.parse::<u64>().map_err(|_| anyhow!("Invalid Tidal ID"))?;
-        let t = self.client.get_track(tid, crate::tidal::Quality::LOW).await.map_err(|e| anyhow!(e.to_string()))?; 
+        let tid = track_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let _t = self
+            .client
+            .get_track(tid, crate::tidal::Quality::LOW)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
         // Wait, get_track returns StreamInfo. Does get_track return Metadata?
         // Checking client.rs... get_track returns TrackStreamInfo.
         // There is no get_track_metadata in client.rs?
@@ -124,32 +182,52 @@ impl MusicProvider for TidalProvider {
         // "get_track" endpoint at "/track/" usually returns metadata if you don't pass quality? OR maybe the metadata is in the stream response?
         // `get_track` in client.rs calls `/track/` with id and quality.
         // The response parsing seems focused on stream URL.
-        
+
         // I will stub this for now or implement it properly.
         // To be "Industry Grade", I should implement `get_track_metadata` in `TidalClient`.
-        
+
         Err(anyhow!("get_track_details not implemented for Tidal yet"))
     }
 
     async fn get_artist_details(&self, artist_id: &str) -> Result<Artist> {
-        let aid = artist_id.parse::<u64>().map_err(|_| anyhow!("Invalid Tidal ID"))?;
-        let a = self.client.get_artist(aid).await.map_err(|e| anyhow!(e.to_string()))?;
+        let aid = artist_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let a = self
+            .client
+            .get_artist(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
         Ok(Artist {
             id: a.id.to_string(),
             name: a.name,
-            cover_url: a.picture.map(|p| crate::tidal::models::get_cover_url(&p, 640)),
+            cover_url: a
+                .picture
+                .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
         })
     }
 
     async fn get_album_details(&self, album_id: &str) -> Result<Album> {
-        let aid = album_id.parse::<u64>().map_err(|_| anyhow!("Invalid Tidal ID"))?;
-        let a = self.client.get_album(aid).await.map_err(|e| anyhow!(e.to_string()))?;
+        let aid = album_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let a = self
+            .client
+            .get_album(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
         Ok(Album {
             id: a.id.to_string(),
             title: a.title,
-            artist: a.artist.as_ref().map(|ar| ar.name.clone()).unwrap_or_default(),
+            artist: a
+                .artist
+                .as_ref()
+                .map(|ar| ar.name.clone())
+                .unwrap_or_default(),
             artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
-            cover_url: a.cover.map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+            cover_url: a
+                .cover
+                .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
             year: None,
         })
     }

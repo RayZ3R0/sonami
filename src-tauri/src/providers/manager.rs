@@ -1,8 +1,8 @@
 use crate::providers::traits::{LyricsProvider, MusicProvider};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
@@ -12,8 +12,16 @@ pub struct ProviderConfig {
 
 pub struct ProviderManager {
     providers: Arc<RwLock<HashMap<String, Box<dyn MusicProvider>>>>,
+    #[allow(dead_code)]
     lyrics_providers: Arc<RwLock<HashMap<String, Box<dyn LyricsProvider>>>>,
+    #[allow(dead_code)]
     active_provider: Arc<RwLock<Option<String>>>,
+}
+
+impl Default for ProviderManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProviderManager {
@@ -32,23 +40,30 @@ impl ProviderManager {
         providers.insert(id, provider);
     }
 
-    pub async fn get_provider(&self, id: &str) -> Option<Box<dyn MusicProvider>> {
-        // We can't return Box<dyn> easily from a map without cloning or something, 
-        // but since we want to use it, we might need shared ownership or return a reference 
+    pub async fn get_provider(&self, _id: &str) -> Option<Box<dyn MusicProvider>> {
+        // We can't return Box<dyn> easily from a map without cloning or something,
+        // but since we want to use it, we might need shared ownership or return a reference
         // if we weren't async.
         // Actually, since MusicProvider is Send+Sync, maybe we store them in Arc?
         // Let's refactor to store Arc<dyn MusicProvider>.
         None // Placeholder, will fix in the structural definition below
     }
-    
+
     // Better approach: Store Arc<dyn MusicProvider>
 }
 
 // Redefining struct for Arc usage
 pub struct ProviderManagerArc {
     providers: Arc<RwLock<HashMap<String, Arc<dyn MusicProvider>>>>,
+    #[allow(dead_code)]
     lyrics_providers: Arc<RwLock<HashMap<String, Arc<dyn LyricsProvider>>>>,
     active_provider: Arc<RwLock<Option<String>>>,
+}
+
+impl Default for ProviderManagerArc {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProviderManagerArc {
@@ -90,7 +105,7 @@ impl ProviderManagerArc {
             Err(format!("Provider {} not found", id))
         }
     }
-    
+
     pub async fn list_providers(&self) -> Vec<String> {
         let providers = self.providers.read().await;
         providers.keys().cloned().collect()

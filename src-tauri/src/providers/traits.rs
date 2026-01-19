@@ -1,13 +1,13 @@
-use async_trait::async_trait;
-use crate::models::{Quality, SearchResults, StreamInfo, Track, Artist, Album};
+use crate::models::{Album, Artist, Quality, SearchResults, StreamInfo, Track};
 use anyhow::Result;
+use async_trait::async_trait;
 use serde_json::Value;
 
 #[async_trait]
 pub trait MusicProvider: Send + Sync {
     /// Unique identifier (e.g., "tidal", "subsonic", "jellyfin")
     fn id(&self) -> &str;
-    
+
     /// User-friendly name
     fn name(&self) -> &str;
 
@@ -19,7 +19,7 @@ pub trait MusicProvider: Send + Sync {
 
     /// Playback
     async fn get_stream_url(&self, track_id: &str, quality: Quality) -> Result<StreamInfo>;
-    
+
     /// Metadata
     async fn get_track_details(&self, track_id: &str) -> Result<Track>;
     async fn get_artist_details(&self, artist_id: &str) -> Result<Artist>;

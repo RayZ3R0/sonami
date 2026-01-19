@@ -11,7 +11,6 @@ import {
   ProviderConfig,
 } from "../api/providers";
 
-
 const ArrowRightIcon = () => (
   <svg
     width="24"
@@ -94,10 +93,11 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${isActive
-          ? "ring-2 ring-offset-2 ring-offset-transparent"
-          : "hover:scale-[1.02]"
-        }
+                ${
+                  isActive
+                    ? "ring-2 ring-offset-2 ring-offset-transparent"
+                    : "hover:scale-[1.02]"
+                }
             `}
       style={{
         background: colors.background,
@@ -244,21 +244,33 @@ export const Settings = ({
     preferHighQualityStream,
     setPreferHighQualityStream,
   } = usePlayer();
-  const [activeTab, setActiveTab] = useState<"appearance" | "playback" | "services">(
-    defaultTab,
-  );
+  const [activeTab, setActiveTab] = useState<
+    "appearance" | "playback" | "services"
+  >(defaultTab);
 
   // Provider configuration state
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
-  const [subsonicForm, setSubsonicForm] = useState({ url: "", username: "", password: "" });
-  const [jellyfinForm, setJellyfinForm] = useState({ url: "", username: "", password: "" });
+  const [subsonicForm, setSubsonicForm] = useState({
+    url: "",
+    username: "",
+    password: "",
+  });
+  const [jellyfinForm, setJellyfinForm] = useState({
+    url: "",
+    username: "",
+    password: "",
+  });
   const [subsonicLoading, setSubsonicLoading] = useState(false);
   const [jellyfinLoading, setJellyfinLoading] = useState(false);
   const [subsonicError, setSubsonicError] = useState<string | null>(null);
   const [jellyfinError, setJellyfinError] = useState<string | null>(null);
 
-  const subsonicConfig = providerConfigs.find(c => c.provider_id === "subsonic");
-  const jellyfinConfig = providerConfigs.find(c => c.provider_id === "jellyfin");
+  const subsonicConfig = providerConfigs.find(
+    (c) => c.provider_id === "subsonic",
+  );
+  const jellyfinConfig = providerConfigs.find(
+    (c) => c.provider_id === "jellyfin",
+  );
 
   const loadProviderConfigs = async () => {
     try {
@@ -279,7 +291,11 @@ export const Settings = ({
     setSubsonicError(null);
     setSubsonicLoading(true);
     try {
-      await configureSubsonic(subsonicForm.url, subsonicForm.username, subsonicForm.password);
+      await configureSubsonic(
+        subsonicForm.url,
+        subsonicForm.username,
+        subsonicForm.password,
+      );
       await loadProviderConfigs();
       setSubsonicForm({ url: "", username: "", password: "" });
     } catch (e: any) {
@@ -293,7 +309,11 @@ export const Settings = ({
     setJellyfinError(null);
     setJellyfinLoading(true);
     try {
-      await configureJellyfin(jellyfinForm.url, jellyfinForm.username, jellyfinForm.password);
+      await configureJellyfin(
+        jellyfinForm.url,
+        jellyfinForm.username,
+        jellyfinForm.password,
+      );
       await loadProviderConfigs();
       setJellyfinForm({ url: "", username: "", password: "" });
     } catch (e: any) {
@@ -370,11 +390,10 @@ export const Settings = ({
 
   return (
     <>
-
-
       <div
-        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${isOpen ? "w-[480px]" : "w-0"
-          }`}
+        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${
+          isOpen ? "w-[480px]" : "w-0"
+        }`}
       >
         <div className="w-[480px] h-full flex flex-col">
           {/* Header matching QueueSidebar style */}
@@ -388,7 +407,9 @@ export const Settings = ({
               </div>
               <div>
                 <h3 className="font-semibold text-theme-primary">Settings</h3>
-                <p className="text-xs text-theme-muted">Manage your preferences</p>
+                <p className="text-xs text-theme-muted">
+                  Manage your preferences
+                </p>
               </div>
             </div>
 
@@ -473,10 +494,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("floating")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "floating"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "floating"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -521,10 +543,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("classic")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "classic"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "classic"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -611,7 +634,6 @@ export const Settings = ({
 
             {activeTab === "playback" && (
               <div className="space-y-6">
-
                 {/* Prefer High Quality Stream Section */}
                 <div
                   className="flex items-center justify-between p-4 rounded-xl"
@@ -794,10 +816,11 @@ export const Settings = ({
                       <button
                         key={option.value}
                         onClick={() => setLyricsProvider(option.value)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                          }`}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${
+                          lyricsProvider === option.value
+                            ? "ring-2"
+                            : "hover:scale-[1.02]"
+                        }`}
                         style={{
                           background:
                             lyricsProvider === option.value
@@ -939,9 +962,15 @@ export const Settings = ({
                         </h3>
                         <p
                           className="text-xs"
-                          style={{ color: subsonicConfig ? theme.colors.accent : theme.colors.textSecondary }}
+                          style={{
+                            color: subsonicConfig
+                              ? theme.colors.accent
+                              : theme.colors.textSecondary,
+                          }}
                         >
-                          {subsonicConfig ? `Connected to ${subsonicConfig.server_url}` : "Not configured"}
+                          {subsonicConfig
+                            ? `Connected to ${subsonicConfig.server_url}`
+                            : "Not configured"}
                         </p>
                       </div>
                     </div>
@@ -971,7 +1000,12 @@ export const Settings = ({
                           type="text"
                           placeholder="Server URL (e.g., https://music.example.com)"
                           value={subsonicForm.url}
-                          onChange={(e) => setSubsonicForm(f => ({ ...f, url: e.target.value }))}
+                          onChange={(e) =>
+                            setSubsonicForm((f) => ({
+                              ...f,
+                              url: e.target.value,
+                            }))
+                          }
                           className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                           style={{
                             background: theme.colors.surfaceHover,
@@ -984,7 +1018,12 @@ export const Settings = ({
                             type="text"
                             placeholder="Username"
                             value={subsonicForm.username}
-                            onChange={(e) => setSubsonicForm(f => ({ ...f, username: e.target.value }))}
+                            onChange={(e) =>
+                              setSubsonicForm((f) => ({
+                                ...f,
+                                username: e.target.value,
+                              }))
+                            }
                             className="px-3 py-2 rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
@@ -996,7 +1035,12 @@ export const Settings = ({
                             type="password"
                             placeholder="Password"
                             value={subsonicForm.password}
-                            onChange={(e) => setSubsonicForm(f => ({ ...f, password: e.target.value }))}
+                            onChange={(e) =>
+                              setSubsonicForm((f) => ({
+                                ...f,
+                                password: e.target.value,
+                              }))
+                            }
                             className="px-3 py-2 rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
@@ -1007,16 +1051,18 @@ export const Settings = ({
                         </div>
                       </div>
                       {subsonicError && (
-                        <p
-                          className="text-xs"
-                          style={{ color: "#ef4444" }}
-                        >
+                        <p className="text-xs" style={{ color: "#ef4444" }}>
                           {subsonicError}
                         </p>
                       )}
                       <button
                         onClick={handleSubsonicConnect}
-                        disabled={subsonicLoading || !subsonicForm.url || !subsonicForm.username || !subsonicForm.password}
+                        disabled={
+                          subsonicLoading ||
+                          !subsonicForm.url ||
+                          !subsonicForm.username ||
+                          !subsonicForm.password
+                        }
                         className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         style={{
                           background: theme.colors.accent,
@@ -1051,9 +1097,15 @@ export const Settings = ({
                         </h3>
                         <p
                           className="text-xs"
-                          style={{ color: jellyfinConfig ? theme.colors.accent : theme.colors.textSecondary }}
+                          style={{
+                            color: jellyfinConfig
+                              ? theme.colors.accent
+                              : theme.colors.textSecondary,
+                          }}
                         >
-                          {jellyfinConfig ? `Connected to ${jellyfinConfig.server_url}` : "Not configured"}
+                          {jellyfinConfig
+                            ? `Connected to ${jellyfinConfig.server_url}`
+                            : "Not configured"}
                         </p>
                       </div>
                     </div>
@@ -1083,7 +1135,12 @@ export const Settings = ({
                           type="text"
                           placeholder="Server URL (e.g., https://jellyfin.example.com)"
                           value={jellyfinForm.url}
-                          onChange={(e) => setJellyfinForm(f => ({ ...f, url: e.target.value }))}
+                          onChange={(e) =>
+                            setJellyfinForm((f) => ({
+                              ...f,
+                              url: e.target.value,
+                            }))
+                          }
                           className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                           style={{
                             background: theme.colors.surfaceHover,
@@ -1096,7 +1153,12 @@ export const Settings = ({
                             type="text"
                             placeholder="Username"
                             value={jellyfinForm.username}
-                            onChange={(e) => setJellyfinForm(f => ({ ...f, username: e.target.value }))}
+                            onChange={(e) =>
+                              setJellyfinForm((f) => ({
+                                ...f,
+                                username: e.target.value,
+                              }))
+                            }
                             className="px-3 py-2 rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
@@ -1108,7 +1170,12 @@ export const Settings = ({
                             type="password"
                             placeholder="Password"
                             value={jellyfinForm.password}
-                            onChange={(e) => setJellyfinForm(f => ({ ...f, password: e.target.value }))}
+                            onChange={(e) =>
+                              setJellyfinForm((f) => ({
+                                ...f,
+                                password: e.target.value,
+                              }))
+                            }
                             className="px-3 py-2 rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
@@ -1119,16 +1186,18 @@ export const Settings = ({
                         </div>
                       </div>
                       {jellyfinError && (
-                        <p
-                          className="text-xs"
-                          style={{ color: "#ef4444" }}
-                        >
+                        <p className="text-xs" style={{ color: "#ef4444" }}>
                           {jellyfinError}
                         </p>
                       )}
                       <button
                         onClick={handleJellyfinConnect}
-                        disabled={jellyfinLoading || !jellyfinForm.url || !jellyfinForm.username || !jellyfinForm.password}
+                        disabled={
+                          jellyfinLoading ||
+                          !jellyfinForm.url ||
+                          !jellyfinForm.username ||
+                          !jellyfinForm.password
+                        }
                         className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         style={{
                           background: theme.colors.accent,
@@ -1150,7 +1219,8 @@ export const Settings = ({
                   }}
                 >
                   <p>
-                    After connecting, you can search for music from your server using the search palette.
+                    After connecting, you can search for music from your server
+                    using the search palette.
                   </p>
                 </div>
               </div>
