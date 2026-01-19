@@ -39,6 +39,10 @@ export class Spring {
     }
   }
 
+  setConfig(config: SpringConfig): void {
+    this.config = config;
+  }
+
   step(deltaTime: number): number {
     if (deltaTime <= 0) return this.value;
 

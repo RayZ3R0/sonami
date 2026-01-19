@@ -35,16 +35,27 @@ const SCALE_CURVE = new Spline([0, 0.5, 1], [0.95, 1.0, 1.0]);
 const Y_OFFSET_CURVE = new Spline([0, 0.5, 1], [0.01, 0, 0]);
 
 const OPACITY_CURVE = new Spline([0, 0.3, 1], [0.35, 0.7, 1.0]);
+// Smoother glow curve - more gradual buildup
+const GLOW_CURVE = new Spline([0, 0.3, 0.7, 1], [0, 0.3, 0.7, 1.0]);
 
-const GLOW_CURVE = new Spline([0, 0.5, 1], [0, 0.6, 1.0]);
-
-// Smoother spring config to prevent jitter
+// Spring config - increased precision for faster convergence
 const SMOOTH_CONFIG = {
   stiffness: 150,
   damping: 28,
   mass: 1,
-  precision: 0.001,
+  precision: 0.01, // Increased from 0.001 for faster settling
 };
+
+// Snappy config for fast lyrics (rap/up-tempo)
+const FAST_CONFIG = {
+  stiffness: 300,
+  damping: 20,
+  mass: 1,
+  precision: 0.01,
+};
+
+// Only animate lines within this range of the active line
+const ANIMATION_RANGE = 5;
 
 export const SyncedLyrics = memo(
   ({ lyrics, currentTime, isPlaying }: SyncedLyricsProps) => {
@@ -106,9 +117,20 @@ export const SyncedLyrics = memo(
         const nextLine = lyrics.lines[lineIndex + 1];
         const adjustedTime = currentTime + LYRICS_TIMING_OFFSET;
 
-        if (!nextLine) return 1;
+        // For the last line, estimate duration based on average or use 5 seconds
+        let duration: number;
+        if (!nextLine) {
+          // Use average line duration or default to 5 seconds for last line
+          if (lineIndex > 0) {
+            const prevLine = lyrics.lines[lineIndex - 1];
+            duration = Math.max(2, line.time - prevLine.time);
+          } else {
+            duration = 5;
+          }
+        } else {
+          duration = nextLine.time - line.time;
+        }
 
-        const duration = nextLine.time - line.time;
         const elapsed = adjustedTime - line.time;
         return Math.max(0, Math.min(1, elapsed / duration));
       },
@@ -154,10 +176,11 @@ export const SyncedLyrics = memo(
 
       const animate = () => {
         const now = performance.now();
-        const deltaTime = Math.min((now - lastTimeRef.current) / 1000, 0.05); // Cap at 50ms to prevent large jumps
+        const deltaTime = Math.min((now - lastTimeRef.current) / 1000, 0.05);
         lastTimeRef.current = now;
 
         let activeIndex = -1;
+        let anyAnimating = false;
 
         lyrics.lines.forEach((_, index) => {
           const state = getLineState(index);
@@ -173,6 +196,24 @@ export const SyncedLyrics = memo(
             animState.lastState = state;
           }
 
+          // Track active line first
+          if (state === "active") {
+            activeIndex = index;
+          }
+        });
+
+        // Second pass: only animate lines near the active line
+        lyrics.lines.forEach((_, index) => {
+          const state = getLineState(index);
+          const animState = animationStates.get(index);
+          if (!animState) return;
+
+          const lineElement = lineRefs.current.get(index);
+          if (!lineElement) return;
+
+          // Check if this line is within animation range
+          const isNearActive = activeIndex >= 0 && Math.abs(index - activeIndex) <= ANIMATION_RANGE;
+
           let targetScale: number;
           let targetYOffset: number;
           let targetOpacity: number;
@@ -180,7 +221,6 @@ export const SyncedLyrics = memo(
           let useInstantTransition = false;
 
           if (state === "active") {
-            activeIndex = index;
             const progress = getProgress(index);
 
             targetScale = SCALE_CURVE.at(progress);
@@ -192,8 +232,7 @@ export const SyncedLyrics = memo(
             targetYOffset = 0;
             targetOpacity = 0.3;
             targetGlow = 0;
-            // Instant transition when becoming past to prevent flickering
-            useInstantTransition = stateChanged;
+            useInstantTransition = animState.lastState !== state;
           } else {
             targetScale = 0.95;
             targetYOffset = 0.01;
@@ -201,31 +240,72 @@ export const SyncedLyrics = memo(
             targetGlow = 0;
           }
 
+          // For lines outside animation range, use CSS transitions instead of springs
+          if (!isNearActive && state !== "active") {
+            // Set CSS transition and apply target values directly
+            lineElement.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out, text-shadow 0.4s ease-out';
+            lineElement.style.transform = `translateY(${targetYOffset * 12}px) scale(${targetScale})`;
+            lineElement.style.opacity = `${targetOpacity}`;
+            lineElement.style.textShadow = 'none';
+            // Skip spring calculations for this line
+            return;
+          } else {
+            // Near active line - use spring physics, disable CSS transitions
+            lineElement.style.transition = 'none';
+          }
+
           // Update spring goals
           animState.scale.setGoal(targetScale, useInstantTransition);
           animState.yOffset.setGoal(targetYOffset, useInstantTransition);
           animState.opacity.setGoal(targetOpacity, useInstantTransition);
+
+          // Adaptive glow physics based on line duration
+          if (state === "active") {
+            const line = lyrics.lines[index];
+            const nextLine = lyrics.lines[index + 1];
+            let duration = 5;
+            if (nextLine) {
+              duration = nextLine.time - line.time;
+            } else if (index > 0) {
+              duration = Math.max(2, line.time - lyrics.lines[index - 1].time);
+            }
+
+            // For fast lines (< 2s), use snappy physics for instant response
+            if (duration < 2.0) {
+              animState.glow.setConfig(FAST_CONFIG);
+            } else {
+              animState.glow.setConfig(SMOOTH_CONFIG);
+            }
+          }
+
           animState.glow.setGoal(targetGlow, useInstantTransition);
 
-          // Only step animations if playing
+          // Check if any spring is still animating
+          if (!animState.scale.isAtRest() || !animState.yOffset.isAtRest() ||
+            !animState.opacity.isAtRest() || !animState.glow.isAtRest()) {
+            anyAnimating = true;
+          }
+
+          // Only step animations and update DOM if playing
           if (isPlaying) {
-            // Step animations
             const currentScale = animState.scale.step(deltaTime);
             const currentYOffset = animState.yOffset.step(deltaTime);
             const currentOpacity = animState.opacity.step(deltaTime);
             const currentGlow = animState.glow.step(deltaTime);
 
-            // Apply styles with CSS transforms for hardware acceleration
             lineElement.style.transform = `translateY(${currentYOffset * 12}px) scale(${currentScale})`;
             lineElement.style.opacity = `${currentOpacity}`;
 
-            // Apply glow effect
-            const glowIntensity = currentGlow * 100;
-            const blurRadius = 4 + currentGlow * 16;
-            lineElement.style.textShadow = `0 0 ${blurRadius}px rgba(255, 255, 255, ${glowIntensity}%)`;
+            // Optimized glow - simpler shadow, only apply when noticeable
+            if (currentGlow > 0.05) {
+              const blurRadius = 6 + currentGlow * 12; // Reduced max blur
+              const glowOpacity = currentGlow * 0.8;
+              lineElement.style.textShadow = `0 0 ${blurRadius}px rgba(255, 255, 255, ${glowOpacity})`;
+            } else {
+              lineElement.style.textShadow = 'none';
+            }
           }
 
-          // Add active class for additional styling
           if (state === "active") {
             lineElement.classList.add("active");
           } else {
@@ -233,13 +313,15 @@ export const SyncedLyrics = memo(
           }
         });
 
-        // Auto-scroll to active line with spring physics
-        if (activeIndex >= 0) {
+        // Auto-scroll to active line
+        if (activeIndex >= 0 && isPlaying) {
           scrollToActiveLine(activeIndex, deltaTime);
         }
 
-        // Continue animation loop
-        animationFrameRef.current = requestAnimationFrame(animate);
+        // Only continue animation if playing or springs are still moving
+        if (isPlaying || anyAnimating || !scrollSpring.current.isAtRest()) {
+          animationFrameRef.current = requestAnimationFrame(animate);
+        }
       };
 
       animationFrameRef.current = requestAnimationFrame(animate);

@@ -35,22 +35,30 @@ export const AppLayout = () => {
     [isSettingsOpen, settingsTab, setIsSettingsOpen, setIsQueueOpen],
   );
 
-  // Global keyboard shortcut for search (Cmd/Ctrl + K)
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Cmd+K or Ctrl+K to open search
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      setIsSearchOpen(true);
-    }
-    // Also support "/" to open search when not in an input
-    if (
-      e.key === "/" &&
-      !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)
-    ) {
-      e.preventDefault();
-      setIsSearchOpen(true);
-    }
-  }, []);
+  // Global keyboard shortcut for search (Cmd/Ctrl + K) and settings (Cmd/Ctrl + ,)
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K to open search
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+      // Cmd+, or Ctrl+, to toggle settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        handleOpenSettings("playback");
+      }
+      // Also support "/" to open search when not in an input
+      if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)
+      ) {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    },
+    [handleOpenSettings],
+  );
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -80,9 +88,8 @@ export const AppLayout = () => {
 
         {/* Main Content Area - Wrapped for rounded corners effect */}
         <div
-          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${
-            isQueueOpen || isSettingsOpen ? "rounded-tr-2xl" : ""
-          }`}
+          className={`flex-1 flex flex-col relative overflow-hidden bg-theme-background-secondary rounded-tl-2xl shadow-[0_0_20px_rgba(0,0,0,0.3)] z-30 transition-all duration-300 ${isQueueOpen || isSettingsOpen ? "rounded-tr-2xl" : ""
+            }`}
         >
           <MainStage activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>

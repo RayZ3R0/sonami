@@ -347,7 +347,7 @@ export const FullScreenView = memo(
 
     const handleMouseMove = useCallback(
       (e: MouseEvent) => {
-        if (!isDragging) return;
+        if (!isDragging || !miniPlayerRef.current) return;
 
         const newX = e.clientX - dragOffset.x;
         const newY = e.clientY - dragOffset.y;
@@ -367,38 +367,38 @@ export const FullScreenView = memo(
 
         const snapTriggerY = window.innerHeight - 120;
         const inSnapZone = constrainedY >= snapTriggerY;
-
-        console.log(
-          "Drag Y:",
-          constrainedY,
-          "Snap trigger:",
-          snapTriggerY,
-          "In zone:",
-          inSnapZone,
-        );
         setIsInSnapZone(inSnapZone);
 
-        const newPosition = { x: constrainedX, y: constrainedY };
-        setMiniPlayerPosition(newPosition);
+        // Direct DOM manipulation for instant response (no React re-render lag)
+        miniPlayerRef.current.style.left = `${constrainedX}px`;
+        miniPlayerRef.current.style.top = `${constrainedY}px`;
+
+        // Store position in data attributes for mouseUp
+        miniPlayerRef.current.dataset.dragX = String(constrainedX);
+        miniPlayerRef.current.dataset.dragY = String(constrainedY);
       },
-      [isDragging, dragOffset, isInSnapZone],
+      [isDragging, dragOffset],
     );
 
     const handleMouseUp = useCallback(() => {
-      if (isDragging) {
+      if (isDragging && miniPlayerRef.current) {
         setIsDragging(false);
 
+        // Read final position from data attributes
+        const finalX = parseFloat(miniPlayerRef.current.dataset.dragX || '0');
+        const finalY = parseFloat(miniPlayerRef.current.dataset.dragY || '0');
+
         let newIsFullWidth = isFullWidth;
-        let newPosition = miniPlayerPosition;
+        let newPosition = { x: finalX, y: finalY };
 
         if (isInSnapZone) {
-          console.log("Switching to full-width mode!");
           newIsFullWidth = true;
           newPosition = { x: 0, y: window.innerHeight - 64 };
           setIsFullWidth(true);
-          setMiniPlayerPosition(newPosition);
         }
 
+        // Sync final position to React state
+        setMiniPlayerPosition(newPosition);
         setIsInSnapZone(false);
 
         try {
@@ -409,15 +409,11 @@ export const FullScreenView = memo(
               isFullWidth: newIsFullWidth,
             }),
           );
-          console.log("Saved state:", {
-            ...newPosition,
-            isFullWidth: newIsFullWidth,
-          });
         } catch (error) {
           console.warn("Failed to save mini player position:", error);
         }
       }
-    }, [isDragging, isInSnapZone, miniPlayerPosition, isFullWidth]);
+    }, [isDragging, isInSnapZone, isFullWidth]);
 
     useEffect(() => {
       if (isDragging) {
@@ -612,10 +608,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                  left: `${miniPlayerPosition.x}px`,
-                  top: `${miniPlayerPosition.y}px`,
-                  userSelect: "none",
-                }
+                left: `${miniPlayerPosition.x}px`,
+                top: `${miniPlayerPosition.y}px`,
+                userSelect: "none",
+              }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}

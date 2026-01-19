@@ -773,8 +773,8 @@ body {
     width: 300px;
     padding: 16px 20px;
     background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(80px) saturate(200%) brightness(0.9);
-    -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(0.9);
+    backdrop-filter: blur(40px) saturate(180%) brightness(0.9);
+    -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(0.9);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
@@ -1001,8 +1001,8 @@ body {
 /* Dragging visual enhancement */
 .dragging .mini-player-bar {
     background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
-    -webkit-backdrop-filter: blur(100px) saturate(250%) brightness(1.1);
+    backdrop-filter: blur(50px) saturate(200%) brightness(1.1);
+    -webkit-backdrop-filter: blur(50px) saturate(200%) brightness(1.1);
     border: 2px solid rgba(255, 255, 255, 0.2);
     box-shadow:
         0 15px 40px rgba(0, 0, 0, 0.4),
@@ -1187,7 +1187,7 @@ body {
 .lyric-line.active {
     color: var(--theme-text-primary);
     font-weight: 800;
-    text-shadow: 
+    text-shadow:
         0 0 20px rgba(255, 255, 255, 0.4),
         0 0 40px rgba(255, 255, 255, 0.2),
         0 2px 4px rgba(0, 0, 0, 0.3);
@@ -1199,6 +1199,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1211,12 +1212,10 @@ body {
 
 /* Gradient text effect for active lyrics (optional enhancement) */
 .lyric-line.active.gradient-text {
-    background: linear-gradient(
-        90deg,
-        var(--theme-text-primary) 0%,
-        var(--theme-accent) 50%,
-        var(--theme-text-primary) 100%
-    );
+    background: linear-gradient(90deg,
+            var(--theme-text-primary) 0%,
+            var(--theme-accent) 50%,
+            var(--theme-text-primary) 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1225,9 +1224,12 @@ body {
 }
 
 @keyframes gradient-slide {
-    0%, 100% {
+
+    0%,
+    100% {
         background-position: 0% center;
     }
+
     50% {
         background-position: 100% center;
     }
@@ -1243,9 +1245,11 @@ body {
     0% {
         transform: scale(0.92);
     }
+
     50% {
         transform: scale(1.02);
     }
+
     100% {
         transform: scale(1.0);
     }
@@ -1268,19 +1272,18 @@ body {
     from {
         background-size: 0% 100%;
     }
+
     to {
         background-size: 100% 100%;
     }
 }
 
 .lyric-line.karaoke {
-    background: linear-gradient(
-        90deg,
-        var(--theme-accent) 0%,
-        var(--theme-accent) 50%,
-        var(--theme-text-secondary) 50%,
-        var(--theme-text-secondary) 100%
-    );
+    background: linear-gradient(90deg,
+            var(--theme-accent) 0%,
+            var(--theme-accent) 50%,
+            var(--theme-text-secondary) 50%,
+            var(--theme-text-secondary) 100%);
     background-size: 200% 100%;
     background-position: 100% 0;
     -webkit-background-clip: text;
@@ -1295,6 +1298,7 @@ body {
         opacity: 0;
         transform: translateX(30px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
@@ -1330,6 +1334,7 @@ body {
 
 /* Reduced motion support - respect user preferences */
 @media (prefers-reduced-motion: reduce) {
+
     .lyric-line,
     .lyrics-container,
     .animate-fade-in,
@@ -1338,7 +1343,7 @@ body {
         animation: none !important;
         transition: none !important;
     }
-    
+
     .lyrics-container {
         scroll-behavior: auto;
     }
@@ -1354,6 +1359,7 @@ body {
         opacity: 0;
         transform: translateY(20px) scale(0.8);
     }
+
     100% {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -1366,9 +1372,12 @@ body {
 
 /* Subtle pulse/glow animation for active state */
 @keyframes spotify-indicator-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
     }
+
     50% {
         box-shadow: 0 15px 40px rgba(34, 197, 94, 0.5);
     }
