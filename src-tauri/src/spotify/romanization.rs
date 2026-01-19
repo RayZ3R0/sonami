@@ -11,16 +11,53 @@ pub fn contains_japanese(text: &str) -> bool {
     text.chars().any(is_japanese_char)
 }
 
+pub fn is_kana_char(c: char) -> bool {
+    matches!(c, '\u{3040}'..='\u{309F}' | '\u{30A0}'..='\u{30FF}')
+}
+
 pub fn romanize_japanese(text: &str) -> Option<String> {
     if !contains_japanese(text) {
         return None;
     }
 
-    let result = ROMANIZER.romanize_kana_str_all(text);
+    let mut result = String::with_capacity(text.len());
+    let mut current_chunk = String::new();
+    let mut is_chunk_kana = false;
 
-    match result {
-        Some(s) if s != text && !s.is_empty() => Some(s),
-        _ => None,
+    // Helper closure to process chunks
+    let mut process_chunk = |chunk: &str, is_kana: bool| {
+        if is_kana {
+            if let Some(romanized) = ROMANIZER.romanize_kana_str_all(chunk) {
+                result.push_str(&romanized);
+            } else {
+                result.push_str(chunk);
+            }
+        } else {
+            result.push_str(chunk);
+        }
+    };
+
+    for c in text.chars() {
+        let is_kana = is_kana_char(c);
+
+        if is_kana != is_chunk_kana {
+            if !current_chunk.is_empty() {
+                process_chunk(&current_chunk, is_chunk_kana);
+                current_chunk.clear();
+            }
+            is_chunk_kana = is_kana;
+        }
+        current_chunk.push(c);
+    }
+
+    if !current_chunk.is_empty() {
+        process_chunk(&current_chunk, is_chunk_kana);
+    }
+
+    if result == text {
+        None
+    } else {
+        Some(result)
     }
 }
 
@@ -58,7 +95,9 @@ mod tests {
         assert!(result.is_some());
         let s = result.unwrap();
         assert!(s.contains("Hello"));
+        // Expect "Hello wa-rudo" or similar, just verify it changed
         assert_ne!(s, "Hello ワールド");
+        assert!(s.contains("wa-rudo")); 
     }
 
     #[test]
