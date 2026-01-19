@@ -321,6 +321,8 @@ pub fn run() {
             commands::library::search_library,
             commands::library::add_tidal_track,
             commands::library::rebuild_search_index,
+            commands::library::factory_reset,
+            commands::library::library_has_data,
             // Spotify Import
             commands::spotify::fetch_spotify_playlist,
             commands::spotify::verify_spotify_track,

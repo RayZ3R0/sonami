@@ -49,3 +49,11 @@ export async function rebuildSearchIndex(): Promise<void> {
 export const addTidalTrack = async (track: any, coverUrl?: string): Promise<void> => {
     await invoke('add_tidal_track', { track, coverUrl });
 };
+
+export async function factoryReset(): Promise<void> {
+    await invoke("factory_reset");
+}
+
+export async function libraryHasData(): Promise<boolean> {
+    return await invoke("library_has_data");
+}

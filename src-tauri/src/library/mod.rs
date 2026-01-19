@@ -6,7 +6,7 @@ use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
 
 pub struct LibraryManager {
-    pool: Pool<Sqlite>,
+    pub pool: Pool<Sqlite>,
 }
 
 impl LibraryManager {

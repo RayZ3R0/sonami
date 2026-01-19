@@ -10,6 +10,7 @@ import {
   removeProviderConfig,
   ProviderConfig,
 } from "../api/providers";
+import { factoryReset } from "../api/library";
 
 const ArrowRightIcon = () => (
   <svg
@@ -93,11 +94,10 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${
-                  isActive
-                    ? "ring-2 ring-offset-2 ring-offset-transparent"
-                    : "hover:scale-[1.02]"
-                }
+                ${isActive
+          ? "ring-2 ring-offset-2 ring-offset-transparent"
+          : "hover:scale-[1.02]"
+        }
             `}
       style={{
         background: colors.background,
@@ -260,6 +260,9 @@ export const Settings = ({
     username: "",
     password: "",
   });
+
+  // UI State
+  const [showResetModal, setShowResetModal] = useState(false);
   const [subsonicLoading, setSubsonicLoading] = useState(false);
   const [jellyfinLoading, setJellyfinLoading] = useState(false);
   const [subsonicError, setSubsonicError] = useState<string | null>(null);
@@ -391,9 +394,8 @@ export const Settings = ({
   return (
     <>
       <div
-        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${
-          isOpen ? "w-[480px]" : "w-0"
-        }`}
+        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${isOpen ? "w-[480px]" : "w-0"
+          }`}
       >
         <div className="w-[480px] h-full flex flex-col">
           {/* Header matching QueueSidebar style */}
@@ -494,11 +496,10 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("floating")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "floating"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "floating"
+                          ? "ring-2 ring-offset-2 ring-offset-transparent"
+                          : "hover:scale-[1.02]"
+                        }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -543,11 +544,10 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("classic")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${
-                                              playerBarStyle === "classic"
-                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
-                                                : "hover:scale-[1.02]"
-                                            }
+                                            ${playerBarStyle === "classic"
+                          ? "ring-2 ring-offset-2 ring-offset-transparent"
+                          : "hover:scale-[1.02]"
+                        }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -816,11 +816,10 @@ export const Settings = ({
                       <button
                         key={option.value}
                         onClick={() => setLyricsProvider(option.value)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                          lyricsProvider === option.value
-                            ? "ring-2"
-                            : "hover:scale-[1.02]"
-                        }`}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
+                          ? "ring-2"
+                          : "hover:scale-[1.02]"
+                          }`}
                         style={{
                           background:
                             lyricsProvider === option.value
@@ -919,6 +918,72 @@ export const Settings = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Danger Zone */}
+                <div
+                  className="flex items-center justify-between p-4 rounded-xl border border-red-500/20"
+                  style={{ background: "rgba(239, 68, 68, 0.05)" }}
+                >
+                  <div>
+                    <h3 className="font-medium text-red-500">Factory Reset</h3>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: theme.colors.textSecondary }}
+                    >
+                      Delete all library data. Downloaded files are preserved.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowResetModal(true)}
+                    className="px-4 py-2 pt-[13px] bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Reset Confirmation Modal */}
+                {showResetModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div
+                      className="w-full max-w-md rounded-2xl p-6 border shadow-2xl scale-100 animate-in fade-in zoom-in duration-200"
+                      style={{
+                        background: theme.colors.background,
+                        borderColor: theme.colors.border,
+                      }}
+                    >
+                      <h3 className="text-xl font-bold mb-2">Factory Reset?</h3>
+                      <p className="text-theme-secondary mb-6 text-sm leading-relaxed">
+                        Are you sure you want to delete all your library data? This action cannot be undone.
+                        <br /><br />
+                        <span className="font-semibold text-theme-primary">Note:</span> Your downloaded music files will NOT be deleted from your disk.
+                      </p>
+
+                      <div className="flex gap-3 justify-end">
+                        <button
+                          onClick={() => setShowResetModal(false)}
+                          className="px-4 py-2 rounded-lg font-medium hover:bg-theme-surface-hover transition-colors text-theme-secondary"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await factoryReset();
+                              localStorage.clear();
+                              window.location.reload();
+                            } catch (e) {
+                              console.error("Reset failed", e);
+                              alert("Reset failed: " + e);
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors shadow-lg shadow-red-500/20"
+                        >
+                          Confirm Reset
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -985,7 +1050,7 @@ export const Settings = ({
                   {subsonicConfig ? (
                     <button
                       onClick={() => handleDisconnect("subsonic")}
-                      className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+                      className="w-full py-2 pt-[13px] rounded-lg text-sm font-medium transition-colors"
                       style={{
                         background: theme.colors.surfaceHover,
                         color: theme.colors.textPrimary,
@@ -1006,7 +1071,7 @@ export const Settings = ({
                               url: e.target.value,
                             }))
                           }
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          className="w-full px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                           style={{
                             background: theme.colors.surfaceHover,
                             color: theme.colors.textPrimary,
@@ -1024,7 +1089,7 @@ export const Settings = ({
                                 username: e.target.value,
                               }))
                             }
-                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            className="px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
                               color: theme.colors.textPrimary,
@@ -1041,7 +1106,7 @@ export const Settings = ({
                                 password: e.target.value,
                               }))
                             }
-                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            className="px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
                               color: theme.colors.textPrimary,
@@ -1063,7 +1128,7 @@ export const Settings = ({
                           !subsonicForm.username ||
                           !subsonicForm.password
                         }
-                        className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        className="w-full py-2 pt-[13px] rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         style={{
                           background: theme.colors.accent,
                           color: theme.colors.textInverse,
@@ -1083,7 +1148,7 @@ export const Settings = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-lg pt-1"
                         style={{ background: theme.colors.surfaceHover }}
                       >
                         🍞
@@ -1120,7 +1185,7 @@ export const Settings = ({
                   {jellyfinConfig ? (
                     <button
                       onClick={() => handleDisconnect("jellyfin")}
-                      className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+                      className="w-full py-2 pt-[13px] rounded-lg text-sm font-medium transition-colors"
                       style={{
                         background: theme.colors.surfaceHover,
                         color: theme.colors.textPrimary,
@@ -1141,7 +1206,7 @@ export const Settings = ({
                               url: e.target.value,
                             }))
                           }
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          className="w-full px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                           style={{
                             background: theme.colors.surfaceHover,
                             color: theme.colors.textPrimary,
@@ -1159,7 +1224,7 @@ export const Settings = ({
                                 username: e.target.value,
                               }))
                             }
-                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            className="px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
                               color: theme.colors.textPrimary,
@@ -1176,7 +1241,7 @@ export const Settings = ({
                                 password: e.target.value,
                               }))
                             }
-                            className="px-3 py-2 rounded-lg text-sm outline-none"
+                            className="px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
                             style={{
                               background: theme.colors.surfaceHover,
                               color: theme.colors.textPrimary,
@@ -1198,7 +1263,7 @@ export const Settings = ({
                           !jellyfinForm.username ||
                           !jellyfinForm.password
                         }
-                        className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        className="w-full py-2 pt-[13px] rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         style={{
                           background: theme.colors.accent,
                           color: theme.colors.textInverse,
@@ -1227,6 +1292,8 @@ export const Settings = ({
             )}
           </div>
 
+          {/* Danger Zone */}
+
           <div className="px-6 py-4 border-t border-white/5">
             <p
               className="text-xs text-center"
@@ -1235,8 +1302,8 @@ export const Settings = ({
               Settings are saved automatically
             </p>
           </div>
-        </div>
-      </div>
+        </div >
+      </div >
     </>
   );
 };

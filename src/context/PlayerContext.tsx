@@ -164,7 +164,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     "floating" | "classic"
   >(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PLAYER_BAR_STYLE);
-    return saved === "classic" || saved === "floating" ? saved : "floating";
+    return saved === "classic" || saved === "floating" ? saved : "classic";
   });
 
   const [playbackQuality, setPlaybackQuality] =
