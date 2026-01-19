@@ -63,7 +63,12 @@ impl UrlResolver {
     }
 
     pub fn resolve(&self, uri: &str) -> Result<ResolvedAudio, String> {
-        if !uri.starts_with("tidal:") {
+        // Check if this is a provider URI that needs async resolution
+        let is_provider_uri = uri.starts_with("tidal:")
+            || uri.starts_with("subsonic:")
+            || uri.starts_with("jellyfin:");
+
+        if !is_provider_uri {
             // For local file paths, verify the file exists
             if !uri.starts_with("http://")
                 && !uri.starts_with("https://")

@@ -177,11 +177,11 @@ export const LikedSongsView = () => {
     await playTrack(trackToPlay, tracksForQueue);
   };
 
-  const handleUnfavorite = async (trackId: string, e: React.MouseEvent) => {
+  const handleUnfavorite = async (track: UnifiedTrack, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await removeFavorite(trackId);
-      setFavorites((prev) => prev.filter((t) => t.id !== trackId));
+      await removeFavorite(track);
+      setFavorites((prev) => prev.filter((t) => t.id !== track.id));
       refreshFavorites();
     } catch (err) {
       console.error("Failed to unfavorite:", err);
@@ -262,7 +262,7 @@ export const LikedSongsView = () => {
         label: "Remove from Liked Songs",
         action: async () => {
           try {
-            await removeFavorite(track.id);
+            await removeFavorite(track as UnifiedTrack);
             setFavorites((prev) => prev.filter((t) => t.id !== track.id));
             refreshFavorites();
           } catch (err) {
@@ -275,9 +275,9 @@ export const LikedSongsView = () => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -379,11 +379,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
                 ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
                 : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -490,11 +489,10 @@ export const LikedSongsView = () => {
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
                     ? "bg-pink-500/10 text-pink-500"
                     : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                  }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">
@@ -635,7 +633,7 @@ export const LikedSongsView = () => {
                 {/* Unfavorite Button */}
                 <div className="flex items-center justify-end">
                   <button
-                    onClick={(e) => handleUnfavorite(track.id, e)}
+                    onClick={(e) => handleUnfavorite(track, e)}
                     className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 text-pink-500 hover:text-pink-400 transition-all"
                     title="Remove from Liked Songs"
                   >

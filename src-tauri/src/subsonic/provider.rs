@@ -208,32 +208,52 @@ impl MusicProvider for SubsonicProvider {
         })
     }
 
-    async fn get_stream_url(&self, track_id: &str, quality: Quality) -> Result<StreamInfo> {
+    async fn get_stream_url(&self, track_id: &str, _quality: Quality) -> Result<StreamInfo> {
         if !self.initialized {
             return Err(anyhow!("Subsonic provider not initialized"));
         }
 
-        // Use MP3 format to avoid moov atom seeking issues with M4A files
-        // For Lossless, we use FLAC which Symphonia supports perfectly
-        let (max_bit_rate, actual_quality, format) = match quality {
-            Quality::LOW => ("128", Quality::LOW, "mp3"),
-            Quality::HIGH => ("320", Quality::HIGH, "mp3"),
-            Quality::LOSSLESS => ("0", Quality::LOSSLESS, "flac"),
+        // Fetch track details to determine the original format
+        let details_url = self.build_url("getSong", &format!("id={}", track_id));
+        let resp: SubsonicResponse<SongData> =
+            self.client.get(&details_url).send().await?.json().await?;
+
+        if resp.subsonic_response.status != "ok" {
+            if let Some(err) = resp.subsonic_response.error {
+                return Err(anyhow!("Subsonic error {}: {}", err.code, err.message));
+            }
+            return Err(anyhow!("Unknown Subsonic error"));
+        }
+
+        let song = resp
+            .subsonic_response
+            .data
+            .ok_or_else(|| anyhow!("No song data"))?
+            .song;
+
+        // Determine format strategy based on file suffix
+        // FLAC, MP3, OGG, OPUS can be streamed raw
+        // M4A, AAC, etc. need transcoding to MP3 due to moov atom issues
+        let suffix = song.suffix.unwrap_or_default().to_lowercase();
+        let (format_param, actual_quality) = match suffix.as_str() {
+            "flac" => ("raw", Quality::LOSSLESS),
+            "mp3" | "ogg" | "opus" => ("raw", Quality::HIGH),
+            _ => ("mp3", Quality::HIGH), // Transcode m4a, aac, etc.
         };
 
-        // format=mp3/flac forces transcoding (or passthrough) to that format
         let url = self.build_url(
             "stream",
-            &format!(
-                "id={}&maxBitRate={}&format={}",
-                track_id, max_bit_rate, format
-            ),
+            &format!("id={}&format={}", track_id, format_param),
         );
 
         Ok(StreamInfo {
             url,
             quality: actual_quality,
-            codec: Some(format.to_string()),
+            codec: Some(if format_param == "raw" {
+                suffix
+            } else {
+                "mp3".to_string()
+            }),
         })
     }
 
