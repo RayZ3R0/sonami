@@ -428,12 +428,16 @@ export const PlayerBar = () => {
                     text={currentTrack.title}
                     className="text-sm font-semibold text-theme-primary leading-tight"
                   />
-                  {playbackQuality && (
-                    <QualityBadge
-                      quality={playbackQuality.quality}
-                      source={playbackQuality.source}
-                    />
-                  )}
+                  {playbackQuality &&
+                    !currentTrack.path.includes("subsonic") &&
+                    !currentTrack.path.includes("/rest/stream") &&
+                    !currentTrack.path.includes("jellyfin") &&
+                    !currentTrack.path.includes("/Items/") && (
+                      <QualityBadge
+                        quality={playbackQuality.quality}
+                        source={playbackQuality.source}
+                      />
+                    )}
                   <SourceBadge path={currentTrack.path} />
                 </div>
                 <span className="text-xs text-theme-secondary truncate">

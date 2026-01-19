@@ -214,22 +214,26 @@ impl MusicProvider for SubsonicProvider {
         }
 
         // Use MP3 format to avoid moov atom seeking issues with M4A files
-        let max_bit_rate = match quality {
-            Quality::LOW => "128",
-            Quality::HIGH => "320",
-            Quality::LOSSLESS => "0", // 0 = no transcoding, but we force MP3 format
+        // For Lossless, we use FLAC which Symphonia supports perfectly
+        let (max_bit_rate, actual_quality, format) = match quality {
+            Quality::LOW => ("128", Quality::LOW, "mp3"),
+            Quality::HIGH => ("320", Quality::HIGH, "mp3"),
+            Quality::LOSSLESS => ("0", Quality::LOSSLESS, "flac"),
         };
 
-        // format=mp3 forces transcoding to MP3 which streams progressively without seeking
+        // format=mp3/flac forces transcoding (or passthrough) to that format
         let url = self.build_url(
             "stream",
-            &format!("id={}&maxBitRate={}&format=mp3", track_id, max_bit_rate),
+            &format!(
+                "id={}&maxBitRate={}&format={}",
+                track_id, max_bit_rate, format
+            ),
         );
 
         Ok(StreamInfo {
             url,
-            quality,
-            codec: Some("mp3".to_string()),
+            quality: actual_quality,
+            codec: Some(format.to_string()),
         })
     }
 
