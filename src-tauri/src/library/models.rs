@@ -5,12 +5,16 @@ use serde::{Deserialize, Serialize};
 pub enum TrackSource {
     Local,
     Tidal,
+    Subsonic,
+    Jellyfin,
 }
 
 impl From<String> for TrackSource {
     fn from(s: String) -> Self {
-        match s.as_str() {
+        match s.to_uppercase().as_str() {
             "TIDAL" => TrackSource::Tidal,
+            "SUBSONIC" => TrackSource::Subsonic,
+            "JELLYFIN" => TrackSource::Jellyfin,
             _ => TrackSource::Local,
         }
     }
@@ -20,6 +24,8 @@ impl std::fmt::Display for TrackSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TrackSource::Tidal => write!(f, "TIDAL"),
+            TrackSource::Subsonic => write!(f, "SUBSONIC"),
+            TrackSource::Jellyfin => write!(f, "JELLYFIN"),
             TrackSource::Local => write!(f, "LOCAL"),
         }
     }
@@ -36,6 +42,8 @@ pub struct DbTrack {
     pub file_path: Option<String>,
     pub file_modified: Option<i64>,
     pub tidal_id: Option<i64>,
+    pub provider_id: Option<String>,
+    pub external_id: Option<String>,
     pub play_count: i64,
     pub skip_count: i64,
     pub last_played_at: Option<i64>,
@@ -56,10 +64,14 @@ pub struct UnifiedTrack {
 
     pub local_path: Option<String>,
     pub tidal_id: Option<u64>,
+    pub provider_id: Option<String>,
+    pub external_id: Option<String>,
     pub audio_quality: Option<String>,
 
     // Analytics
+    #[serde(default)]
     pub play_count: u64,
+    #[serde(default)]
     pub skip_count: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_played_at: Option<i64>,
@@ -81,6 +93,8 @@ pub struct LibraryAlbum {
     pub artist: String,
     pub cover_image: Option<String>,
     pub tidal_id: Option<i64>,
+    pub provider_id: Option<String>,
+    pub external_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
@@ -89,4 +103,6 @@ pub struct LibraryArtist {
     pub name: String,
     pub cover_image: Option<String>,
     pub tidal_id: Option<i64>,
+    pub provider_id: Option<String>,
+    pub external_id: Option<String>,
 }

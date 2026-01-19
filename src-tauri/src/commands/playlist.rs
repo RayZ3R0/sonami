@@ -88,6 +88,25 @@ pub async fn add_to_playlist(
         return Ok(());
     }
 
+    // Generic Provider Import
+    if let (Some(provider_id), Some(external_id)) = (&track.provider_id, &track.external_id) {
+        let import_track = crate::models::Track {
+            id: external_id.clone(),
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            artist_id: None,
+            album: track.album.clone(),
+            album_id: None,
+            duration: track.duration,
+            cover_url: track.cover_image.clone(),
+        };
+
+        if let Ok(new_id) = library.import_external_track(&import_track, provider_id).await {
+            playlist.add_track_entry(&playlist_id, &new_id).await?;
+            return Ok(());
+        }
+    }
+
     if let Some(tidal_id) = track.tidal_id {
         if let Ok(Some(existing_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
             playlist.add_track_entry(&playlist_id, &existing_id).await?;

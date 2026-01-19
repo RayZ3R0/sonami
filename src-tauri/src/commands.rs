@@ -9,6 +9,7 @@ pub mod providers;
 pub mod spotify;
 
 use crate::audio::AudioManager;
+use crate::library::LibraryManager;
 use crate::models::SearchResults;
 use crate::providers::ProviderManager;
 use base64::{engine::general_purpose, Engine as _};
@@ -903,6 +904,7 @@ pub async fn play_provider_track(
     app: AppHandle,
     audio_state: State<'_, AudioManager>,
     provider_manager: State<'_, std::sync::Arc<ProviderManager>>,
+    library: State<'_, LibraryManager>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     provider_id: String,
     track_id: String,
@@ -923,8 +925,29 @@ pub async fn play_provider_track(
         .await
         .map_err(|e| e.to_string())?;
 
+    // Import track to library to ensure it has a local UUID
+    let import_track = crate::models::Track {
+        id: track_id.clone(),
+        title: title.clone(),
+        artist: artist.clone(),
+        artist_id: None,
+        album: album.clone(),
+        album_id: None,
+        duration,
+        cover_url: cover_url.clone(),
+    };
+
+    let local_id = match library.import_external_track(&import_track, &provider_id).await {
+        Ok(id) => id,
+        Err(e) => {
+            log::error!("Failed to import external track: {}", e);
+            // Fallback to external ID if import fails
+            track_id.clone()
+        }
+    };
+
     let track = Track {
-        id: track_id,
+        id: local_id,
         title,
         artist,
         album,

@@ -99,6 +99,33 @@ impl DatabaseManager {
                 updated_at INTEGER DEFAULT (strftime('%s', 'now'))
             );
             "#,
+            // Migration 6: Universal Library - Provider/External IDs
+            r#"
+            -- Add columns to tracks
+            ALTER TABLE tracks ADD COLUMN provider_id TEXT;
+            ALTER TABLE tracks ADD COLUMN external_id TEXT;
+
+            -- Add columns to albums
+            ALTER TABLE albums ADD COLUMN provider_id TEXT;
+            ALTER TABLE albums ADD COLUMN external_id TEXT;
+
+            -- Add columns to artists
+            ALTER TABLE artists ADD COLUMN provider_id TEXT;
+            ALTER TABLE artists ADD COLUMN external_id TEXT;
+
+            -- Backfill LOCAL tracks
+            UPDATE tracks SET provider_id = 'local' WHERE source_type = 'LOCAL';
+
+            -- Backfill TIDAL tracks
+            UPDATE tracks SET provider_id = 'tidal', external_id = CAST(tidal_id AS TEXT) WHERE source_type = 'TIDAL' AND tidal_id IS NOT NULL;
+            UPDATE albums SET provider_id = 'tidal', external_id = CAST(tidal_id AS TEXT) WHERE tidal_id IS NOT NULL;
+            UPDATE artists SET provider_id = 'tidal', external_id = CAST(tidal_id AS TEXT) WHERE tidal_id IS NOT NULL;
+
+            -- Create Indexes
+            CREATE INDEX IF NOT EXISTS idx_tracks_provider_external ON tracks(provider_id, external_id);
+            CREATE INDEX IF NOT EXISTS idx_albums_provider_external ON albums(provider_id, external_id);
+            CREATE INDEX IF NOT EXISTS idx_artists_provider_external ON artists(provider_id, external_id);
+            "#,
         ];
 
         // 3. Apply Migrations

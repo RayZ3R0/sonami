@@ -72,6 +72,7 @@ impl FavoritesManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
+                t.provider_id, t.external_id,
                 a.name as artist_name,
                 COALESCE(al.title, '') as album_title,
                 COALESCE(al.cover_url, a.cover_url) as cover_url,
@@ -90,10 +91,12 @@ impl FavoritesManager {
         let mut tracks = Vec::new();
         for row in rows {
             let source_str: String = row.try_get("source_type").unwrap_or_default();
-            let source = if source_str == "LOCAL" {
-                TrackSource::Local
-            } else {
-                TrackSource::Tidal
+            let source = match source_str.as_str() {
+                "LOCAL" => TrackSource::Local,
+                "TIDAL" => TrackSource::Tidal,
+                "SUBSONIC" => TrackSource::Subsonic,
+                "JELLYFIN" => TrackSource::Jellyfin,
+                _ => TrackSource::Local, // Fallback
             };
 
             // Analytics with defaults
@@ -103,6 +106,23 @@ impl FavoritesManager {
             let added_at: Option<i64> = row.try_get("added_at").ok();
             let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
+            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
+            let provider_id: Option<String> = row.try_get("provider_id").ok();
+            let external_id: Option<String> = row.try_get("external_id").ok();
+            let local_path: Option<String> = row.try_get("file_path").ok();
+
+            let path = match source {
+                TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
+                TrackSource::Local => local_path.clone().unwrap_or_default(),
+                _ => {
+                    if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
+                        format!("{}:{}", pid, eid)
+                    } else {
+                        String::new()
+                    }
+                }
+            };
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
@@ -111,19 +131,17 @@ impl FavoritesManager {
                 duration: row.try_get::<i64, _>("duration").unwrap_or(0) as u64,
                 source,
                 cover_image: row.try_get("cover_url").ok(),
-                path: row.try_get("file_path").unwrap_or_default(),
-                local_path: row.try_get("file_path").ok(),
-                tidal_id: row
-                    .try_get::<Option<i64>, _>("tidal_id")
-                    .ok()
-                    .flatten()
-                    .map(|v| v as u64),
+                path,
+                local_path,
+                tidal_id: tidal_id.map(|v| v as u64),
                 audio_quality,
                 liked_at: row.try_get("liked_at").ok(),
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
                 last_played_at,
                 added_at,
+                provider_id,
+                external_id,
             });
         }
 

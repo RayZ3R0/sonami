@@ -290,7 +290,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);
@@ -698,7 +698,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const refreshFavorites = async () => {
     try {
       const favs = await invoke<UnifiedTrack[]>("get_favorites");
-      setFavorites(new Set(favs.map((t) => t.id)));
+      const newSet = new Set<string>();
+      favs.forEach((t) => {
+        newSet.add(t.id);
+        if (t.provider_id && t.external_id) {
+          newSet.add(`${t.provider_id}:${t.external_id}`);
+        }
+      });
+      setFavorites(newSet);
       bumpDataVersion();
     } catch (e) {
       console.error("Failed to refresh favorites:", e);
@@ -711,24 +718,37 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const toggleFavorite = async (track: Track) => {
+    const t = track as UnifiedTrack;
     const id = track.id;
+    // Construct composite ID if applicable
+    const compositeId =
+      t.provider_id && t.external_id
+        ? `${t.provider_id}:${t.external_id}`
+        : null;
+
+    const isFav = favorites.has(id) || (compositeId && favorites.has(compositeId));
+
     try {
-      if (favorites.has(id)) {
-        await invoke("remove_favorite", { trackId: id });
+      if (isFav) {
+        await invoke("remove_favorite", { track: t });
         setFavorites((prev) => {
           const next = new Set(prev);
           next.delete(id);
+          if (compositeId) next.delete(compositeId);
           return next;
         });
       } else {
-        await invoke("add_favorite", { trackId: id });
+        await invoke("add_favorite", { track: t });
         setFavorites((prev) => {
           const next = new Set(prev);
           next.add(id);
+          if (compositeId) next.add(compositeId);
           return next;
         });
       }
       bumpDataVersion(); // Trigger reactive updates
+      // Optionally refresh to get real IDs if valid import happened
+      // refreshFavorites();
     } catch (e) {
       console.error("Failed to toggle favorite:", e);
     }

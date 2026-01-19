@@ -8,12 +8,12 @@ export interface FavoriteTrack extends UnifiedTrack {
     liked_at?: number; // Unix timestamp
 }
 
-export async function addFavorite(trackId: string): Promise<void> {
-    await invoke('add_favorite', { trackId });
+export async function addFavorite(track: UnifiedTrack): Promise<void> {
+    await invoke('add_favorite', { track });
 }
 
-export async function removeFavorite(trackId: string): Promise<void> {
-    await invoke('remove_favorite', { trackId });
+export async function removeFavorite(track: UnifiedTrack): Promise<void> {
+    await invoke('remove_favorite', { track });
 }
 
 export async function isFavorited(trackId: string): Promise<boolean> {

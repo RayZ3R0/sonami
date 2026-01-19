@@ -2,11 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { Track } from "../types";
 
 export interface UnifiedTrack extends Track {
-    source: 'LOCAL' | 'TIDAL';
+    source: 'LOCAL' | 'TIDAL' | 'SUBSONIC' | 'JELLYFIN';
     tidal_id?: number;
     local_path?: string;
     liked_at?: number;
     audio_quality?: string;
+    provider_id?: string;
+    external_id?: string;
 }
 
 export interface LibraryAlbum {

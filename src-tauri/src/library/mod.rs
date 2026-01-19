@@ -151,6 +151,7 @@ impl LibraryManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
+                t.provider_id, t.external_id,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM search_index si
@@ -175,7 +176,9 @@ impl LibraryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok();
+            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
+            let provider_id: Option<String> = row.try_get("provider_id").ok();
+            let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
                 row.try_get::<String, _>("source_type")
                     .unwrap_or_else(|_| "LOCAL".to_string()),
@@ -185,6 +188,13 @@ impl LibraryManager {
             let path = match source {
                 TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
+                _ => {
+                    if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
+                        format!("{}:{}", pid, eid)
+                    } else {
+                        String::new()
+                    }
+                }
             };
 
             // Analytics with defaults
@@ -211,6 +221,8 @@ impl LibraryManager {
                 last_played_at,
                 liked_at: None,
                 added_at,
+                provider_id,
+                external_id,
             });
         }
 
@@ -223,6 +235,7 @@ impl LibraryManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
+                t.provider_id, t.external_id,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM tracks t
@@ -238,7 +251,9 @@ impl LibraryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok();
+            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
+            let provider_id: Option<String> = row.try_get("provider_id").ok();
+            let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
                 row.try_get::<String, _>("source_type")
                     .unwrap_or_else(|_| "LOCAL".to_string()),
@@ -248,6 +263,13 @@ impl LibraryManager {
             let path = match source {
                 TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
+                _ => {
+                    if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
+                        format!("{}:{}", pid, eid)
+                    } else {
+                        String::new()
+                    }
+                }
             };
 
             // Analytics with defaults
@@ -274,6 +296,8 @@ impl LibraryManager {
                 last_played_at,
                 liked_at: None,
                 added_at,
+                provider_id,
+                external_id,
             });
         }
 
@@ -358,6 +382,132 @@ impl LibraryManager {
 
         log::info!("Cleared download info for track {}", tidal_id);
         Ok(old_path)
+    }
+
+    pub async fn import_external_track(
+        &self,
+        track: &crate::models::Track,
+        provider_id: &str,
+    ) -> Result<String, String> {
+        let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
+        let external_id = &track.id;
+
+        // 1. Check if track already exists
+        let exists = sqlx::query("SELECT id FROM tracks WHERE provider_id = ? AND external_id = ?")
+            .bind(provider_id)
+            .bind(external_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if let Some(row) = exists {
+            return Ok(row.try_get::<String, _>("id").unwrap_or_default());
+        }
+
+        // 2. Find or Create Artist (by Name)
+        let artist_name = if track.artist.is_empty() { "Unknown Artist" } else { &track.artist };
+        let artist_id = if let Some(row) = sqlx::query("SELECT id FROM artists WHERE name = ?")
+            .bind(artist_name)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?
+        {
+            row.try_get::<String, _>("id").unwrap_or_default()
+        } else {
+            let new_id = Uuid::new_v4().to_string();
+            // Note: We don't have artist/album external IDs from just the Track struct easily
+            // So we set them to NULL for now. We are unifying by Name.
+            sqlx::query("INSERT INTO artists (id, name, provider_id) VALUES (?, ?, ?)")
+                .bind(&new_id)
+                .bind(artist_name)
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+            new_id
+        };
+
+        // 3. Find or Create Album (by Title + ArtistID)
+        let mut album_id = None;
+        let album_name = if track.album.is_empty() { "Unknown Album" } else { &track.album };
+        if !track.album.is_empty() {
+            if let Some(row) =
+                sqlx::query("SELECT id FROM albums WHERE title = ? AND artist_id = ?")
+                    .bind(album_name)
+                    .bind(&artist_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?
+            {
+                album_id = Some(row.try_get::<String, _>("id").unwrap_or_default());
+            } else {
+                let new_id = Uuid::new_v4().to_string();
+                sqlx::query(
+                    "INSERT INTO albums (id, title, artist_id, cover_url, provider_id) VALUES (?, ?, ?, ?, ?)",
+                )
+                .bind(&new_id)
+                .bind(album_name)
+                .bind(&artist_id)
+                .bind(&track.cover_url)
+                .bind(provider_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+                album_id = Some(new_id);
+            }
+        }
+
+        // 4. Create Track
+        let new_track_id = Uuid::new_v4().to_string();
+        let duration = track.duration as i64;
+        
+        sqlx::query(
+            r#"
+            INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+            "#,
+        )
+        .bind(&new_track_id)
+        .bind(&track.title)
+        .bind(&artist_id)
+        .bind(&album_id)
+        .bind(duration)
+        .bind(provider_id.to_uppercase()) 
+        .bind(provider_id)
+        .bind(external_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        // 5. Index for Search
+        sqlx::query(
+            "INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)",
+        )
+        .bind(&new_track_id)
+        .bind(&track.title)
+        .bind(artist_name)
+        .bind(album_name)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        tx.commit().await.map_err(|e| e.to_string())?;
+        Ok(new_track_id)
+    }
+
+    pub async fn find_external_track(
+        &self,
+        provider_id: &str,
+        external_id: &str,
+    ) -> Result<Option<String>, String> {
+        let row = sqlx::query("SELECT id FROM tracks WHERE provider_id = ? AND external_id = ?")
+            .bind(provider_id)
+            .bind(external_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(row.map(|r| r.try_get("id").unwrap_or_default()))
     }
 
     pub async fn import_tidal_track(
