@@ -125,10 +125,11 @@ pub async fn library_has_data(library: State<'_, LibraryManager>) -> Result<bool
     }
 
     // Check if we have any configured providers (other than Tidal which might be default)
-    let providers_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM provider_configs WHERE provider_id != 'tidal'")
-        .fetch_one(pool)
-        .await
-        .map_err(|e| format!("Failed to count providers: {}", e))?;
+    let providers_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM provider_configs WHERE provider_id != 'tidal'")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| format!("Failed to count providers: {}", e))?;
 
     if providers_count.0 > 0 {
         return Ok(true);

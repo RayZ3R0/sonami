@@ -223,10 +223,11 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${isAdded
-              ? "bg-pink-500/20 text-pink-400 cursor-default"
-              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-            }
+                        ${
+                          isAdded
+                            ? "bg-pink-500/20 text-pink-400 cursor-default"
+                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+                        }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -312,7 +313,7 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
     playlists,
     addToPlaylist,
     toggleFavorite,
-    refreshFavorites,
+
     streamQuality,
     searchProviderOrder,
   } = usePlayer();
@@ -363,8 +364,14 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
       jellyfin: jellyfinResults,
     };
 
-    return searchProviderOrder.flatMap(type => resultsByType[type] || []);
-  }, [localResults, filteredTidalResults, subsonicResults, jellyfinResults, searchProviderOrder]);
+    return searchProviderOrder.flatMap((type) => resultsByType[type] || []);
+  }, [
+    localResults,
+    filteredTidalResults,
+    subsonicResults,
+    jellyfinResults,
+    searchProviderOrder,
+  ]);
 
   useEffect(() => {
     if (isOpen) {
@@ -966,34 +973,64 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
           {/* Dynamic Results Sections - respects user's provider order */}
           {(() => {
             let lastType: string | null = null;
-            const sectionConfig: Record<string, { label: string; color: string; loading?: boolean }> = {
+            const sectionConfig: Record<
+              string,
+              { label: string; color: string; loading?: boolean }
+            > = {
               local: { label: "In Your Library", color: "bg-emerald-500" },
-              tidal: { label: "From Tidal", color: "bg-blue-500", loading: loadingTidal },
-              subsonic: { label: "From Subsonic", color: "bg-orange-500", loading: loadingSubsonic },
-              jellyfin: { label: "From Jellyfin", color: "bg-purple-500", loading: loadingJellyfin },
+              tidal: {
+                label: "From Tidal",
+                color: "bg-blue-500",
+                loading: loadingTidal,
+              },
+              subsonic: {
+                label: "From Subsonic",
+                color: "bg-orange-500",
+                loading: loadingSubsonic,
+              },
+              jellyfin: {
+                label: "From Jellyfin",
+                color: "bg-purple-500",
+                loading: loadingJellyfin,
+              },
             };
 
             return allResults.map((result, index) => {
               const showHeader = result.type !== lastType;
               const isFirstSection = lastType === null;
               lastType = result.type;
-              const config = sectionConfig[result.type] || { label: result.type, color: "bg-gray-500" };
+              const config = sectionConfig[result.type] || {
+                label: result.type,
+                color: "bg-gray-500",
+              };
 
-              const isAdded = result.type === "tidal" && addedTracks.has(result.tidalId!);
-              const isDownloaded = result.type === "local" && (() => {
-                const t = result.track as UnifiedTrack;
-                return (!!t.local_path && t.local_path !== "") || (!!t.audio_quality && t.audio_quality !== "");
-              })();
+              const isAdded =
+                result.type === "tidal" && addedTracks.has(result.tidalId!);
+              const isDownloaded =
+                result.type === "local" &&
+                (() => {
+                  const t = result.track as UnifiedTrack;
+                  return (
+                    (!!t.local_path && t.local_path !== "") ||
+                    (!!t.audio_quality && t.audio_quality !== "")
+                  );
+                })();
 
               return (
                 <div key={result.id}>
                   {showHeader && (
-                    <div className={`py-2 ${!isFirstSection ? "border-t border-white/5" : ""}`}>
+                    <div
+                      className={`py-2 ${!isFirstSection ? "border-t border-white/5" : ""}`}
+                    >
                       <div className="px-5 py-2 text-xs font-semibold text-theme-muted uppercase tracking-wider flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${config.color}`} />
+                        <span
+                          className={`w-2 h-2 rounded-full ${config.color}`}
+                        />
                         {config.label}
                         {config.loading && (
-                          <span className="text-theme-muted/50">(loading...)</span>
+                          <span className="text-theme-muted/50">
+                            (loading...)
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1007,7 +1044,11 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                     formatDuration={formatDuration}
                     showAddButton={result.type === "tidal"}
                     isAdded={isAdded}
-                    onAdd={result.type === "tidal" ? (e) => handleAddToLikedSongs(result, e) : undefined}
+                    onAdd={
+                      result.type === "tidal"
+                        ? (e) => handleAddToLikedSongs(result, e)
+                        : undefined
+                    }
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
                       result.tidalId

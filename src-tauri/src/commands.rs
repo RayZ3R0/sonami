@@ -937,7 +937,10 @@ pub async fn play_provider_track(
         cover_url: cover_url.clone(),
     };
 
-    let local_id = match library.import_external_track(&import_track, &provider_id).await {
+    let local_id = match library
+        .import_external_track(&import_track, &provider_id)
+        .await
+    {
         Ok(id) => id,
         Err(e) => {
             log::error!("Failed to import external track: {}", e);

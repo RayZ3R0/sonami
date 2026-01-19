@@ -385,8 +385,8 @@ export const FullScreenView = memo(
         setIsDragging(false);
 
         // Read final position from data attributes
-        const finalX = parseFloat(miniPlayerRef.current.dataset.dragX || '0');
-        const finalY = parseFloat(miniPlayerRef.current.dataset.dragY || '0');
+        const finalX = parseFloat(miniPlayerRef.current.dataset.dragX || "0");
+        const finalY = parseFloat(miniPlayerRef.current.dataset.dragY || "0");
 
         let newIsFullWidth = isFullWidth;
         let newPosition = { x: finalX, y: finalY };
@@ -608,10 +608,10 @@ export const FullScreenView = memo(
             isFullWidth
               ? {}
               : {
-                left: `${miniPlayerPosition.x}px`,
-                top: `${miniPlayerPosition.y}px`,
-                userSelect: "none",
-              }
+                  left: `${miniPlayerPosition.x}px`,
+                  top: `${miniPlayerPosition.y}px`,
+                  userSelect: "none",
+                }
           }
           onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}

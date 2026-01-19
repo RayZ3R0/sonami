@@ -212,7 +212,9 @@ export const SyncedLyrics = memo(
           if (!lineElement) return;
 
           // Check if this line is within animation range
-          const isNearActive = activeIndex >= 0 && Math.abs(index - activeIndex) <= ANIMATION_RANGE;
+          const isNearActive =
+            activeIndex >= 0 &&
+            Math.abs(index - activeIndex) <= ANIMATION_RANGE;
 
           let targetScale: number;
           let targetYOffset: number;
@@ -243,15 +245,16 @@ export const SyncedLyrics = memo(
           // For lines outside animation range, use CSS transitions instead of springs
           if (!isNearActive && state !== "active") {
             // Set CSS transition and apply target values directly
-            lineElement.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out, text-shadow 0.4s ease-out';
+            lineElement.style.transition =
+              "transform 0.4s ease-out, opacity 0.4s ease-out, text-shadow 0.4s ease-out";
             lineElement.style.transform = `translateY(${targetYOffset * 12}px) scale(${targetScale})`;
             lineElement.style.opacity = `${targetOpacity}`;
-            lineElement.style.textShadow = 'none';
+            lineElement.style.textShadow = "none";
             // Skip spring calculations for this line
             return;
           } else {
             // Near active line - use spring physics, disable CSS transitions
-            lineElement.style.transition = 'none';
+            lineElement.style.transition = "none";
           }
 
           // Update spring goals
@@ -281,8 +284,12 @@ export const SyncedLyrics = memo(
           animState.glow.setGoal(targetGlow, useInstantTransition);
 
           // Check if any spring is still animating
-          if (!animState.scale.isAtRest() || !animState.yOffset.isAtRest() ||
-            !animState.opacity.isAtRest() || !animState.glow.isAtRest()) {
+          if (
+            !animState.scale.isAtRest() ||
+            !animState.yOffset.isAtRest() ||
+            !animState.opacity.isAtRest() ||
+            !animState.glow.isAtRest()
+          ) {
             anyAnimating = true;
           }
 
@@ -302,7 +309,7 @@ export const SyncedLyrics = memo(
               const glowOpacity = currentGlow * 0.8;
               lineElement.style.textShadow = `0 0 ${blurRadius}px rgba(255, 255, 255, ${glowOpacity})`;
             } else {
-              lineElement.style.textShadow = 'none';
+              lineElement.style.textShadow = "none";
             }
           }
 

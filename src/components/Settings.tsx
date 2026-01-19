@@ -94,10 +94,11 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${isActive
-          ? "ring-2 ring-offset-2 ring-offset-transparent"
-          : "hover:scale-[1.02]"
-        }
+                ${
+                  isActive
+                    ? "ring-2 ring-offset-2 ring-offset-transparent"
+                    : "hover:scale-[1.02]"
+                }
             `}
       style={{
         background: colors.background,
@@ -396,8 +397,9 @@ export const Settings = ({
   return (
     <>
       <div
-        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${isOpen ? "w-[480px]" : "w-0"
-          }`}
+        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${
+          isOpen ? "w-[480px]" : "w-0"
+        }`}
       >
         <div className="w-[480px] h-full flex flex-col">
           {/* Header matching QueueSidebar style */}
@@ -498,10 +500,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("floating")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "floating"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "floating"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -546,10 +549,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("classic")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "classic"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "classic"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -818,10 +822,11 @@ export const Settings = ({
                       <button
                         key={option.value}
                         onClick={() => setLyricsProvider(option.value)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                          }`}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${
+                          lyricsProvider === option.value
+                            ? "ring-2"
+                            : "hover:scale-[1.02]"
+                        }`}
                         style={{
                           background:
                             lyricsProvider === option.value
@@ -940,20 +945,29 @@ export const Settings = ({
                   </p>
                   <div className="space-y-2">
                     {searchProviderOrder.map((providerId, index) => {
-                      const providerInfo: Record<string, { name: string; icon: string }> = {
+                      const providerInfo: Record<
+                        string,
+                        { name: string; icon: string }
+                      > = {
                         local: { name: "Local Library", icon: "📁" },
                         tidal: { name: "Tidal", icon: "🎵" },
                         subsonic: { name: "Subsonic / Navidrome", icon: "🎶" },
                         jellyfin: { name: "Jellyfin", icon: "🍞" },
                       };
-                      const info = providerInfo[providerId] || { name: providerId, icon: "❓" };
+                      const info = providerInfo[providerId] || {
+                        name: providerId,
+                        icon: "❓",
+                      };
 
                       return (
                         <div
                           key={providerId}
                           draggable
                           onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", index.toString());
+                            e.dataTransfer.setData(
+                              "text/plain",
+                              index.toString(),
+                            );
                             e.currentTarget.style.opacity = "0.5";
                           }}
                           onDragEnd={(e) => {
@@ -961,7 +975,8 @@ export const Settings = ({
                           }}
                           onDragOver={(e) => {
                             e.preventDefault();
-                            e.currentTarget.style.borderColor = theme.colors.accent;
+                            e.currentTarget.style.borderColor =
+                              theme.colors.accent;
                           }}
                           onDragLeave={(e) => {
                             e.currentTarget.style.borderColor = "transparent";
@@ -969,7 +984,9 @@ export const Settings = ({
                           onDrop={(e) => {
                             e.preventDefault();
                             e.currentTarget.style.borderColor = "transparent";
-                            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                            const fromIndex = parseInt(
+                              e.dataTransfer.getData("text/plain"),
+                            );
                             const toIndex = index;
                             if (fromIndex !== toIndex) {
                               const newOrder = [...searchProviderOrder];
@@ -995,7 +1012,11 @@ export const Settings = ({
                             strokeWidth="2"
                             viewBox="0 0 24 24"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 8h16M4 16h16"
+                            />
                           </svg>
                         </div>
                       );
@@ -1037,9 +1058,15 @@ export const Settings = ({
                     >
                       <h3 className="text-xl font-bold mb-2">Factory Reset?</h3>
                       <p className="text-theme-secondary mb-6 text-sm leading-relaxed">
-                        Are you sure you want to delete all your library data? This action cannot be undone.
-                        <br /><br />
-                        <span className="font-semibold text-theme-primary">Note:</span> Your downloaded music files will NOT be deleted from your disk.
+                        Are you sure you want to delete all your library data?
+                        This action cannot be undone.
+                        <br />
+                        <br />
+                        <span className="font-semibold text-theme-primary">
+                          Note:
+                        </span>{" "}
+                        Your downloaded music files will NOT be deleted from
+                        your disk.
                       </p>
 
                       <div className="flex gap-3 justify-end">
@@ -1386,8 +1413,8 @@ export const Settings = ({
               Settings are saved automatically
             </p>
           </div>
-        </div >
-      </div >
+        </div>
+      </div>
     </>
   );
 };

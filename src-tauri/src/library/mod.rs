@@ -405,7 +405,11 @@ impl LibraryManager {
         }
 
         // 2. Find or Create Artist (by Name)
-        let artist_name = if track.artist.is_empty() { "Unknown Artist" } else { &track.artist };
+        let artist_name = if track.artist.is_empty() {
+            "Unknown Artist"
+        } else {
+            &track.artist
+        };
         let artist_id = if let Some(row) = sqlx::query("SELECT id FROM artists WHERE name = ?")
             .bind(artist_name)
             .fetch_optional(&mut *tx)
@@ -429,7 +433,11 @@ impl LibraryManager {
 
         // 3. Find or Create Album (by Title + ArtistID)
         let mut album_id = None;
-        let album_name = if track.album.is_empty() { "Unknown Album" } else { &track.album };
+        let album_name = if track.album.is_empty() {
+            "Unknown Album"
+        } else {
+            &track.album
+        };
         if !track.album.is_empty() {
             if let Some(row) =
                 sqlx::query("SELECT id FROM albums WHERE title = ? AND artist_id = ?")
@@ -460,7 +468,7 @@ impl LibraryManager {
         // 4. Create Track
         let new_track_id = Uuid::new_v4().to_string();
         let duration = track.duration as i64;
-        
+
         sqlx::query(
             r#"
             INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, added_at)
@@ -472,7 +480,7 @@ impl LibraryManager {
         .bind(&artist_id)
         .bind(&album_id)
         .bind(duration)
-        .bind(provider_id.to_uppercase()) 
+        .bind(provider_id.to_uppercase())
         .bind(provider_id)
         .bind(external_id)
         .execute(&mut *tx)

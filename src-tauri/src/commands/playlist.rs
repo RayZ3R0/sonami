@@ -101,7 +101,10 @@ pub async fn add_to_playlist(
             cover_url: track.cover_image.clone(),
         };
 
-        if let Ok(new_id) = library.import_external_track(&import_track, provider_id).await {
+        if let Ok(new_id) = library
+            .import_external_track(&import_track, provider_id)
+            .await
+        {
             playlist.add_track_entry(&playlist_id, &new_id).await?;
             return Ok(());
         }
