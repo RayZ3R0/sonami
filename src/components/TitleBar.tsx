@@ -155,7 +155,6 @@ export const TitleBar = ({
       <div
         className="flex items-center pl-4 h-full gap-2"
         style={{ width: "240px" }}
-        data-no-drag
       >
         {showWindowControls && isMac && (
           <div className="flex gap-2 mr-2">
@@ -179,11 +178,10 @@ export const TitleBar = ({
         {setActiveTab && (
           <button
             onClick={() => setActiveTab("home")}
-            className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-              activeTab === "home"
+            className={`flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
                 ? "bg-theme-surface-active text-theme-primary"
                 : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
+              }`}
             title="Home"
           >
             <svg
@@ -219,7 +217,6 @@ export const TitleBar = ({
       {/* Center Section - Search Button */}
       <div
         className="flex-1 flex items-center justify-center px-4 pl-32"
-        data-no-drag
       >
         <button
           onClick={onSearchClick}
@@ -251,7 +248,6 @@ export const TitleBar = ({
       <div
         className="flex items-center justify-end h-full"
         style={{ width: "200px" }}
-        data-no-drag
       >
         {showWindowControls && !isMac && (
           <div className="flex h-full">
