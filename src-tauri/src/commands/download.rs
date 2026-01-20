@@ -111,7 +111,13 @@ pub async fn download_provider_track(
         .unwrap_or(crate::models::Quality::LOSSLESS);
 
     let path = download_manager
-        .download_provider_track(&provider_id, &external_id, metadata, &provider_manager, quality)
+        .download_provider_track(
+            &provider_id,
+            &external_id,
+            metadata,
+            &provider_manager,
+            quality,
+        )
         .await?;
 
     Ok(path.to_string_lossy().to_string())

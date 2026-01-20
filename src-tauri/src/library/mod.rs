@@ -312,7 +312,7 @@ impl LibraryManager {
     ) -> Result<(), String> {
         let tid = track_id_numeric as i64;
         log::info!("Attempting to update Tidal download info for ID: {}", tid);
-        
+
         let mut rows_affected =
             sqlx::query("UPDATE tracks SET file_path = ?, audio_quality = ? WHERE tidal_id = ?")
                 .bind(path)
@@ -329,8 +329,11 @@ impl LibraryManager {
         // This handles cases where tracks are imported via search/reference and have null tidal_id but valid external_id
         if rows_affected == 0 {
             let tid_str = track_id_numeric.to_string();
-            log::info!("Fallback: Attempting update by external_id: {} and provider_id='tidal'", tid_str);
-            
+            log::info!(
+                "Fallback: Attempting update by external_id: {} and provider_id='tidal'",
+                tid_str
+            );
+
             rows_affected = sqlx::query(
                 "UPDATE tracks SET file_path = ?, audio_quality = ? WHERE external_id = ? AND provider_id = 'tidal'",
             )
@@ -344,7 +347,7 @@ impl LibraryManager {
                 e.to_string()
             })?
             .rows_affected();
-            
+
             log::info!("Fallback update affected {} rows", rows_affected);
         }
 

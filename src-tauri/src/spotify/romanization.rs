@@ -97,7 +97,7 @@ mod tests {
         assert!(s.contains("Hello"));
         // Expect "Hello wa-rudo" or similar, just verify it changed
         assert_ne!(s, "Hello ワールド");
-        assert!(s.contains("wa-rudo")); 
+        assert!(s.contains("wa-rudo"));
     }
 
     #[test]

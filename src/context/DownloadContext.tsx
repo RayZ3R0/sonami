@@ -214,7 +214,11 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // For Tidal tracks with provider_id but no tidal_id, try external_id
-    if ((source === "TIDAL" || providerId === "tidal") && !tidalId && externalId) {
+    if (
+      (source === "TIDAL" || providerId === "tidal") &&
+      !tidalId &&
+      externalId
+    ) {
       const parsedId = parseInt(externalId, 10);
       if (!isNaN(parsedId) && parsedId > 0) {
         tidalId = parsedId;
@@ -338,7 +342,10 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Local tracks don't need downloading
-    if (source === "LOCAL" || (!source && track.path && !track.path.includes(":"))) {
+    if (
+      source === "LOCAL" ||
+      (!source && track.path && !track.path.includes(":"))
+    ) {
       console.log("Track is already local, no download needed:", track.title);
       return;
     }

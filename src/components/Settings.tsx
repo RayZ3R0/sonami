@@ -110,8 +110,6 @@ const MusicIcon = () => (
   </svg>
 );
 
-
-
 const NavidromeIcon = () => (
   <svg
     width="22"
@@ -162,10 +160,11 @@ const ThemePreviewCard = ({
       onClick={onClick}
       className={`
                 relative group w-full p-3 rounded-xl transition-all duration-200
-                ${isActive
-          ? "ring-2 ring-offset-2 ring-offset-transparent"
-          : "hover:scale-[1.02]"
-        }
+                ${
+                  isActive
+                    ? "ring-2 ring-offset-2 ring-offset-transparent"
+                    : "hover:scale-[1.02]"
+                }
             `}
       style={{
         background: colors.background,
@@ -464,8 +463,9 @@ export const Settings = ({
   return (
     <>
       <div
-        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${isOpen ? "w-[480px]" : "w-0"
-          }`}
+        className={`h-full flex-shrink-0 bg-theme-sidebar transition-all duration-300 ease-in-out overflow-hidden shadow-2xl ${
+          isOpen ? "w-[480px]" : "w-0"
+        }`}
       >
         <div className="w-[480px] h-full flex flex-col">
           {/* Header matching QueueSidebar style */}
@@ -566,10 +566,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("floating")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "floating"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "floating"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -614,10 +615,11 @@ export const Settings = ({
                       onClick={() => setPlayerBarStyle("classic")}
                       className={`
                                             relative group w-full p-3 rounded-xl transition-all duration-200 text-left
-                                            ${playerBarStyle === "classic"
-                          ? "ring-2 ring-offset-2 ring-offset-transparent"
-                          : "hover:scale-[1.02]"
-                        }
+                                            ${
+                                              playerBarStyle === "classic"
+                                                ? "ring-2 ring-offset-2 ring-offset-transparent"
+                                                : "hover:scale-[1.02]"
+                                            }
                                         `}
                       style={{
                         background: theme.colors.surface,
@@ -886,10 +888,11 @@ export const Settings = ({
                       <button
                         key={option.value}
                         onClick={() => setLyricsProvider(option.value)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${lyricsProvider === option.value
-                          ? "ring-2"
-                          : "hover:scale-[1.02]"
-                          }`}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${
+                          lyricsProvider === option.value
+                            ? "ring-2"
+                            : "hover:scale-[1.02]"
+                        }`}
                         style={{
                           background:
                             lyricsProvider === option.value
@@ -1014,7 +1017,10 @@ export const Settings = ({
                       > = {
                         local: { name: "Local Library", icon: <FolderIcon /> },
                         tidal: { name: "Tidal", icon: <MusicIcon /> },
-                        subsonic: { name: "Subsonic / Navidrome", icon: <NavidromeIcon /> },
+                        subsonic: {
+                          name: "Subsonic / Navidrome",
+                          icon: <NavidromeIcon />,
+                        },
                         jellyfin: { name: "Jellyfin", icon: <JellyfinIcon /> },
                       };
                       const info = providerInfo[providerId] || {

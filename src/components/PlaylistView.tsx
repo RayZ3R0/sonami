@@ -264,9 +264,9 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-              label: p.title,
-              action: () => addToPlaylist(p.id, track),
-            }))
+                label: p.title,
+                action: () => addToPlaylist(p.id, track),
+              }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -415,7 +415,10 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         (t.path && t.path.startsWith("tidal:")) ||
         (t.path && t.path.startsWith("subsonic:")) ||
         (t.path && t.path.startsWith("jellyfin:")) ||
-        ("source" in t && ((t as any).source === "TIDAL" || (t as any).source === "SUBSONIC" || (t as any).source === "JELLYFIN")),
+        ("source" in t &&
+          ((t as any).source === "TIDAL" ||
+            (t as any).source === "SUBSONIC" ||
+            (t as any).source === "JELLYFIN")),
     );
     for (const track of streamingTracks) {
       await downloadTrack(mapToTrack(track));
@@ -491,10 +494,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
-              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-              }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+              shuffle
+                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+            }`}
           >
             <svg
               className="w-5 h-5"
@@ -586,10 +590,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
-                  ? "bg-theme-surface-active text-theme-accent"
-                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                  }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
+                  isCurrentTrack
+                    ? "bg-theme-surface-active text-theme-accent"
+                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -693,17 +698,27 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                     }
 
                     // Handle Tidal tracks that use provider_id + external_id instead of tidal_id
-                    if (!trackKey && (source === "TIDAL" || providerIdField === "tidal") && externalIdField) {
+                    if (
+                      !trackKey &&
+                      (source === "TIDAL" || providerIdField === "tidal") &&
+                      externalIdField
+                    ) {
                       trackKey = externalIdField;
                       isStreamingTrack = true;
                     }
 
                     // Handle Subsonic/Jellyfin tracks
                     if (!trackKey) {
-                      if (source === "SUBSONIC" || providerIdField === "subsonic") {
+                      if (
+                        source === "SUBSONIC" ||
+                        providerIdField === "subsonic"
+                      ) {
                         trackKey = `subsonic:${externalIdField || track.id}`;
                         isStreamingTrack = true;
-                      } else if (source === "JELLYFIN" || providerIdField === "jellyfin") {
+                      } else if (
+                        source === "JELLYFIN" ||
+                        providerIdField === "jellyfin"
+                      ) {
                         trackKey = `jellyfin:${externalIdField || track.id}`;
                         isStreamingTrack = true;
                       } else if (track.path?.startsWith("subsonic:")) {
@@ -720,8 +735,10 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                       : undefined;
 
                     const isDl =
-                      (unifiedTrack.local_path && unifiedTrack.local_path !== "") ||
-                      (unifiedTrack.audio_quality && unifiedTrack.audio_quality !== "") ||
+                      (unifiedTrack.local_path &&
+                        unifiedTrack.local_path !== "") ||
+                      (unifiedTrack.audio_quality &&
+                        unifiedTrack.audio_quality !== "") ||
                       (trackKey && isTrackCompleted(trackKey));
 
                     return isStreamingTrack ? (
@@ -731,7 +748,11 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDl) {
-                            const numericTidalId = unifiedTrack.tidal_id || (track.id.match(/^\d+$/) ? Number(track.id) : null);
+                            const numericTidalId =
+                              unifiedTrack.tidal_id ||
+                              (track.id.match(/^\d+$/)
+                                ? Number(track.id)
+                                : null);
                             if (numericTidalId && !isNaN(numericTidalId)) {
                               deleteDownloadedTrack(numericTidalId).then(() => {
                                 refetch();

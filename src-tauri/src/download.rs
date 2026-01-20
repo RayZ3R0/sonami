@@ -147,7 +147,13 @@ impl DownloadManager {
         }
 
         let result = self
-            .download_provider_process(provider_id, external_id, metadata, provider_manager, quality.clone())
+            .download_provider_process(
+                provider_id,
+                external_id,
+                metadata,
+                provider_manager,
+                quality.clone(),
+            )
             .await;
 
         {
@@ -173,14 +179,22 @@ impl DownloadManager {
                 )
                 .await
             {
-                log::error!("Failed to update database for provider download {}:{}: {}", provider_id, external_id, e);
+                log::error!(
+                    "Failed to update database for provider download {}:{}: {}",
+                    provider_id,
+                    external_id,
+                    e
+                );
             }
         }
 
         if let Err(ref e) = result {
             let _ = self.app_handle.emit(
                 "download-error",
-                format!("Failed to download track {}:{}: {}", provider_id, external_id, e),
+                format!(
+                    "Failed to download track {}:{}: {}",
+                    provider_id, external_id, e
+                ),
             );
         }
 
@@ -223,7 +237,13 @@ impl DownloadManager {
             Some("mp3") => "mp3",
             Some("opus") => "opus",
             Some("ogg") => "ogg",
-            _ => if quality == crate::models::Quality::LOSSLESS { "flac" } else { "mp3" },
+            _ => {
+                if quality == crate::models::Quality::LOSSLESS {
+                    "flac"
+                } else {
+                    "mp3"
+                }
+            }
         };
         let file_path = album_dir.join(format!("{}.{}", safe_title, extension));
 
