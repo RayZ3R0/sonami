@@ -341,6 +341,7 @@ pub fn run() {
             commands::download::set_download_path,
             commands::download::open_download_folder,
             commands::download::delete_downloaded_track,
+            commands::download::download_provider_track,
             // Window Management
             commands::is_tiling_wm,
             // Generic Provider Commands

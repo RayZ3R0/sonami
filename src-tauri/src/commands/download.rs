@@ -96,3 +96,23 @@ pub async fn delete_downloaded_track(
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn download_provider_track(
+    download_manager: State<'_, DownloadManager>,
+    provider_manager: State<'_, std::sync::Arc<crate::providers::ProviderManager>>,
+    provider_id: String,
+    external_id: String,
+    metadata: TrackMetadata,
+    quality: String,
+) -> Result<String, String> {
+    let quality = quality
+        .parse::<crate::models::Quality>()
+        .unwrap_or(crate::models::Quality::LOSSLESS);
+
+    let path = download_manager
+        .download_provider_track(&provider_id, &external_id, metadata, &provider_manager, quality)
+        .await?;
+
+    Ok(path.to_string_lossy().to_string())
+}

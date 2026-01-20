@@ -240,10 +240,19 @@ export const LikedSongsView = () => {
       (p) => !contextMenu.containingPlaylists.has(p.id),
     );
 
-    // Check if track is Tidal track (has tidal_id or numeric ID or path starts with tidal:)
-    const isTidalTrack =
+    // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
+    const source = (track as any).source;
+    const providerId = (track as any).provider_id;
+    const isStreamingTrack =
+      source === "TIDAL" ||
+      source === "SUBSONIC" ||
+      source === "JELLYFIN" ||
       "tidal_id" in track ||
       (track.path && track.path.startsWith("tidal:")) ||
+      (track.path && track.path.startsWith("subsonic:")) ||
+      (track.path && track.path.startsWith("jellyfin:")) ||
+      providerId === "subsonic" ||
+      providerId === "jellyfin" ||
       /^\d+$/.test(track.id);
 
     const items: ContextMenuItem[] = [
@@ -275,14 +284,14 @@ export const LikedSongsView = () => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
 
-    if (isTidalTrack) {
+    if (isStreamingTrack) {
       items.push({
         label: "Download",
         action: () => downloadTrack(track),
@@ -302,14 +311,19 @@ export const LikedSongsView = () => {
   ]);
 
   const handleDownloadAll = async () => {
-    // Filter for Tidal tracks
-    const tidalTracks = sortedFavorites.filter(
+    // Filter for all streaming tracks (Tidal, Subsonic, Jellyfin)
+    const streamingTracks = sortedFavorites.filter(
       (t) =>
         t.tidal_id ||
         (t.path && t.path.startsWith("tidal:")) ||
+        (t.path && t.path.startsWith("subsonic:")) ||
+        (t.path && t.path.startsWith("jellyfin:")) ||
+        (t as any).source === "TIDAL" ||
+        (t as any).source === "SUBSONIC" ||
+        (t as any).source === "JELLYFIN" ||
         /^\d+$/.test(t.id),
     );
-    for (const track of tidalTracks) {
+    for (const track of streamingTracks) {
       await downloadTrack(mapToTrack(track));
     }
   };
@@ -379,11 +393,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -490,11 +503,10 @@ export const LikedSongsView = () => {
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-pink-500/10 text-pink-500"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-pink-500/10 text-pink-500"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="flex items-center text-xs font-medium justify-center">
@@ -580,15 +592,53 @@ export const LikedSongsView = () => {
                 <div className="flex items-center justify-center">
                   {(() => {
                     const unifiedTrack = track as any;
-                    const tidalId =
-                      unifiedTrack.tidal_id ||
-                      (track.path?.startsWith("tidal:")
-                        ? track.path.split(":")[1]
-                        : null) ||
-                      (track.id.match(/^\d+$/) ? track.id : null);
-                    const tidalIdStr = tidalId?.toString();
-                    const downloadState = tidalIdStr
-                      ? downloads.get(tidalIdStr)
+                    const source = unifiedTrack.source;
+                    const providerId = unifiedTrack.provider_id;
+                    const externalId = unifiedTrack.external_id;
+
+                    // Determine track key for download tracking
+                    let trackKey: string | null = null;
+                    let isStreamingTrack = false;
+
+                    if (unifiedTrack.tidal_id) {
+                      trackKey = unifiedTrack.tidal_id.toString();
+                      isStreamingTrack = true;
+                    } else if (track.path?.startsWith("tidal:")) {
+                      const pathId = track.path.split(":")[1];
+                      if (pathId && pathId !== "0") {
+                        trackKey = pathId;
+                        isStreamingTrack = true;
+                      }
+                    } else if (track.id.match(/^\d+$/)) {
+                      trackKey = track.id;
+                      isStreamingTrack = true;
+                    }
+
+                    // Handle Tidal tracks that use provider_id + external_id instead of tidal_id
+                    if (!trackKey && (source === "TIDAL" || providerId === "tidal") && externalId) {
+                      trackKey = externalId;
+                      isStreamingTrack = true;
+                    }
+
+                    // Handle Subsonic/Jellyfin tracks
+                    if (!trackKey) {
+                      if (source === "SUBSONIC" || providerId === "subsonic") {
+                        trackKey = `subsonic:${externalId || track.id}`;
+                        isStreamingTrack = true;
+                      } else if (source === "JELLYFIN" || providerId === "jellyfin") {
+                        trackKey = `jellyfin:${externalId || track.id}`;
+                        isStreamingTrack = true;
+                      } else if (track.path?.startsWith("subsonic:")) {
+                        trackKey = track.path;
+                        isStreamingTrack = true;
+                      } else if (track.path?.startsWith("jellyfin:")) {
+                        trackKey = track.path;
+                        isStreamingTrack = true;
+                      }
+                    }
+
+                    const downloadState = trackKey
+                      ? downloads.get(trackKey)
                       : undefined;
 
                     // Check both: local file exists OR completed in this session (via ref)
@@ -597,26 +647,23 @@ export const LikedSongsView = () => {
                         unifiedTrack.local_path !== "") ||
                       (unifiedTrack.audio_quality &&
                         unifiedTrack.audio_quality !== "") ||
-                      (tidalIdStr && isTrackCompleted(tidalIdStr));
-                    const isTidalTrack = !!tidalId;
+                      (trackKey && isTrackCompleted(trackKey));
 
-                    return isTidalTrack ? (
+                    return isStreamingTrack ? (
                       <DownloadIndicator
                         status={downloadState}
                         isDownloaded={isDownloaded}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDownloaded) {
-                            // Delete the downloaded track
-                            const numericTidalId = Number(tidalId);
-                            if (!isNaN(numericTidalId)) {
+                            // Delete only works for Tidal tracks currently
+                            const numericTidalId = unifiedTrack.tidal_id || (track.id.match(/^\d+$/) ? Number(track.id) : null);
+                            if (numericTidalId && !isNaN(numericTidalId)) {
                               deleteDownloadedTrack(numericTidalId).then(() => {
-                                // Refresh favorites to update UI
                                 refreshFavorites();
                               });
                             }
                           } else if (!downloadState) {
-                            // Download the track
                             downloadTrack(mapToTrack(track));
                           }
                         }}

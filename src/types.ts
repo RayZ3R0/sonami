@@ -9,6 +9,14 @@ export interface Track {
     path: string;
     /** Unix timestamp when added to playlist (optional) */
     added_at?: number;
+    /** Track source: LOCAL, TIDAL, SUBSONIC, or JELLYFIN */
+    source?: "LOCAL" | "TIDAL" | "SUBSONIC" | "JELLYFIN";
+    /** Provider ID for external tracks */
+    provider_id?: string;
+    /** External ID from the provider */
+    external_id?: string;
+    /** Tidal-specific ID (numeric) */
+    tidal_id?: number;
 }
 
 export interface PlayerState {

@@ -177,84 +177,173 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const downloadTrack = useCallback(async (track: Track) => {
-    let tidalId: number | undefined;
+    // Detect track source
+    let source: string | undefined = (track as any).source;
+    let providerId: string | undefined = (track as any).provider_id;
+    let externalId: string | undefined = (track as any).external_id;
+    let tidalId: number | undefined = (track as any).tidal_id;
 
-    // Try to find Tidal ID from various sources
-    // 1. Check for tidal_id property (UnifiedTrack)
-    if ("tidal_id" in track && (track as any).tidal_id) {
-      tidalId = (track as any).tidal_id;
-    }
-    // 2. Check path for tidal: prefix
-    else if (track.path && track.path.startsWith("tidal:")) {
-      const parts = track.path.split(":");
-      if (parts.length > 1) {
-        tidalId = parseInt(parts[1], 10);
+    // Try to infer source from path if not explicitly set
+    if (!source && track.path) {
+      if (track.path.startsWith("tidal:")) {
+        source = "TIDAL";
+        const pathId = parseInt(track.path.split(":")[1], 10);
+        if (!isNaN(pathId) && pathId > 0) {
+          tidalId = pathId;
+        }
+      } else if (track.path.startsWith("subsonic:")) {
+        source = "SUBSONIC";
+        providerId = "subsonic";
+        externalId = track.path.split(":")[1];
+      } else if (track.path.startsWith("jellyfin:")) {
+        source = "JELLYFIN";
+        providerId = "jellyfin";
+        externalId = track.path.split(":")[1];
+      } else if (/^[a-f0-9-]{36}$/i.test(track.id)) {
+        // UUID-style ID likely from Subsonic/Jellyfin
+        // Check from provider_id if available
+        if (providerId) {
+          source = providerId.toUpperCase();
+          externalId = externalId || track.id;
+        }
+      } else if (/^\d+$/.test(track.id)) {
+        // Numeric ID is likely Tidal
+        source = "TIDAL";
+        tidalId = parseInt(track.id, 10);
       }
     }
-    // 3. Check if ID itself is numeric
-    else if (/^\d+$/.test(track.id)) {
-      tidalId = parseInt(track.id, 10);
-    }
-    // 4. If source is TIDAL but no ID found yet, log error
-    else if ("source" in track && (track as any).source === "TIDAL") {
-      console.warn("Tidal track found but no ID:", track);
+
+    // For Tidal tracks with provider_id but no tidal_id, try external_id
+    if ((source === "TIDAL" || providerId === "tidal") && !tidalId && externalId) {
+      const parsedId = parseInt(externalId, 10);
+      if (!isNaN(parsedId) && parsedId > 0) {
+        tidalId = parsedId;
+        source = "TIDAL";
+      }
     }
 
-    if (!tidalId || isNaN(tidalId)) {
-      console.error("Cannot download track: No valid Tidal ID found", track);
+    // For Tidal tracks, use the existing download command
+    if (source === "TIDAL" || tidalId) {
+      if (!tidalId) {
+        console.error("Cannot download track: No valid Tidal ID found", track);
+        return;
+      }
+
+      const trackKey = tidalId.toString();
+
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        next.set(trackKey, {
+          trackId: trackKey,
+          title: track.title,
+          artist: track.artist,
+          progress: 0,
+          status: "pending",
+        });
+        return next;
+      });
+
+      try {
+        await invoke("start_download", {
+          trackId: tidalId,
+          metadata: {
+            title: track.title,
+            artist: track.artist || "Unknown Artist",
+            album: track.album || "Unknown Album",
+            coverUrl: track.cover_image || null,
+          },
+          quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
+        });
+
+        setDownloads((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(trackKey);
+          if (existing) {
+            next.set(trackKey, { ...existing, status: "downloading" });
+          }
+          return next;
+        });
+      } catch (e) {
+        console.error("Failed to start download:", e);
+        setDownloads((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(trackKey);
+          if (existing) {
+            next.set(trackKey, {
+              ...existing,
+              status: "error",
+              error: String(e),
+            });
+          }
+          return next;
+        });
+      }
       return;
     }
 
-    const trackKey = tidalId.toString();
+    // For Subsonic/Jellyfin tracks, use the provider download command
+    if ((source === "SUBSONIC" || source === "JELLYFIN") && externalId) {
+      const trackKey = `${source.toLowerCase()}:${externalId}`;
+      providerId = providerId || source.toLowerCase();
 
-    // Add to downloads map
-    setDownloads((prev) => {
-      const next = new Map(prev);
-      next.set(trackKey, {
-        trackId: trackKey,
-        title: track.title,
-        artist: track.artist,
-        progress: 0,
-        status: "pending",
-      });
-      return next;
-    });
-
-    try {
-      await invoke("start_download", {
-        trackId: tidalId,
-        metadata: {
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        next.set(trackKey, {
+          trackId: trackKey,
           title: track.title,
-          artist: track.artist || "Unknown Artist",
-          album: track.album || "Unknown Album",
-          coverUrl: track.cover_image || null,
-        },
-        quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
+          artist: track.artist,
+          progress: 0,
+          status: "pending",
+        });
+        return next;
       });
 
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(trackKey);
-        if (existing) {
-          next.set(trackKey, { ...existing, status: "downloading" });
-        }
-        return next;
-      });
-    } catch (e) {
-      console.error("Failed to start download:", e);
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(trackKey);
-        if (existing) {
-          next.set(trackKey, {
-            ...existing,
-            status: "error",
-            error: String(e),
-          });
-        }
-        return next;
-      });
+      try {
+        await invoke("download_provider_track", {
+          providerId,
+          externalId,
+          metadata: {
+            title: track.title,
+            artist: track.artist || "Unknown Artist",
+            album: track.album || "Unknown Album",
+            coverUrl: track.cover_image || null,
+          },
+          quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
+        });
+
+        setDownloads((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(trackKey);
+          if (existing) {
+            next.set(trackKey, { ...existing, status: "downloading" });
+          }
+          return next;
+        });
+      } catch (e) {
+        console.error("Failed to start provider download:", e);
+        setDownloads((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(trackKey);
+          if (existing) {
+            next.set(trackKey, {
+              ...existing,
+              status: "error",
+              error: String(e),
+            });
+          }
+          return next;
+        });
+      }
+      return;
     }
+
+    // Local tracks don't need downloading
+    if (source === "LOCAL" || (!source && track.path && !track.path.includes(":"))) {
+      console.log("Track is already local, no download needed:", track.title);
+      return;
+    }
+
+    console.error("Cannot download track: Unknown source or missing ID", track);
   }, []);
 
   const setDownloadPath = useCallback(async (path: string) => {

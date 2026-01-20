@@ -311,7 +311,9 @@ impl LibraryManager {
         quality: &str,
     ) -> Result<(), String> {
         let tid = track_id_numeric as i64;
-        let rows_affected =
+        log::info!("Attempting to update Tidal download info for ID: {}", tid);
+        
+        let mut rows_affected =
             sqlx::query("UPDATE tracks SET file_path = ?, audio_quality = ? WHERE tidal_id = ?")
                 .bind(path)
                 .bind(quality)
@@ -321,15 +323,77 @@ impl LibraryManager {
                 .map_err(|e| e.to_string())?
                 .rows_affected();
 
+        log::info!("Update by tidal_id affected {} rows", rows_affected);
+
+        // Fallback: Check if the track exists with external_id = track_id_numeric (as string) and provider_id = 'tidal'
+        // This handles cases where tracks are imported via search/reference and have null tidal_id but valid external_id
+        if rows_affected == 0 {
+            let tid_str = track_id_numeric.to_string();
+            log::info!("Fallback: Attempting update by external_id: {} and provider_id='tidal'", tid_str);
+            
+            rows_affected = sqlx::query(
+                "UPDATE tracks SET file_path = ?, audio_quality = ? WHERE external_id = ? AND provider_id = 'tidal'",
+            )
+            .bind(path)
+            .bind(quality)
+            .bind(tid_str)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                log::error!("Fallback update failed: {}", e);
+                e.to_string()
+            })?
+            .rows_affected();
+            
+            log::info!("Fallback update affected {} rows", rows_affected);
+        }
+
         if rows_affected == 0 {
             log::warn!(
-                "Downloaded track {} not found in library, offline playback may not work until imported.",
-                track_id_numeric
+                "Downloaded track {} not found in library (tried tidal_id={} and external_id={}), offline playback may not work until imported.",
+                track_id_numeric, tid, track_id_numeric
             );
         } else {
             log::info!(
                 "Updated track {} with download info (path: {}, quality: {})",
                 track_id_numeric,
+                path,
+                quality
+            );
+        }
+        Ok(())
+    }
+
+    pub async fn update_provider_track_download_info(
+        &self,
+        provider_id: &str,
+        external_id: &str,
+        path: &str,
+        quality: &str,
+    ) -> Result<(), String> {
+        let rows_affected = sqlx::query(
+            "UPDATE tracks SET file_path = ?, audio_quality = ? WHERE provider_id = ? AND external_id = ?",
+        )
+        .bind(path)
+        .bind(quality)
+        .bind(provider_id)
+        .bind(external_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?
+        .rows_affected();
+
+        if rows_affected == 0 {
+            log::warn!(
+                "Downloaded provider track {}:{} not found in library, offline playback may not work until imported.",
+                provider_id,
+                external_id
+            );
+        } else {
+            log::info!(
+                "Updated provider track {}:{} with download info (path: {}, quality: {})",
+                provider_id,
+                external_id,
                 path,
                 quality
             );

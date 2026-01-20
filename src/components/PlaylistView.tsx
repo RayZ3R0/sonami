@@ -235,12 +235,20 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
       (p) => p.id !== playlistId && !contextMenu.containingPlaylists.has(p.id),
     );
 
-    // Check if track is Tidal track (has tidal_id or numeric ID or path starts with tidal: or source is TIDAL)
-    const isTidalTrack =
+    // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
+    const source = (track as any).source;
+    const providerIdVal = (track as any).provider_id;
+    const isStreamingTrack =
+      source === "TIDAL" ||
+      source === "SUBSONIC" ||
+      source === "JELLYFIN" ||
       ("tidal_id" in track && (track as any).tidal_id) ||
       (track.path && track.path.startsWith("tidal:")) ||
-      /^\d+$/.test(track.id) ||
-      ("source" in track && (track as any).source === "TIDAL");
+      (track.path && track.path.startsWith("subsonic:")) ||
+      (track.path && track.path.startsWith("jellyfin:")) ||
+      providerIdVal === "subsonic" ||
+      providerIdVal === "jellyfin" ||
+      /^\d+$/.test(track.id);
 
     const items: ContextMenuItem[] = [
       {
@@ -256,15 +264,15 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
 
-    // Add download option for Tidal tracks
-    if (isTidalTrack) {
+    // Add download option for streaming tracks
+    if (isStreamingTrack) {
       items.push({
         label: "Download",
         action: () => downloadTrack(track),
@@ -399,15 +407,17 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
   };
 
   const handleDownloadAll = async () => {
-    // Filter for Tidal tracks
-    const tidalTracks = tracks.filter(
+    // Filter for all streaming tracks (Tidal, Subsonic, Jellyfin)
+    const streamingTracks = tracks.filter(
       (t) =>
         t.id.match(/^\d+$/) ||
         (t as any).tidal_id ||
         (t.path && t.path.startsWith("tidal:")) ||
-        ("source" in t && (t as any).source === "TIDAL"),
+        (t.path && t.path.startsWith("subsonic:")) ||
+        (t.path && t.path.startsWith("jellyfin:")) ||
+        ("source" in t && ((t as any).source === "TIDAL" || (t as any).source === "SUBSONIC" || (t as any).source === "JELLYFIN")),
     );
-    for (const track of tidalTracks) {
+    for (const track of streamingTracks) {
       await downloadTrack(mapToTrack(track));
     }
   };
@@ -481,11 +491,10 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -572,35 +581,15 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           sortedTracks.map((track, index) => {
             const isCurrentTrack = currentTrack?.id === track.id;
 
-            // Logic for download status
-            const unifiedTrack = track as any;
-            const tidalId =
-              unifiedTrack.tidal_id ||
-              (track.path?.startsWith("tidal:")
-                ? track.path.split(":")[1]
-                : null) ||
-              (track.id.match(/^\d+$/) ? track.id : null);
-            const tidalIdStr = tidalId?.toString();
-            const downloadState = tidalIdStr
-              ? downloads.get(tidalIdStr)
-              : undefined;
-            const isDownloaded =
-              (unifiedTrack.local_path && unifiedTrack.local_path !== "") ||
-              (unifiedTrack.audio_quality &&
-                unifiedTrack.audio_quality !== "") ||
-              (tidalIdStr && isTrackCompleted(tidalIdStr));
-            const isTidalTrack = !!tidalId;
-
             return (
               <div
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-theme-surface-active text-theme-accent"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-theme-surface-active text-theme-accent"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -679,27 +668,84 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
 
                 {/* Download Indicator */}
                 <div className="flex items-center justify-center">
-                  {isTidalTrack ? (
-                    <DownloadIndicator
-                      status={downloadState}
-                      isDownloaded={isDownloaded}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isDownloaded) {
-                          const numericTidalId = Number(tidalId);
-                          if (!isNaN(numericTidalId)) {
-                            deleteDownloadedTrack(numericTidalId).then(() => {
-                              refetch();
-                            });
+                  {(() => {
+                    const unifiedTrack = track as any;
+                    const source = unifiedTrack.source;
+                    const providerIdField = unifiedTrack.provider_id;
+                    const externalIdField = unifiedTrack.external_id;
+
+                    // Determine track key for download tracking
+                    let trackKey: string | null = null;
+                    let isStreamingTrack = false;
+
+                    if (unifiedTrack.tidal_id) {
+                      trackKey = unifiedTrack.tidal_id.toString();
+                      isStreamingTrack = true;
+                    } else if (track.path?.startsWith("tidal:")) {
+                      const pathId = track.path.split(":")[1];
+                      if (pathId && pathId !== "0") {
+                        trackKey = pathId;
+                        isStreamingTrack = true;
+                      }
+                    } else if (track.id.match(/^\d+$/)) {
+                      trackKey = track.id;
+                      isStreamingTrack = true;
+                    }
+
+                    // Handle Tidal tracks that use provider_id + external_id instead of tidal_id
+                    if (!trackKey && (source === "TIDAL" || providerIdField === "tidal") && externalIdField) {
+                      trackKey = externalIdField;
+                      isStreamingTrack = true;
+                    }
+
+                    // Handle Subsonic/Jellyfin tracks
+                    if (!trackKey) {
+                      if (source === "SUBSONIC" || providerIdField === "subsonic") {
+                        trackKey = `subsonic:${externalIdField || track.id}`;
+                        isStreamingTrack = true;
+                      } else if (source === "JELLYFIN" || providerIdField === "jellyfin") {
+                        trackKey = `jellyfin:${externalIdField || track.id}`;
+                        isStreamingTrack = true;
+                      } else if (track.path?.startsWith("subsonic:")) {
+                        trackKey = track.path;
+                        isStreamingTrack = true;
+                      } else if (track.path?.startsWith("jellyfin:")) {
+                        trackKey = track.path;
+                        isStreamingTrack = true;
+                      }
+                    }
+
+                    const dlState = trackKey
+                      ? downloads.get(trackKey)
+                      : undefined;
+
+                    const isDl =
+                      (unifiedTrack.local_path && unifiedTrack.local_path !== "") ||
+                      (unifiedTrack.audio_quality && unifiedTrack.audio_quality !== "") ||
+                      (trackKey && isTrackCompleted(trackKey));
+
+                    return isStreamingTrack ? (
+                      <DownloadIndicator
+                        status={dlState}
+                        isDownloaded={isDl}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isDl) {
+                            const numericTidalId = unifiedTrack.tidal_id || (track.id.match(/^\d+$/) ? Number(track.id) : null);
+                            if (numericTidalId && !isNaN(numericTidalId)) {
+                              deleteDownloadedTrack(numericTidalId).then(() => {
+                                refetch();
+                              });
+                            }
+                          } else if (!dlState) {
+                            downloadTrack(mapToTrack(track));
                           }
-                        } else if (!downloadState) {
-                          downloadTrack(mapToTrack(track));
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span />
-                  )}
+                        }}
+                      />
+                    ) : (
+                      <span />
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
