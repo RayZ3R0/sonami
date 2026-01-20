@@ -12,6 +12,7 @@ import {
 } from "../api/spotify";
 import { usePlayer } from "../context/PlayerContext";
 import { useSpotifyImport } from "../context/SpotifyImportContext";
+import { AppLogo } from "./icons/AppLogo";
 
 type ImportPhase =
   | "input"
@@ -440,7 +441,9 @@ export const SpotifyImportModal = ({
           {/* Fetching Phase */}
           {phase === "fetching" && (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-16 h-16 rounded-full border-4 border-green-500/20 border-t-green-500 animate-spin" />
+              <div className="animate-pulse">
+                <AppLogo size={64} className="text-green-500" />
+              </div>
               <p className="mt-6 text-theme-secondary">
                 Fetching playlist from Spotify...
               </p>
@@ -455,7 +458,9 @@ export const SpotifyImportModal = ({
           {phase === "verifying" && progress && (
             <div className="space-y-6">
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="w-16 h-16 rounded-full border-4 border-green-500/20 border-t-green-500 animate-spin" />
+                <div className="animate-pulse">
+                  <AppLogo size={64} className="text-green-500" />
+                </div>
                 <p className="mt-6 text-theme-primary font-medium">
                   Verifying track {progress.current} of {progress.total}
                 </p>
@@ -578,13 +583,7 @@ export const SpotifyImportModal = ({
                         />
                       ) : (
                         <div className="w-10 h-10 rounded bg-theme-surface flex items-center justify-center flex-shrink-0">
-                          <svg
-                            className="w-5 h-5 text-theme-muted"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                          </svg>
+                          <AppLogo size={20} className="text-theme-muted/50" />
                         </div>
                       )}
 
@@ -648,7 +647,9 @@ export const SpotifyImportModal = ({
           {/* Importing Phase */}
           {phase === "importing" && (
             <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-16 h-16 rounded-full border-4 border-green-500/20 border-t-green-500 animate-spin" />
+              <div className="animate-pulse">
+                <AppLogo size={64} className="text-green-500" />
+              </div>
               <p className="mt-6 text-theme-secondary">
                 Adding tracks to your library...
               </p>

@@ -5,6 +5,7 @@ import { UnifiedTrack } from "../api/library";
 import { useRecentTracks, useMostPlayed } from "../hooks/queries";
 import { Track } from "../types";
 import { TrackCarousel } from "./shared/TrackCarousel";
+import { AppLogo } from "./icons/AppLogo";
 
 export const HomeView = () => {
   const {
@@ -106,20 +107,8 @@ export const HomeView = () => {
 
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-            <div className="w-24 h-24 rounded-full bg-theme-secondary/50 flex items-center justify-center mb-6">
-              <svg
-                className="w-12 h-12 text-theme-muted"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                />
-              </svg>
+            <div className="mb-6">
+              <AppLogo size={80} className="text-theme-muted/50" />
             </div>
             <p className="text-xl text-theme-secondary font-medium">
               Start listening to build your history

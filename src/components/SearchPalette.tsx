@@ -5,6 +5,7 @@ import { getProviderConfigs, ProviderConfig } from "../api/providers";
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { AppLogo } from "./icons/AppLogo";
 
 interface TidalTrack {
   id: number;
@@ -87,20 +88,8 @@ const SearchResultItem = ({
             loading="lazy"
           />
         ) : (
-          <div className="w-12 h-12 rounded-md bg-theme-secondary flex items-center justify-center">
-            <svg
-              className="w-5 h-5 text-theme-muted"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-              />
-            </svg>
+          <div className="w-12 h-12 rounded-md bg-theme-surface-active flex items-center justify-center">
+            <AppLogo size={24} className="text-theme-muted/50" />
           </div>
         )}
         {/* Play Button Overlay */}
@@ -889,7 +878,9 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
             spellCheck={false}
           />
           {isLoading && (
-            <div className="w-5 h-5 border-2 border-theme-accent/70 border-t-transparent rounded-full animate-spin" />
+            <div className="animate-pulse">
+              <AppLogo size={20} className="text-theme-accent" />
+            </div>
           )}
           <div className="flex items-center gap-1 text-xs text-theme-muted/70">
             <kbd className="px-1.5 py-0.5 rounded bg-white/5 font-mono text-[10px]">
@@ -907,19 +898,9 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
           {/* Empty State */}
           {!hasQuery && (
             <div className="flex flex-col items-center justify-center py-16 text-theme-muted">
-              <svg
-                className="w-12 h-12 mb-4 opacity-50"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                />
-              </svg>
+              <div className="mb-4 text-theme-muted/20">
+                <AppLogo size={64} />
+              </div>
               <p className="text-sm">Start typing to search</p>
               <p className="text-xs mt-1 opacity-70">
                 Search your library and Tidal
