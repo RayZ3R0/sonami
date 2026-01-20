@@ -2,6 +2,7 @@ use crate::models::{Album, Artist, Quality, SearchResults, StreamInfo, Track};
 use crate::providers::traits::MusicProvider;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use hex;
 use md5;
 use rand::Rng;
 use reqwest::Client;
@@ -15,6 +16,7 @@ pub struct SubsonicProvider {
     username: String,
     password: String,
     initialized: bool,
+    use_legacy_auth: bool,
 }
 
 impl Default for SubsonicProvider {
@@ -31,6 +33,7 @@ impl SubsonicProvider {
             username: String::new(),
             password: String::new(),
             initialized: false,
+            use_legacy_auth: false,
         }
     }
 
@@ -41,27 +44,36 @@ impl SubsonicProvider {
             username,
             password,
             initialized: true,
+            use_legacy_auth: false,
         }
     }
 
     fn generate_salt() -> String {
         let mut rng = rand::rng();
-        (0..16)
-            .map(|_| format!("{:x}", rng.random::<u8>()))
-            .collect()
+        let random_bytes: Vec<u8> = (0..16).map(|_| rng.random::<u8>()).collect();
+        hex::encode(random_bytes)
     }
 
     fn build_auth_params(&self) -> String {
-        let salt = Self::generate_salt();
-        let token_input = format!("{}{}", self.password, salt);
-        let token = format!("{:x}", md5::compute(token_input.as_bytes()));
+        if self.use_legacy_auth {
+            let hex_pass = hex::encode(&self.password);
+            format!(
+                "u={}&p={}&v=1.16.1&c=sonami&f=json",
+                urlencoding::encode(&self.username),
+                hex_pass
+            )
+        } else {
+            let salt = Self::generate_salt();
+            let token_input = format!("{}{}", self.password, salt);
+            let token = format!("{:x}", md5::compute(token_input.as_bytes()));
 
-        format!(
-            "u={}&t={}&s={}&v=1.16.1&c=sonami&f=json",
-            urlencoding::encode(&self.username),
-            token,
-            salt
-        )
+            format!(
+                "u={}&t={}&s={}&v=1.16.1&c=sonami&f=json",
+                urlencoding::encode(&self.username),
+                token,
+                salt
+            )
+        }
     }
 
     fn build_url(&self, endpoint: &str, extra_params: &str) -> String {
@@ -124,7 +136,10 @@ impl MusicProvider for SubsonicProvider {
             .ok_or_else(|| anyhow!("Missing password"))?
             .to_string();
 
-        self.ping().await?;
+        if self.ping().await.is_err() {
+            self.use_legacy_auth = true;
+            self.ping().await?;
+        }
         self.initialized = true;
         Ok(())
     }
