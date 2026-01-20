@@ -1,6 +1,6 @@
 [package]
 name = "sonami"
-version = "0.1.6"
+version = "0.1.7"
 description = "A modern music player built with Tauri"
 authors = ["RayZ3R0"]
 edition = "2021"
