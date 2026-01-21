@@ -126,6 +126,18 @@ impl DatabaseManager {
             CREATE INDEX IF NOT EXISTS idx_albums_provider_external ON albums(provider_id, external_id);
             CREATE INDEX IF NOT EXISTS idx_artists_provider_external ON artists(provider_id, external_id);
             "#,
+            // Migration 7: Settings table for app configuration
+            r#"
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+            );
+
+            -- Default spotify import priority: tidal first, then subsonic, then jellyfin
+            INSERT OR IGNORE INTO settings (key, value) 
+            VALUES ('spotify_import_priority', '["tidal","subsonic","jellyfin"]');
+            "#,
         ];
 
         // 3. Apply Migrations
@@ -182,5 +194,41 @@ impl DatabaseManager {
         }
 
         Ok(())
+    }
+
+    /// Get a setting value by key
+    pub async fn get_setting(&self, key: &str) -> Result<Option<String>, String> {
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT value FROM settings WHERE key = ?")
+                .bind(key)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| e.to_string())?;
+
+        Ok(row.map(|r| r.0))
+    }
+
+    /// Set a setting value (upsert)
+    pub async fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
+        sqlx::query(
+            "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, strftime('%s', 'now'))",
+        )
+        .bind(key)
+        .bind(value)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
+
+    /// Get spotify import priority list (returns default if not set)
+    pub async fn get_spotify_import_priority(&self) -> Result<Vec<String>, String> {
+        let value = self
+            .get_setting("spotify_import_priority")
+            .await?
+            .unwrap_or_else(|| r#"["tidal","subsonic","jellyfin"]"#.to_string());
+
+        serde_json::from_str(&value).map_err(|e| format!("Failed to parse priority list: {}", e))
     }
 }

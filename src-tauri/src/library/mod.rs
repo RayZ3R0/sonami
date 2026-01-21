@@ -806,4 +806,133 @@ impl LibraryManager {
         tx.commit().await.map_err(|e| e.to_string())?;
         Ok(track_id)
     }
+
+    /// Import a track from any provider into the library
+    /// This is the generic version of import_tidal_track
+    pub async fn import_provider_track(
+        &self,
+        provider_id: &str,
+        external_id: &str,
+        title: &str,
+        artist_name: &str,
+        artist_external_id: Option<&str>,
+        album_name: Option<&str>,
+        album_external_id: Option<&str>,
+        duration_secs: Option<u32>,
+        cover_url: Option<String>,
+    ) -> Result<String, String> {
+        let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
+
+        // Upsert artist
+        let artist_id = if let Some(row) = sqlx::query("SELECT id FROM artists WHERE name = ?")
+            .bind(artist_name)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?
+        {
+            row.try_get::<String, _>("id").unwrap_or_default()
+        } else {
+            let new_id = Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO artists (id, name, provider_id, external_id) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&new_id)
+            .bind(artist_name)
+            .bind(provider_id)
+            .bind(artist_external_id.unwrap_or("0"))
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+            new_id
+        };
+
+        // Upsert album if provided
+        let mut album_id_opt = None;
+        if let Some(album_title) = album_name {
+            if !album_title.is_empty() {
+                if let Some(row) =
+                    sqlx::query("SELECT id FROM albums WHERE title = ? AND artist_id = ?")
+                        .bind(album_title)
+                        .bind(&artist_id)
+                        .fetch_optional(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?
+                {
+                    album_id_opt = Some(row.try_get::<String, _>("id").unwrap_or_default());
+                } else {
+                    let new_id = Uuid::new_v4().to_string();
+                    sqlx::query(
+                        "INSERT INTO albums (id, title, artist_id, provider_id, external_id, cover_url) VALUES (?, ?, ?, ?, ?, ?)",
+                    )
+                    .bind(&new_id)
+                    .bind(album_title)
+                    .bind(&artist_id)
+                    .bind(provider_id)
+                    .bind(album_external_id.unwrap_or("0"))
+                    .bind(&cover_url)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                    album_id_opt = Some(new_id);
+                }
+            }
+        }
+
+        // Check if track exists
+        let exists = sqlx::query("SELECT id FROM tracks WHERE provider_id = ? AND external_id = ?")
+            .bind(provider_id)
+            .bind(external_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let track_id = if let Some(row) = exists {
+            row.try_get::<String, _>("id").unwrap_or_default()
+        } else {
+            let new_id = Uuid::new_v4().to_string();
+            let duration = duration_secs.unwrap_or(0) as i64;
+            let source_type = provider_id.to_uppercase();
+
+            sqlx::query(
+                r#"
+                INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+                "#,
+            )
+            .bind(&new_id)
+            .bind(title)
+            .bind(&artist_id)
+            .bind(&album_id_opt)
+            .bind(duration)
+            .bind(&source_type)
+            .bind(provider_id)
+            .bind(external_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+
+            new_id
+        };
+
+        // Update search index
+        sqlx::query("DELETE FROM search_index WHERE track_id = ?")
+            .bind(&track_id)
+            .execute(&mut *tx)
+            .await
+            .ok();
+
+        sqlx::query(
+            "INSERT INTO search_index (track_id, title, artist, album) VALUES (?, ?, ?, ?)",
+        )
+        .bind(&track_id)
+        .bind(title)
+        .bind(artist_name)
+        .bind(album_name.unwrap_or(""))
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        tx.commit().await.map_err(|e| e.to_string())?;
+        Ok(track_id)
+    }
 }

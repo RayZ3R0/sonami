@@ -23,13 +23,22 @@ export interface SpotifyPlaylistResult {
 export interface VerifiedSpotifyTrack {
     spotify: SpotifyTrack;
     found: boolean;
+
+    // Provider-agnostic fields (new)
+    provider_id?: string;    // "tidal", "subsonic", "jellyfin"
+    external_id?: string;    // Provider-specific track ID
+    artist_id?: string;      // Provider-specific artist ID
+    album_id?: string;       // Provider-specific album ID
+    album_name?: string;     // Album title from matched provider
+    cover_url?: string;
+    used_romanization: boolean;
+    status_message?: string;
+
+    // Legacy fields for backward compatibility (will be removed)
     tidal_id?: number;
     tidal_artist_id?: number;
     tidal_album_id?: number;
     tidal_album?: string;
-    cover_url?: string;
-    used_romanization: boolean;
-    status_message?: string;
 }
 
 export interface VerificationProgress {
@@ -59,18 +68,18 @@ export interface CreatePlaylistResult {
 export function extractPlaylistId(urlOrId: string): string | null {
     const trimmed = urlOrId.trim();
 
-    
+
     if (trimmed.startsWith("spotify:playlist:")) {
         return trimmed.replace("spotify:playlist:", "");
     }
 
-    
+
     if (trimmed.includes("open.spotify.com/playlist/")) {
         const match = trimmed.match(/playlist\/([a-zA-Z0-9]+)/);
         return match ? match[1] : null;
     }
 
-    
+
     if (trimmed.length === 22 && /^[a-zA-Z0-9]+$/.test(trimmed)) {
         return trimmed;
     }

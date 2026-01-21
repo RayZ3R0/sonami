@@ -29,33 +29,50 @@ pub struct SpotifyPlaylistResult {
     pub tracks: Vec<SpotifyTrack>,
 }
 
-/// A track that has been verified against Tidal
+/// A track that has been verified against available music providers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerifiedSpotifyTrack {
     /// Original Spotify track data
     pub spotify: SpotifyTrack,
-    /// Whether the track was found on Tidal
+    /// Whether the track was found on any provider
     pub found: bool,
-    /// Tidal track ID if found
+
+    // Provider-agnostic identification
+    /// Which provider matched this track (e.g., "tidal", "subsonic", "jellyfin")
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tidal_id: Option<u64>,
-    /// Tidal artist ID if found
+    pub provider_id: Option<String>,
+    /// Provider-specific track ID
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tidal_artist_id: Option<u64>,
-    /// Tidal album ID if found
+    pub external_id: Option<String>,
+    /// Provider-specific artist ID
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tidal_album_id: Option<u64>,
-    /// Album title from Tidal (may differ from Spotify)
+    pub artist_id: Option<String>,
+    /// Provider-specific album ID
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tidal_album: Option<String>,
-    /// Cover art URL from Tidal
+    pub album_id: Option<String>,
+    /// Album title from the matched provider
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_name: Option<String>,
+    /// Cover art URL
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_url: Option<String>,
+
     /// Was romanization used to find this track?
     pub used_romanization: bool,
-    /// Verification status message
+    /// Verification status message (e.g., "Found on Tidal", "Found on Subsonic")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_message: Option<String>,
+
+    // Legacy fields for backward compatibility during transition
+    // TODO: Remove these after frontend migration is complete
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tidal_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tidal_artist_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tidal_album_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tidal_album: Option<String>,
 }
 
 /// Verification progress update sent to frontend

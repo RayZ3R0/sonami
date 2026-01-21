@@ -293,7 +293,7 @@ export const SpotifyImportModal = ({
               <p className="text-sm text-theme-secondary">
                 {phase === "input" && "Paste a Spotify playlist URL to import"}
                 {phase === "fetching" && "Fetching playlist..."}
-                {phase === "verifying" && "Verifying tracks on Tidal..."}
+                {phase === "verifying" && "Verifying tracks..."}
                 {phase === "review" &&
                   `${foundCount} of ${verifiedTracks.length} tracks available`}
                 {phase === "importing" && "Adding tracks to playlist..."}
@@ -379,7 +379,7 @@ export const SpotifyImportModal = ({
                     This may take a while
                   </p>
                   <p className="text-sm text-amber-500/80 mt-1">
-                    Each track will be verified against Tidal's catalog. Large
+                    Each track will be verified against your providers. Large
                     playlists may take several minutes to process. You can
                     minimize this window and it will continue in the background.
                   </p>
@@ -544,22 +544,20 @@ export const SpotifyImportModal = ({
                   {verifiedTracks.map((track, index) => (
                     <div
                       key={index}
-                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${
-                        track.found
-                          ? "hover:bg-theme-surface-hover cursor-pointer"
-                          : "opacity-50"
-                      }`}
+                      className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-b-0 ${track.found
+                        ? "hover:bg-theme-surface-hover cursor-pointer"
+                        : "opacity-50"
+                        }`}
                       onClick={() => track.found && handleToggleTrack(index)}
                     >
                       {/* Checkbox */}
                       <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                          selectedTracks.has(index)
-                            ? "bg-theme-accent border-theme-accent"
-                            : track.found
-                              ? "border-white/10 group-hover:border-white/20"
-                              : "border-white/5"
-                        }`}
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedTracks.has(index)
+                          ? "bg-theme-accent border-theme-accent"
+                          : track.found
+                            ? "border-white/10 group-hover:border-white/20"
+                            : "border-white/5"
+                          }`}
                       >
                         {selectedTracks.has(index) && (
                           <svg
@@ -616,6 +614,11 @@ export const SpotifyImportModal = ({
                             >
                               <path d="M5 13l4 4L19 7" />
                             </svg>
+                            {track.provider_id && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 pt-[3.5px] rounded bg-white/10 text-theme-secondary uppercase">
+                                {track.provider_id}
+                              </span>
+                            )}
                             {track.used_romanization && (
                               <span
                                 className="text-xs text-theme-muted"
@@ -752,11 +755,11 @@ export const SpotifyImportModal = ({
           {(phase === "fetching" ||
             phase === "verifying" ||
             phase === "importing") && (
-            <button
-              onClick={handleClose}
-              className="px-5 py-2.5 pt-[11px] rounded-xl text-sm font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-all flex items-center gap-2"
-            >
-              {/* <svg
+              <button
+                onClick={handleClose}
+                className="px-5 py-2.5 pt-[11px] rounded-xl text-sm font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-all flex items-center gap-2"
+              >
+                {/* <svg
                 className="w-4 h-4"
                 viewBox="0 0 24 24"
                 fill="none"
@@ -765,9 +768,9 @@ export const SpotifyImportModal = ({
               >
                 <path d="M5 12h14" />
               </svg> */}
-              <span className="pt-[2.6px]">Minimize to Background</span>
-            </button>
-          )}
+                <span className="pt-[2.6px]">Minimize to Background</span>
+              </button>
+            )}
 
           {phase === "review" && (
             <>
