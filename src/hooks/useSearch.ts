@@ -1,69 +1,36 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { searchLibraryFull, LocalSearchResults } from "../api/library";
+import { LocalSearchResults } from "../api/library";
 import { getProviderConfigs, ProviderConfig } from "../api/providers";
 import { usePlayer } from "../context/PlayerContext";
-
-export interface TidalTrack {
-    id: number;
-    title: string;
-    artist?: { id?: number; name: string; picture?: string };
-    album?: { id?: number; title: string; cover?: string };
-    duration?: number;
-    audioQuality?: string;
-}
-
-export interface TidalAlbum {
-    id: number;
-    title: string;
-    artist?: { id?: number; name: string; picture?: string };
-    artists?: { id?: number; name: string; picture?: string }[];
-    cover?: string;
-    releaseDate?: string;
-    numberOfTracks?: number;
-}
-
-export interface TidalArtist {
-    id: number;
-    name: string;
-    picture?: string;
-}
+import { Track, Album, Artist } from "../types";
+import { createTrackKey, isValidProvider, ProviderId } from "../utils/trackId";
 
 export interface ProviderSearchResults {
-    tracks: any[];
-    albums: any[];
-    artists: any[];
+    tracks: Track[];
+    albums: Album[];
+    artists: Artist[];
+    playlists: any[];
 }
 
-export interface UnifiedSearchTrack {
-    id: string;
+export interface UnifiedSearchTrack extends Omit<Track, 'source'> {
     type: "local" | "tidal" | "subsonic" | "jellyfin";
-    title: string;
-    artist: string;
-    album: string;
-    duration: number;
     cover?: string;
     providerId?: string;
     externalId?: string;
     raw: any;
 }
 
-export interface UnifiedSearchAlbum {
-    id: string;
+export interface UnifiedSearchAlbum extends Album {
     type: "local" | "tidal" | "subsonic" | "jellyfin";
-    title: string;
-    artist: string;
     cover?: string;
-    year?: string;
     providerId?: string;
     externalId?: string;
     raw: any;
 }
 
-export interface UnifiedSearchArtist {
-    id: string;
+export interface UnifiedSearchArtist extends Artist {
     type: "local" | "tidal" | "subsonic" | "jellyfin";
-    name: string;
     cover?: string;
     providerId?: string;
     externalId?: string;
@@ -103,11 +70,6 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-function getTidalCoverUrl(coverId?: string, size: number = 640): string | undefined {
-    if (!coverId) return undefined;
-    return `https://resources.tidal.com/images/${coverId.replace(/-/g, "/")}/${size}x${size}.jpg`;
-}
-
 export function useSearch({
     query,
     types = ["track", "album", "artist"],
@@ -118,13 +80,11 @@ export function useSearch({
     const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
 
     const [localResults, setLocalResults] = useState<LocalSearchResults>({ tracks: [], albums: [], artists: [] });
-    const [tidalTracks, setTidalTracks] = useState<TidalTrack[]>([]);
-    const [tidalAlbums, setTidalAlbums] = useState<TidalAlbum[]>([]);
-    const [tidalArtists, setTidalArtists] = useState<TidalArtist[]>([]);
-    const [subsonicResults, setSubsonicResults] = useState<ProviderSearchResults>({ tracks: [], albums: [], artists: [] });
-    const [jellyfinResults, setJellyfinResults] = useState<ProviderSearchResults>({ tracks: [], albums: [], artists: [] });
+    const [tidalResults, setTidalResults] = useState<ProviderSearchResults>({ tracks: [], albums: [], artists: [], playlists: [] });
+    const [subsonicResults, setSubsonicResults] = useState<ProviderSearchResults>({ tracks: [], albums: [], artists: [], playlists: [] });
+    const [jellyfinResults, setJellyfinResults] = useState<ProviderSearchResults>({ tracks: [], albums: [], artists: [], playlists: [] });
 
-    const [loadingLocal, setLoadingLocal] = useState(false);
+    const [loadingLocal] = useState(false);
     const [loadingTidal, setLoadingTidal] = useState(false);
     const [loadingSubsonic, setLoadingSubsonic] = useState(false);
     const [loadingJellyfin, setLoadingJellyfin] = useState(false);
@@ -140,316 +100,237 @@ export function useSearch({
         currentQueryRef.current = debouncedQuery;
         if (!enabled || !debouncedQuery || debouncedQuery.length < 2) {
             setLocalResults({ tracks: [], albums: [], artists: [] });
-            setTidalTracks([]);
-            setTidalAlbums([]);
-            setTidalArtists([]);
-            setSubsonicResults({ tracks: [], albums: [], artists: [] });
-            setJellyfinResults({ tracks: [], albums: [], artists: [] });
+            setTidalResults({ tracks: [], albums: [], artists: [], playlists: [] });
+            setSubsonicResults({ tracks: [], albums: [], artists: [], playlists: [] });
+            setJellyfinResults({ tracks: [], albums: [], artists: [], playlists: [] });
             return;
         }
 
-        const searchLocal = async () => {
-            setLoadingLocal(true);
-            try {
-                const results = await searchLibraryFull(debouncedQuery);
-                if (currentQueryRef.current === debouncedQuery) {
-                    setLocalResults(results);
-                }
-            } catch (e) {
-                console.error("Local search failed:", e);
-                if (currentQueryRef.current === debouncedQuery) {
-                    setLocalResults({ tracks: [], albums: [], artists: [] });
-                }
-            } finally {
-                if (currentQueryRef.current === debouncedQuery) {
-                    setLoadingLocal(false);
-                }
-            }
-        };
 
-        const searchTidal = async () => {
-            setLoadingTidal(true);
-            try {
-                const [tracksRes, albumsRes, artistsRes] = await Promise.all([
-                    types.includes("track") ? invoke<{ items: TidalTrack[] }>("tidal_search_tracks", { query: debouncedQuery }) : Promise.resolve({ items: [] }),
-                    types.includes("album") ? invoke<{ items: TidalAlbum[] }>("tidal_search_albums", { query: debouncedQuery }) : Promise.resolve({ items: [] }),
-                    types.includes("artist") ? invoke<{ items: TidalArtist[] }>("tidal_search_artists", { query: debouncedQuery }) : Promise.resolve({ items: [] }),
-                ]);
-                if (currentQueryRef.current === debouncedQuery) {
-                    setTidalTracks(tracksRes.items?.slice(0, 15) || []);
-                    setTidalAlbums(albumsRes.items?.slice(0, 10) || []);
-                    setTidalArtists(artistsRes.items?.slice(0, 10) || []);
-                }
-            } catch (e) {
-                console.error("Tidal search failed:", e);
-                if (currentQueryRef.current === debouncedQuery) {
-                    setTidalTracks([]);
-                    setTidalAlbums([]);
-                    setTidalArtists([]);
-                }
-            } finally {
-                if (currentQueryRef.current === debouncedQuery) {
-                    setLoadingTidal(false);
-                }
-            }
-        };
 
-        const searchSubsonic = async () => {
-            const subsonicConfigured = providerConfigs.some(c => c.provider_id === "subsonic");
-            if (!subsonicConfigured) {
-                setSubsonicResults({ tracks: [], albums: [], artists: [] });
-                return;
-            }
-            setLoadingSubsonic(true);
+        const searchProvider = async (
+            providerId: string,
+            setLoading: (loading: boolean) => void,
+            setResults: (results: ProviderSearchResults) => void
+        ) => {
+            setLoading(true);
             try {
-                const response: any = await invoke("search_music", { query: debouncedQuery, providerId: "subsonic" });
+                const response = await invoke<ProviderSearchResults>("search_music", { query: debouncedQuery, providerId });
                 if (currentQueryRef.current === debouncedQuery) {
-                    setSubsonicResults({
+                    setResults({
                         tracks: response.tracks?.slice(0, 15) || [],
                         albums: response.albums?.slice(0, 10) || [],
                         artists: response.artists?.slice(0, 10) || [],
+                        playlists: response.playlists || [],
                     });
                 }
             } catch (e) {
-                console.error("Subsonic search failed:", e);
+                console.error(`${providerId} search failed:`, e);
                 if (currentQueryRef.current === debouncedQuery) {
-                    setSubsonicResults({ tracks: [], albums: [], artists: [] });
+                    setResults({ tracks: [], albums: [], artists: [], playlists: [] });
                 }
             } finally {
                 if (currentQueryRef.current === debouncedQuery) {
-                    setLoadingSubsonic(false);
+                    setLoading(false);
                 }
             }
         };
 
-        const searchJellyfin = async () => {
-            const jellyfinConfigured = providerConfigs.some(c => c.provider_id === "jellyfin");
-            if (!jellyfinConfigured) {
-                setJellyfinResults({ tracks: [], albums: [], artists: [] });
-                return;
-            }
-            setLoadingJellyfin(true);
-            try {
-                const response: any = await invoke("search_music", { query: debouncedQuery, providerId: "jellyfin" });
-                if (currentQueryRef.current === debouncedQuery) {
-                    setJellyfinResults({
-                        tracks: response.tracks?.slice(0, 15) || [],
-                        albums: response.albums?.slice(0, 10) || [],
-                        artists: response.artists?.slice(0, 10) || [],
-                    });
-                }
-            } catch (e) {
-                console.error("Jellyfin search failed:", e);
-                if (currentQueryRef.current === debouncedQuery) {
-                    setJellyfinResults({ tracks: [], albums: [], artists: [] });
-                }
-            } finally {
-                if (currentQueryRef.current === debouncedQuery) {
-                    setLoadingJellyfin(false);
-                }
-            }
-        };
+        const configMap = new Map(providerConfigs.map(c => [c.provider_id, c]));
 
-        searchLocal();
-        searchTidal();
-        searchSubsonic();
-        searchJellyfin();
+        // searchLocal();
+
+        // Tidal is always available (if authenticated, handled by backend usually, or we assume it is)
+        // Check if we should only search if Tidal is configured? Currently Tidal is kind of "built-in" separate from generic providers list in some contexts
+        // But for generic refactor, we treat it as provider "tidal".
+        searchProvider("tidal", setLoadingTidal, setTidalResults);
+
+        if (configMap.has("subsonic")) {
+            searchProvider("subsonic", setLoadingSubsonic, setSubsonicResults);
+        } else {
+            setSubsonicResults({ tracks: [], albums: [], artists: [], playlists: [] });
+        }
+
+        if (configMap.has("jellyfin")) {
+            searchProvider("jellyfin", setLoadingJellyfin, setJellyfinResults);
+        } else {
+            setJellyfinResults({ tracks: [], albums: [], artists: [], playlists: [] });
+        }
+
     }, [debouncedQuery, enabled, types, providerConfigs]);
 
     const results = useMemo((): UnifiedSearchResults => {
-        const unifiedTracks: UnifiedSearchTrack[] = [];
-        const unifiedAlbums: UnifiedSearchAlbum[] = [];
-        const unifiedArtists: UnifiedSearchArtist[] = [];
+        // Collect results by provider first
+        const providerData: Record<ProviderId, ProviderSearchResults> = {
+            local: { tracks: [] as Track[], albums: [] as Album[], artists: [] as Artist[], playlists: [] },
+            tidal: { tracks: [] as Track[], albums: [] as Album[], artists: [] as Artist[], playlists: [] },
+            subsonic: { tracks: [] as Track[], albums: [] as Album[], artists: [] as Artist[], playlists: [] },
+            jellyfin: { tracks: [] as Track[], albums: [] as Album[], artists: [] as Artist[], playlists: [] },
+            spotify: { tracks: [] as Track[], albums: [] as Album[], artists: [] as Artist[], playlists: [] },
+        };
 
-        // Create a set of local track keys (provider:externalId) for deduplication
         const localTrackKeys = new Set(
             localResults.tracks
-                .filter(t => t.provider_id && t.external_id)
-                .map(t => `${t.provider_id}:${t.external_id}`)
+                .filter(t => t.provider_id && t.external_id && isValidProvider(t.provider_id))
+                .map(t => createTrackKey(t.provider_id as ProviderId, t.external_id!))
         );
 
-        const addTracks = (type: "local" | "tidal" | "subsonic" | "jellyfin") => {
+        const processProviderResults = (
+            type: ProviderId,
+            results: ProviderSearchResults | LocalSearchResults
+        ) => {
+            const target = providerData[type];
             if (type === "local") {
-                localResults.tracks.forEach(t => {
-                    unifiedTracks.push({
-                        id: t.id,
+                const local = results as LocalSearchResults;
+                local.tracks.forEach(t => {
+                    target.tracks.push({
+                        ...t,
                         type: "local",
-                        title: t.title,
-                        artist: t.artist,
-                        album: t.album,
-                        duration: t.duration,
                         cover: t.cover_image,
                         providerId: t.provider_id,
                         externalId: t.external_id,
                         raw: t,
-                    });
+                    } as UnifiedSearchTrack);
                 });
-            } else if (type === "tidal") {
-                tidalTracks.filter(t => {
-                    const key = `tidal:${t.id}`;
-                    return !localTrackKeys.has(key);
-                }).forEach(t => {
-                    unifiedTracks.push({
-                        id: `tidal:${t.id}`,
-                        type: "tidal",
-                        title: t.title,
-                        artist: t.artist?.name || "Unknown Artist",
-                        album: t.album?.title || "",
-                        duration: t.duration || 0,
-                        cover: getTidalCoverUrl(t.album?.cover, 160),
-                        providerId: "tidal",
-                        externalId: t.id.toString(),
-                        raw: t,
-                    });
-                });
-            } else if (type === "subsonic") {
-                subsonicResults.tracks.forEach(t => {
-                    unifiedTracks.push({
-                        id: `subsonic:${t.id}`,
-                        type: "subsonic",
-                        title: t.title,
-                        artist: t.artist || "Unknown Artist",
-                        album: t.album || "",
-                        duration: t.duration || 0,
-                        cover: t.cover_url,
-                        providerId: "subsonic",
-                        externalId: t.id,
-                        raw: t,
-                    });
-                });
-            } else if (type === "jellyfin") {
-                jellyfinResults.tracks.forEach(t => {
-                    unifiedTracks.push({
-                        id: `jellyfin:${t.id}`,
-                        type: "jellyfin",
-                        title: t.title,
-                        artist: t.artist || "Unknown Artist",
-                        album: t.album || "",
-                        duration: t.duration || 0,
-                        cover: t.cover_url,
-                        providerId: "jellyfin",
-                        externalId: t.id,
-                        raw: t,
-                    });
-                });
-            }
-        };
-
-        const addAlbums = (type: "local" | "tidal" | "subsonic" | "jellyfin") => {
-            if (type === "local") {
-                localResults.albums.forEach(a => {
-                    unifiedAlbums.push({
-                        id: a.id,
+                local.albums.forEach(a => {
+                    target.albums.push({
+                        ...a,
                         type: "local",
+                        id: a.id,
                         title: a.title,
                         artist: a.artist,
                         cover: a.cover_image,
                         providerId: a.provider_id,
                         externalId: a.external_id,
                         raw: a,
-                    });
+                    } as UnifiedSearchAlbum);
                 });
-            } else if (type === "tidal") {
-                tidalAlbums.forEach(a => {
-                    unifiedAlbums.push({
-                        id: `tidal:${a.id}`,
-                        type: "tidal",
-                        title: a.title,
-                        artist: a.artist?.name || a.artists?.[0]?.name || "Unknown Artist",
-                        cover: getTidalCoverUrl(a.cover, 320),
-                        year: a.releaseDate?.split("-")[0],
-                        raw: a,
-                    });
-                });
-            } else if (type === "subsonic") {
-                subsonicResults.albums.forEach(a => {
-                    unifiedAlbums.push({
-                        id: `subsonic:${a.id}`,
-                        type: "subsonic",
-                        title: a.title,
-                        artist: a.artist || "Unknown Artist",
-                        cover: a.cover_url,
-                        year: a.year?.toString(),
-                        providerId: "subsonic",
-                        externalId: a.id,
-                        raw: a,
-                    });
-                });
-            } else if (type === "jellyfin") {
-                jellyfinResults.albums.forEach(a => {
-                    unifiedAlbums.push({
-                        id: `jellyfin:${a.id}`,
-                        type: "jellyfin",
-                        title: a.title,
-                        artist: a.artist || "Unknown Artist",
-                        cover: a.cover_url,
-                        year: a.year?.toString(),
-                        providerId: "jellyfin",
-                        externalId: a.id,
-                        raw: a,
-                    });
-                });
-            }
-        };
-
-        const addArtists = (type: "local" | "tidal" | "subsonic" | "jellyfin") => {
-            if (type === "local") {
-                localResults.artists.forEach(a => {
-                    unifiedArtists.push({
-                        id: a.id,
+                local.artists.forEach(a => {
+                    target.artists.push({
+                        ...a,
                         type: "local",
-                        name: a.name,
                         cover: a.cover_image,
                         providerId: a.provider_id,
                         externalId: a.external_id,
                         raw: a,
-                    });
+                    } as UnifiedSearchArtist);
                 });
-            } else if (type === "tidal") {
-                tidalArtists.forEach(a => {
-                    unifiedArtists.push({
-                        id: `tidal:${a.id}`,
-                        type: "tidal",
-                        name: a.name,
-                        cover: getTidalCoverUrl(a.picture, 320),
-                        raw: a,
-                    });
+            } else {
+                const provider = results as ProviderSearchResults;
+                provider.tracks.forEach(t => {
+                    const unifiedId: string = createTrackKey(type, t.id); // Assuming t.id is external ID for provider
+
+                    // Deduplication: Skip if this track exists locally
+                    if (localTrackKeys.has(unifiedId)) return;
+
+                    target.tracks.push({
+                        ...t,
+                        id: unifiedId,
+                        type: type, // TypeScript knows type is ProviderId
+                        cover: t.cover_image,
+                        providerId: type,
+                        externalId: t.id,
+                        raw: t,
+                        path: t.path || unifiedId,
+                    } as unknown as UnifiedSearchTrack); // Need unknown cast because UnifiedSearchTrack expects specific type literal union, but we have generic ProviderId
                 });
-            } else if (type === "subsonic") {
-                subsonicResults.artists.forEach(a => {
-                    unifiedArtists.push({
-                        id: `subsonic:${a.id}`,
-                        type: "subsonic",
-                        name: a.name,
+                provider.albums.forEach(a => {
+                    const unifiedId = createTrackKey(type, a.id);
+                    target.albums.push({
+                        ...a,
+                        id: unifiedId,
+                        type: type,
                         cover: a.cover_url,
-                        providerId: "subsonic",
+                        providerId: type,
                         externalId: a.id,
                         raw: a,
-                    });
+                    } as unknown as UnifiedSearchAlbum);
                 });
-            } else if (type === "jellyfin") {
-                jellyfinResults.artists.forEach(a => {
-                    unifiedArtists.push({
-                        id: `jellyfin:${a.id}`,
-                        type: "jellyfin",
-                        name: a.name,
+                provider.artists.forEach(a => {
+                    const unifiedId = createTrackKey(type, a.id);
+                    target.artists.push({
+                        ...a,
+                        id: unifiedId,
+                        type: type,
                         cover: a.cover_url,
-                        providerId: "jellyfin",
+                        providerId: type,
                         externalId: a.id,
                         raw: a,
-                    });
+                    } as unknown as UnifiedSearchArtist);
                 });
             }
         };
 
         searchProviderOrder.forEach(provider => {
-            addTracks(provider as any);
-            addAlbums(provider as any);
-            addArtists(provider as any);
+            if (isValidProvider(provider)) {
+                if (provider === "local") processProviderResults("local", localResults);
+                else if (provider === "tidal") processProviderResults("tidal", tidalResults);
+                else if (provider === "subsonic") processProviderResults("subsonic", subsonicResults);
+                else if (provider === "jellyfin") processProviderResults("jellyfin", jellyfinResults);
+            }
         });
 
-        return { tracks: unifiedTracks, albums: unifiedAlbums, artists: unifiedArtists };
-    }, [localResults, tidalTracks, tidalAlbums, tidalArtists, subsonicResults, jellyfinResults, searchProviderOrder]);
+        const interleave = <T extends { title?: string, name?: string }>(
+            lists: T[][],
+            query: string
+        ): T[] => {
+            const result: T[] = [];
+            const queryLower = query.toLowerCase();
+
+            // 1. Extract exact matches first
+            const exactMatches: T[] = [];
+            const remainingLists = lists.map(list => [...list]);
+
+            // Helper to find and remove indices
+            const extractExact = (list: T[]) => {
+                const exacts = [];
+                const others = [];
+                for (const item of list) {
+                    const txt = item.title || item.name || "";
+                    if (txt.toLowerCase() === queryLower) {
+                        exacts.push(item);
+                    } else {
+                        others.push(item);
+                    }
+                }
+                return { exacts, others };
+            }
+
+            for (let i = 0; i < remainingLists.length; i++) {
+                const { exacts, others } = extractExact(remainingLists[i]);
+                exactMatches.push(...exacts);
+                remainingLists[i] = others;
+            }
+
+            result.push(...exactMatches);
+
+            // 2. Interleave the rest
+            // We loop until all lists are empty
+            let active = true;
+            while (active) {
+                active = false;
+                for (let i = 0; i < remainingLists.length; i++) {
+                    if (remainingLists[i].length > 0) {
+                        result.push(remainingLists[i].shift()!);
+                        active = true;
+                    }
+                }
+            }
+
+            return result;
+        };
+
+        // Create lists based on provider order
+        const trackLists = searchProviderOrder.map(p => (providerData as any)[p]?.tracks || []);
+        const albumLists = searchProviderOrder.map(p => (providerData as any)[p]?.albums || []);
+        const artistLists = searchProviderOrder.map(p => (providerData as any)[p]?.artists || []);
+
+        return {
+            tracks: interleave(trackLists, debouncedQuery),
+            albums: interleave(albumLists, debouncedQuery),
+            artists: interleave(artistLists, debouncedQuery),
+        };
+    }, [localResults, tidalResults, subsonicResults, jellyfinResults, debouncedQuery, searchProviderOrder]);
 
     const isLoading = loadingLocal || loadingTidal || loadingSubsonic || loadingJellyfin;
 

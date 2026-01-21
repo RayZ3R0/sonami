@@ -6,8 +6,8 @@ import {
   UnifiedSearchArtist,
 } from "../hooks/useSearch";
 import { usePlayer } from "../context/PlayerContext";
-import { invoke } from "@tauri-apps/api/core";
 import { AppLogo } from "./icons/AppLogo";
+import { Track } from "../types";
 
 interface SearchPageProps {
   initialQuery?: string;
@@ -245,7 +245,7 @@ export const SearchPage = ({
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { playTrack, streamQuality } = usePlayer();
+  const { playTrack } = usePlayer();
 
   const searchTypes = useMemo((): ("track" | "album" | "artist")[] => {
     if (activeTab === "all") return ["track", "album", "artist"];
@@ -266,39 +266,23 @@ export const SearchPage = ({
 
   const handlePlayTrack = useCallback(
     async (track: UnifiedSearchTrack) => {
-      if (track.type === "local") {
-        const t = track.raw;
-        playTrack(t, [t]);
-      } else if (track.type === "tidal") {
-        const t = track.raw;
-        const coverUrl = t.album?.cover
-          ? `https://resources.tidal.com/images/${t.album.cover.replace(/-/g, "/")}/640x640.jpg`
-          : null;
-        await invoke("play_tidal_track", {
-          trackId: t.id,
-          title: t.title,
-          artist: t.artist?.name || "Unknown",
-          album: t.album?.title || "Unknown",
-          duration: t.duration || 0,
-          coverUrl,
-          quality: streamQuality,
-        });
-      } else {
-        const providerId = track.type;
-        const trackId =
-          track.externalId || track.id.replace(`${providerId}:`, "");
-        await invoke("play_provider_track", {
-          providerId,
-          trackId,
-          title: track.title,
-          artist: track.artist,
-          album: track.album,
-          duration: track.duration,
-          coverUrl: track.cover,
-        });
-      }
+      const t = {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        duration: track.duration,
+        cover_image: track.cover,
+        path: track.path || track.id,
+        source: track.type.toUpperCase(),
+        provider_id: track.providerId || track.type,
+        external_id: track.externalId || track.id.split(":").pop() || track.id,
+      };
+
+      console.log("[SearchPage] Playing track:", t);
+      await playTrack(t as unknown as Track, [t as unknown as Track]);
     },
-    [playTrack, streamQuality],
+    [playTrack],
   );
 
   const handleNavigateToArtist = (artist: UnifiedSearchArtist) => {
@@ -324,11 +308,11 @@ export const SearchPage = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 pt-6 pb-4">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1 max-w-2xl">
+      <div className="sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 pt-6 pb-2">
+        <div className="flex flex-col gap-4">
+          <div className="relative group">
             <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-theme-muted"
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 text-theme-muted group-focus-within:text-theme-accent transition-colors"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -345,34 +329,33 @@ export const SearchPage = ({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="What do you want to listen to?"
-              className="w-full pl-12 pr-4 py-3 rounded-full bg-theme-surface-hover text-theme-primary placeholder:text-theme-muted/60 focus:outline-none focus:ring-2 focus:ring-theme-accent/50 transition-all"
+              placeholder="Search..."
+              className="w-full pl-12 pr-4 pt-3 pb-1 text-4xl font-bold bg-transparent border-none outline-none ring-0 text-white placeholder:text-white/20 focus:outline-none focus:ring-0 focus:border-none transition-none"
             />
             {isLoading && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-pulse">
-                <AppLogo size={20} className="text-theme-accent" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 animate-pulse">
+                <AppLogo size={24} className="text-theme-accent" />
               </div>
             )}
           </div>
-        </div>
 
-        {hasQuery && (
-          <div className="flex items-center gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? "bg-theme-accent text-white"
-                    : "bg-theme-surface-hover text-theme-muted hover:text-theme-primary hover:bg-theme-surface-active"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
+          {hasQuery && (
+            <div className="flex items-center gap-2 pb-2 overflow-x-auto no-scrollbar">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
+                    ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
+                    : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-8 py-6">
