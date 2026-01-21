@@ -42,7 +42,10 @@ interface DownloadContextType {
   isDownloading: boolean;
   isTrackCompleted: (trackId: string) => boolean;
   downloadTrack: (track: Track) => Promise<void>;
-  deleteDownloadedTrack: (providerId: string, externalId: string) => Promise<void>;
+  deleteDownloadedTrack: (
+    providerId: string,
+    externalId: string,
+  ) => Promise<void>;
   setDownloadPath: (path: string) => Promise<void>;
   openDownloadFolder: () => Promise<void>;
   refreshDownloadPath: () => Promise<void>;
@@ -89,7 +92,7 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
         // Backend key is usually provider_id:external_id OR just external_id for Tidal legacy?
         // Actually, backend now returns whatever key it uses.
         // For Tidal legacy, it might return number ID.
-        // We should normalize handling. 
+        // We should normalize handling.
         // But let's assume backend events send the correct ID that matches our map keys if possible.
 
         setDownloads((prev) => {
@@ -211,7 +214,10 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     if (source === "JELLYFIN") providerId = "jellyfin";
 
     if (!providerId || !externalId) {
-      console.error("Cannot download track: Missing providerId or externalId", track);
+      console.error(
+        "Cannot download track: Missing providerId or externalId",
+        track,
+      );
       return;
     }
 
@@ -268,7 +274,6 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
         }
         return next;
       });
-
     } catch (e) {
       console.error("Failed to start download:", e);
       setDownloads((prev) => {
@@ -286,26 +291,29 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const deleteDownloadedTrack = useCallback(async (providerId: string, externalId: string) => {
-    try {
-      await invoke("delete_track_download", { providerId, externalId });
-      // Create uniform track key (provider:externalId format for all providers)
-      const trackKey = `${providerId}:${externalId}`;
+  const deleteDownloadedTrack = useCallback(
+    async (providerId: string, externalId: string) => {
+      try {
+        await invoke("delete_track_download", { providerId, externalId });
+        // Create uniform track key (provider:externalId format for all providers)
+        const trackKey = `${providerId}:${externalId}`;
 
-      // Remove from persistent set
-      completedTracksRef.current.delete(trackKey);
+        // Remove from persistent set
+        completedTracksRef.current.delete(trackKey);
 
-      // Remove from downloads map
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        next.delete(trackKey);
-        return next;
-      });
-    } catch (e) {
-      console.error("Failed to delete downloaded track:", e);
-      throw e;
-    }
-  }, []);
+        // Remove from downloads map
+        setDownloads((prev) => {
+          const next = new Map(prev);
+          next.delete(trackKey);
+          return next;
+        });
+      } catch (e) {
+        console.error("Failed to delete downloaded track:", e);
+        throw e;
+      }
+    },
+    [],
+  );
 
   const setDownloadPath = useCallback(async (path: string) => {
     try {

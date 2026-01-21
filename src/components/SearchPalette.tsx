@@ -213,10 +213,11 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${isAdded
-              ? "bg-pink-500/20 text-pink-400 cursor-default"
-              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-            }
+                        ${
+                          isAdded
+                            ? "bg-pink-500/20 text-pink-400 cursor-default"
+                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+                        }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -297,7 +298,11 @@ interface SearchPaletteProps {
   onNavigate?: (tab: string) => void;
 }
 
-export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProps) => {
+export const SearchPalette = ({
+  isOpen,
+  onClose,
+  onNavigate,
+}: SearchPaletteProps) => {
   const {
     playTrack,
     playlists,
@@ -338,21 +343,23 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
 
   // Create a set of local track keys (provider:externalId) for deduplication
   const localTrackKeys = useMemo(
-    () => new Set(
-      localResults
-        .filter((r) => r.providerId && r.externalId)
-        .map((r) => `${r.providerId}:${r.externalId}`)
-    ),
+    () =>
+      new Set(
+        localResults
+          .filter((r) => r.providerId && r.externalId)
+          .map((r) => `${r.providerId}:${r.externalId}`),
+      ),
     [localResults],
   );
 
   // Filter out Tidal results that already exist locally
   const filteredTidalResults = useMemo(
-    () => tidalResults.filter((r) => {
-      if (!r.providerId || !r.externalId) return true;
-      const key = `${r.providerId}:${r.externalId}`;
-      return !localTrackKeys.has(key);
-    }),
+    () =>
+      tidalResults.filter((r) => {
+        if (!r.providerId || !r.externalId) return true;
+        const key = `${r.providerId}:${r.externalId}`;
+        return !localTrackKeys.has(key);
+      }),
     [tidalResults, localTrackKeys],
   );
 
@@ -998,7 +1005,10 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
               };
 
               const isAdded =
-                result.type === "tidal" && result.providerId && result.externalId && addedTracks.has(`${result.providerId}:${result.externalId}`);
+                result.type === "tidal" &&
+                result.providerId &&
+                result.externalId &&
+                addedTracks.has(`${result.providerId}:${result.externalId}`);
               const isDownloaded =
                 result.type === "local" &&
                 (() => {
@@ -1045,7 +1055,9 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
                       result.providerId && result.externalId
-                        ? downloads.get(`${result.providerId}:${result.externalId}`)
+                        ? downloads.get(
+                            `${result.providerId}:${result.externalId}`,
+                          )
                         : undefined
                     }
                     isDownloaded={isDownloaded}

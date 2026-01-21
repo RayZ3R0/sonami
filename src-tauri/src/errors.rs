@@ -1,30 +1,30 @@
-use thiserror::Error;
 use serde::Serialize;
+use thiserror::Error;
 
 #[derive(Debug, Error, Serialize)]
 #[serde(tag = "type", content = "message")]
 pub enum AppError {
     #[error("Network error: {0}")]
     Network(String),
-    
+
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("File system error: {0}")]
     FileSystem(String),
-    
+
     #[error("Invalid provider: {0}")]
     InvalidProvider(String),
-    
+
     #[error("Track not found: {0}")]
     TrackNotFound(String),
-    
+
     #[error("Download failed: {0}")]
     Download(String),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 
@@ -58,7 +58,7 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
-// Helper for implementing From<String> where appropriate, 
+// Helper for implementing From<String> where appropriate,
 // though usually we want more specific types.
 impl From<String> for AppError {
     fn from(e: String) -> Self {

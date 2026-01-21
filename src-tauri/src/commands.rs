@@ -1,6 +1,6 @@
-use tauri::{AppHandle, Emitter, Manager, State};
 use crate::errors::AppError;
 use crate::providers::types::ProviderId;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub mod download;
 pub mod favorites;
@@ -577,7 +577,10 @@ pub async fn tidal_get_album_tracks(
     state: State<'_, crate::tidal::TidalClient>,
     album_id: u64,
 ) -> Result<Vec<crate::tidal::Track>, String> {
-    state.get_album_tracks(album_id).await.map_err(|e| e.to_string())
+    state
+        .get_album_tracks(album_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -593,7 +596,10 @@ pub async fn tidal_get_artist_top_tracks(
     state: State<'_, crate::tidal::TidalClient>,
     artist_id: u64,
 ) -> Result<Vec<crate::tidal::Track>, String> {
-    state.get_artist_top_tracks(artist_id).await.map_err(|e| e.to_string())
+    state
+        .get_artist_top_tracks(artist_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -601,7 +607,10 @@ pub async fn tidal_get_artist_albums(
     state: State<'_, crate::tidal::TidalClient>,
     artist_id: u64,
 ) -> Result<Vec<crate::tidal::Album>, String> {
-    state.get_artist_albums(artist_id).await.map_err(|e| e.to_string())
+    state
+        .get_artist_albums(artist_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -610,7 +619,10 @@ pub async fn tidal_debug_endpoint(
     path: String,
     params: std::collections::HashMap<String, String>,
 ) -> Result<String, String> {
-    state.debug_endpoint(&path, params).await.map_err(|e| e.to_string())
+    state
+        .debug_endpoint(&path, params)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -896,13 +908,17 @@ pub async fn search_music(
 ) -> Result<SearchResults, AppError> {
     let provider = if let Some(id) = provider_id {
         // Validation
-        let _ = id.parse::<ProviderId>()
+        let _ = id
+            .parse::<ProviderId>()
             .map_err(|_| AppError::InvalidProvider(id.clone()))?;
-            
+
         state
             .get_provider(&id)
             .await
-            .ok_or(AppError::InvalidProvider(format!("Provider instance for {} not found", id)))?
+            .ok_or(AppError::InvalidProvider(format!(
+                "Provider instance for {} not found",
+                id
+            )))?
     } else {
         state
             .get_active_provider()
@@ -910,7 +926,10 @@ pub async fn search_music(
             .ok_or(AppError::Config("No active provider".to_string()))?
     };
 
-    provider.search(&query).await.map_err(|e| AppError::Network(e.to_string()))
+    provider
+        .search(&query)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
 }
 
 #[tauri::command]
@@ -921,13 +940,17 @@ pub async fn get_music_stream_url(
     quality: Option<String>,
 ) -> Result<String, AppError> {
     // Validate provider
-    let _provider = provider_id.parse::<ProviderId>()
+    let _provider = provider_id
+        .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
     let provider = state
         .get_provider(&provider_id)
         .await
-        .ok_or(AppError::InvalidProvider(format!("Provider instance for {} not found", provider_id)))?;
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
 
     let q = if let Some(qs) = quality {
         qs.parse::<crate::models::Quality>()
@@ -956,10 +979,14 @@ pub async fn set_active_provider(
     provider_id: String,
 ) -> Result<(), AppError> {
     // Validate
-    let _ = provider_id.parse::<ProviderId>()
+    let _ = provider_id
+        .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
-        
-    state.set_active_provider(provider_id).await.map_err(|e| AppError::Internal(e))
+
+    state
+        .set_active_provider(provider_id)
+        .await
+        .map_err(AppError::Internal)
 }
 
 #[tauri::command]
@@ -980,7 +1007,8 @@ pub async fn play_provider_track(
     cover_url: Option<String>,
 ) -> Result<(), AppError> {
     // Validate provider
-    let _provider = provider_id.parse::<ProviderId>()
+    let _provider = provider_id
+        .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
     let (stream_url, local_id) = if provider_id == "tidal" {
@@ -1041,7 +1069,9 @@ pub async fn play_provider_track(
         let provider = provider_manager
             .get_provider(&provider_id)
             .await
-            .ok_or_else(|| AppError::InvalidProvider(format!("Provider {} not found", provider_id)))?;
+            .ok_or_else(|| {
+                AppError::InvalidProvider(format!("Provider {} not found", provider_id))
+            })?;
 
         let stream_info = provider
             .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)

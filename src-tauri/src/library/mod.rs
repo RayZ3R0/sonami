@@ -624,7 +624,7 @@ impl LibraryManager {
         // 4. Create Track
         let new_track_id = Uuid::new_v4().to_string();
         let duration = track.duration as i64;
-        
+
         let tidal_id = if provider_id == "tidal" {
             external_id.parse::<i64>().ok()
         } else {

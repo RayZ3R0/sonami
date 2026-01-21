@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use tauri::State;
 
 use crate::download::{DownloadManager, TrackMetadata};
-use crate::tidal::{Quality, TidalClient};
 use crate::errors::AppError;
 use crate::providers::types::ProviderId;
+use crate::tidal::{Quality, TidalClient};
 
 #[tauri::command]
 pub async fn start_download(
@@ -40,11 +40,11 @@ pub async fn set_download_path(
     let path_buf = PathBuf::from(&path);
 
     if !path_buf.exists() {
-        std::fs::create_dir_all(&path_buf)
-            .map_err(|e| AppError::FileSystem(e.to_string()))?;
+        std::fs::create_dir_all(&path_buf).map_err(|e| AppError::FileSystem(e.to_string()))?;
     }
 
-    download_manager.set_download_path(path_buf)
+    download_manager
+        .set_download_path(path_buf)
         .map_err(AppError::Config)
 }
 
@@ -88,7 +88,8 @@ pub async fn delete_track_download(
     external_id: String,
 ) -> Result<(), AppError> {
     // Validate provider
-    let _provider = provider_id.parse::<ProviderId>()
+    let _provider = provider_id
+        .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
     // Clear from database and get the old path
@@ -100,7 +101,8 @@ pub async fn delete_track_download(
     if let Some(path) = old_path {
         let path_buf = std::path::PathBuf::from(&path);
         if path_buf.exists() {
-            std::fs::remove_file(&path_buf).map_err(|e| AppError::FileSystem(format!("Failed to delete file: {}", e)))?;
+            std::fs::remove_file(&path_buf)
+                .map_err(|e| AppError::FileSystem(format!("Failed to delete file: {}", e)))?;
             log::info!("Deleted downloaded file: {}", path);
         }
     }
@@ -118,7 +120,8 @@ pub async fn download_provider_track(
     quality: String,
 ) -> Result<String, AppError> {
     // Validate provider
-    let _provider = provider_id.parse::<ProviderId>()
+    let _provider = provider_id
+        .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
     let quality = quality

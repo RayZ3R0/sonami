@@ -130,8 +130,8 @@ impl PlaylistManager {
 
             let path = match source {
                 TrackSource::Tidal => {
-                     let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
-                     format!("tidal:{}", eid)
+                    let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
+                    format!("tidal:{}", eid)
                 }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {

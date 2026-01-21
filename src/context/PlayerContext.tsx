@@ -222,7 +222,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) return parsed;
-        } catch { }
+        } catch {}
       }
       return DEFAULT_PROVIDER_ORDER;
     },
@@ -316,7 +316,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               .catch((e) => console.error(e));
             bumpDataVersion();
           }
-        } catch (e) { }
+        } catch (e) {}
       }
 
       animationId = requestAnimationFrame(pollPlaybackInfo);

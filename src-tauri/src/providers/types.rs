@@ -26,7 +26,7 @@ impl fmt::Display for ProviderId {
 
 impl FromStr for ProviderId {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "local" => Ok(ProviderId::Local),
@@ -34,13 +34,19 @@ impl FromStr for ProviderId {
             "subsonic" => Ok(ProviderId::Subsonic),
             "jellyfin" => Ok(ProviderId::Jellyfin),
             "spotify" => Ok(ProviderId::Spotify),
-            _ => Err(format!("Invalid provider: '{}'. Valid: local, tidal, subsonic, jellyfin, spotify", s)),
+            _ => Err(format!(
+                "Invalid provider: '{}'. Valid: local, tidal, subsonic, jellyfin, spotify",
+                s
+            )),
         }
     }
 }
 
 impl ProviderId {
     pub fn is_streaming(&self) -> bool {
-        matches!(self, ProviderId::Tidal | ProviderId::Subsonic | ProviderId::Jellyfin | ProviderId::Spotify)
+        matches!(
+            self,
+            ProviderId::Tidal | ProviderId::Subsonic | ProviderId::Jellyfin | ProviderId::Spotify
+        )
     }
 }

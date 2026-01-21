@@ -342,15 +342,15 @@ impl TidalClient {
         let data = self
             .make_request("/artist/", &[("id", &artist_id.to_string())], "get_artist")
             .await?;
-            
+
         let item = if let Some(inner) = data.get("artist") {
             inner
         } else {
             &data
         };
-        
+
         let mut artist: Artist = serde_json::from_value(item.clone()).map_err(TidalError::from)?;
-        
+
         if let Some(cover) = data.get("cover").and_then(|v| v.as_str()) {
             artist.banner = Some(cover.to_string());
         }
@@ -371,13 +371,17 @@ impl TidalClient {
             log::error!("Failed to deserialize artist top tracks: {}", e);
             TidalError::from(e)
         })?;
-        
+
         Ok(info.tracks.unwrap_or_default())
     }
 
     pub async fn get_artist_albums(&self, artist_id: u64) -> Result<Vec<Album>, TidalError> {
         let data = self
-            .make_request("/artist/", &[("f", &artist_id.to_string())], "get_artist_albums")
+            .make_request(
+                "/artist/",
+                &[("f", &artist_id.to_string())],
+                "get_artist_albums",
+            )
             .await?;
         let res: ArtistInfoResponse = serde_json::from_value(data).map_err(|e| {
             log::error!("Failed to deserialize artist albums: {}", e);
@@ -393,8 +397,15 @@ impl TidalClient {
         serde_json::from_value(data).map_err(|e| e.into())
     }
 
-    pub async fn debug_endpoint(&self, path: &str, params: std::collections::HashMap<String, String>) -> Result<String, TidalError> {
-        let query_vec: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    pub async fn debug_endpoint(
+        &self,
+        path: &str,
+        params: std::collections::HashMap<String, String>,
+    ) -> Result<String, TidalError> {
+        let query_vec: Vec<(&str, &str)> = params
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
         let data = self.make_request(path, &query_vec, "debug").await?;
         let pretty = serde_json::to_string_pretty(&data).unwrap_or_default();
         log::info!("[DEBUG_ENDPOINT] Response for {}:\n{}", path, pretty);
