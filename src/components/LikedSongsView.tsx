@@ -13,12 +13,15 @@ type SortDirection = "asc" | "desc";
 const mapToTrack = (unified: UnifiedTrack): Track => {
   let trackPath = unified.path;
 
-  // For Tidal tracks, ALWAYS use tidal:ID format so the backend resolver
-  // can decide whether to use local file or stream based on quality preferences
-  if (unified.tidal_id) {
-    trackPath = `tidal:${unified.tidal_id}`;
-  } else if ((!trackPath || trackPath.trim() === "") && unified.local_path) {
+  // Ensure path is set for local lookup or streaming
+  if ((!trackPath || trackPath.trim() === "") && unified.local_path) {
     trackPath = unified.local_path;
+  } else if (!trackPath && unified.provider_id && unified.external_id) {
+    if (unified.provider_id === "tidal") {
+      trackPath = `tidal:${unified.external_id}`;
+    } else {
+      trackPath = `${unified.provider_id}:${unified.external_id}`;
+    }
   }
 
   return {
@@ -247,12 +250,12 @@ export const LikedSongsView = () => {
       source === "TIDAL" ||
       source === "SUBSONIC" ||
       source === "JELLYFIN" ||
-      "tidal_id" in track ||
       (track.path && track.path.startsWith("tidal:")) ||
       (track.path && track.path.startsWith("subsonic:")) ||
       (track.path && track.path.startsWith("jellyfin:")) ||
       providerId === "subsonic" ||
       providerId === "jellyfin" ||
+      (providerId && (track as any).external_id) ||
       /^\d+$/.test(track.id);
 
     const items: ContextMenuItem[] = [
@@ -312,15 +315,16 @@ export const LikedSongsView = () => {
 
   const handleDownloadAll = async () => {
     // Filter for all streaming tracks (Tidal, Subsonic, Jellyfin)
+    // Filter for all streaming tracks (Tidal, Subsonic, Jellyfin)
     const streamingTracks = sortedFavorites.filter(
       (t) =>
-        t.tidal_id ||
         (t.path && t.path.startsWith("tidal:")) ||
         (t.path && t.path.startsWith("subsonic:")) ||
         (t.path && t.path.startsWith("jellyfin:")) ||
         (t as any).source === "TIDAL" ||
         (t as any).source === "SUBSONIC" ||
         (t as any).source === "JELLYFIN" ||
+        (t.provider_id && t.external_id) ||
         /^\d+$/.test(t.id),
     );
     for (const track of streamingTracks) {
@@ -595,53 +599,39 @@ export const LikedSongsView = () => {
                   {(() => {
                     const unifiedTrack = track as any;
                     const source = unifiedTrack.source;
-                    const providerId = unifiedTrack.provider_id;
-                    const externalId = unifiedTrack.external_id;
+                    const providerId =
+                      unifiedTrack.provider_id ||
+                      (source === "TIDAL"
+                        ? "tidal"
+                        : source === "SUBSONIC"
+                          ? "subsonic"
+                          : source === "JELLYFIN"
+                            ? "jellyfin"
+                            : undefined);
+                    const externalId =
+                      unifiedTrack.external_id ||
+                      (providerId === "tidal" &&
+                      /^\d+$/.test(track.id.replace("tidal:", ""))
+                        ? track.id.replace("tidal:", "")
+                        : undefined);
 
                     // Determine track key for download tracking
                     let trackKey: string | null = null;
                     let isStreamingTrack = false;
 
-                    if (unifiedTrack.tidal_id) {
-                      trackKey = unifiedTrack.tidal_id.toString();
+                    if (providerId && externalId) {
                       isStreamingTrack = true;
-                    } else if (track.path?.startsWith("tidal:")) {
-                      const pathId = track.path.split(":")[1];
-                      if (pathId && pathId !== "0") {
-                        trackKey = pathId;
-                        isStreamingTrack = true;
-                      }
-                    } else if (track.id.match(/^\d+$/)) {
-                      trackKey = track.id;
-                      isStreamingTrack = true;
+                      // Uniform format: provider:externalId for all providers
+                      trackKey = `${providerId}:${externalId}`;
                     }
 
-                    // Handle Tidal tracks that use provider_id + external_id instead of tidal_id
-                    if (
-                      !trackKey &&
-                      (source === "TIDAL" || providerId === "tidal") &&
-                      externalId
-                    ) {
-                      trackKey = externalId;
-                      isStreamingTrack = true;
-                    }
-
-                    // Handle Subsonic/Jellyfin tracks
-                    if (!trackKey) {
-                      if (source === "SUBSONIC" || providerId === "subsonic") {
-                        trackKey = `subsonic:${externalId || track.id}`;
-                        isStreamingTrack = true;
-                      } else if (
-                        source === "JELLYFIN" ||
-                        providerId === "jellyfin"
-                      ) {
-                        trackKey = `jellyfin:${externalId || track.id}`;
-                        isStreamingTrack = true;
-                      } else if (track.path?.startsWith("subsonic:")) {
-                        trackKey = track.path;
-                        isStreamingTrack = true;
-                      } else if (track.path?.startsWith("jellyfin:")) {
-                        trackKey = track.path;
+                    // Fallback for paths if providerId/externalId missing
+                    if (!trackKey && track.path) {
+                      const pathMatch = track.path.match(
+                        /^(tidal|subsonic|jellyfin):(.+)$/,
+                      );
+                      if (pathMatch) {
+                        trackKey = track.path; // Already in correct format
                         isStreamingTrack = true;
                       }
                     }
@@ -665,14 +655,11 @@ export const LikedSongsView = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDownloaded) {
-                            // Delete only works for Tidal tracks currently
-                            const numericTidalId =
-                              unifiedTrack.tidal_id ||
-                              (track.id.match(/^\d+$/)
-                                ? Number(track.id)
-                                : null);
-                            if (numericTidalId && !isNaN(numericTidalId)) {
-                              deleteDownloadedTrack(numericTidalId).then(() => {
+                            if (providerId && externalId) {
+                              deleteDownloadedTrack(
+                                providerId,
+                                externalId,
+                              ).then(() => {
                                 refreshFavorites();
                               });
                             }

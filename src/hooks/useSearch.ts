@@ -43,7 +43,6 @@ export interface UnifiedSearchTrack {
     album: string;
     duration: number;
     cover?: string;
-    tidalId?: number;
     providerId?: string;
     externalId?: string;
     raw: any;
@@ -262,7 +261,12 @@ export function useSearch({
         const unifiedAlbums: UnifiedSearchAlbum[] = [];
         const unifiedArtists: UnifiedSearchArtist[] = [];
 
-        const localTidalIds = new Set(localResults.tracks.filter(t => t.tidal_id).map(t => t.tidal_id));
+        // Create a set of local track keys (provider:externalId) for deduplication
+        const localTrackKeys = new Set(
+            localResults.tracks
+                .filter(t => t.provider_id && t.external_id)
+                .map(t => `${t.provider_id}:${t.external_id}`)
+        );
 
         const addTracks = (type: "local" | "tidal" | "subsonic" | "jellyfin") => {
             if (type === "local") {
@@ -275,14 +279,16 @@ export function useSearch({
                         album: t.album,
                         duration: t.duration,
                         cover: t.cover_image,
-                        tidalId: t.tidal_id,
                         providerId: t.provider_id,
                         externalId: t.external_id,
                         raw: t,
                     });
                 });
             } else if (type === "tidal") {
-                tidalTracks.filter(t => !localTidalIds.has(t.id)).forEach(t => {
+                tidalTracks.filter(t => {
+                    const key = `tidal:${t.id}`;
+                    return !localTrackKeys.has(key);
+                }).forEach(t => {
                     unifiedTracks.push({
                         id: `tidal:${t.id}`,
                         type: "tidal",
@@ -291,7 +297,8 @@ export function useSearch({
                         album: t.album?.title || "",
                         duration: t.duration || 0,
                         cover: getTidalCoverUrl(t.album?.cover, 160),
-                        tidalId: t.id,
+                        providerId: "tidal",
+                        externalId: t.id.toString(),
                         raw: t,
                     });
                 });

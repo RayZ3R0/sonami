@@ -1,4 +1,6 @@
-use tauri::{AppHandle, Emitter, State};
+use crate::errors::AppError;
+use crate::providers::types::ProviderId;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub mod download;
 pub mod favorites;
@@ -575,7 +577,10 @@ pub async fn tidal_get_album_tracks(
     state: State<'_, crate::tidal::TidalClient>,
     album_id: u64,
 ) -> Result<Vec<crate::tidal::Track>, String> {
-    state.get_album_tracks(album_id).await.map_err(|e| e.to_string())
+    state
+        .get_album_tracks(album_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -591,7 +596,10 @@ pub async fn tidal_get_artist_top_tracks(
     state: State<'_, crate::tidal::TidalClient>,
     artist_id: u64,
 ) -> Result<Vec<crate::tidal::Track>, String> {
-    state.get_artist_top_tracks(artist_id).await.map_err(|e| e.to_string())
+    state
+        .get_artist_top_tracks(artist_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -599,7 +607,10 @@ pub async fn tidal_get_artist_albums(
     state: State<'_, crate::tidal::TidalClient>,
     artist_id: u64,
 ) -> Result<Vec<crate::tidal::Album>, String> {
-    state.get_artist_albums(artist_id).await.map_err(|e| e.to_string())
+    state
+        .get_artist_albums(artist_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -608,7 +619,10 @@ pub async fn tidal_debug_endpoint(
     path: String,
     params: std::collections::HashMap<String, String>,
 ) -> Result<String, String> {
-    state.debug_endpoint(&path, params).await.map_err(|e| e.to_string())
+    state
+        .debug_endpoint(&path, params)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -891,20 +905,31 @@ pub async fn search_music(
     state: State<'_, std::sync::Arc<ProviderManager>>,
     query: String,
     provider_id: Option<String>,
-) -> Result<SearchResults, String> {
+) -> Result<SearchResults, AppError> {
     let provider = if let Some(id) = provider_id {
+        // Validation
+        let _ = id
+            .parse::<ProviderId>()
+            .map_err(|_| AppError::InvalidProvider(id.clone()))?;
+
         state
             .get_provider(&id)
             .await
-            .ok_or("Provider not found".to_string())?
+            .ok_or(AppError::InvalidProvider(format!(
+                "Provider instance for {} not found",
+                id
+            )))?
     } else {
         state
             .get_active_provider()
             .await
-            .ok_or("No active provider".to_string())?
+            .ok_or(AppError::Config("No active provider".to_string()))?
     };
 
-    provider.search(&query).await.map_err(|e| e.to_string())
+    provider
+        .search(&query)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
 }
 
 #[tauri::command]
@@ -913,11 +938,19 @@ pub async fn get_music_stream_url(
     track_id: String,
     provider_id: String,
     quality: Option<String>,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
+    // Validate provider
+    let _provider = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
     let provider = state
         .get_provider(&provider_id)
         .await
-        .ok_or("Provider not found".to_string())?;
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
 
     let q = if let Some(qs) = quality {
         qs.parse::<crate::models::Quality>()
@@ -929,14 +962,14 @@ pub async fn get_music_stream_url(
     let info = provider
         .get_stream_url(&track_id, q)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::Network(e.to_string()))?;
     Ok(info.url)
 }
 
 #[tauri::command]
 pub async fn get_providers_list(
     state: State<'_, std::sync::Arc<ProviderManager>>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, AppError> {
     Ok(state.list_providers().await)
 }
 
@@ -944,8 +977,16 @@ pub async fn get_providers_list(
 pub async fn set_active_provider(
     state: State<'_, std::sync::Arc<ProviderManager>>,
     provider_id: String,
-) -> Result<(), String> {
-    state.set_active_provider(provider_id).await
+) -> Result<(), AppError> {
+    // Validate
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    state
+        .set_active_provider(provider_id)
+        .await
+        .map_err(AppError::Internal)
 }
 
 #[tauri::command]
@@ -955,6 +996,7 @@ pub async fn play_provider_track(
     audio_state: State<'_, AudioManager>,
     provider_manager: State<'_, std::sync::Arc<ProviderManager>>,
     library: State<'_, LibraryManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     provider_id: String,
     track_id: String,
@@ -963,39 +1005,99 @@ pub async fn play_provider_track(
     album: String,
     duration: u64,
     cover_url: Option<String>,
-) -> Result<(), String> {
-    // Get stream URL from provider
-    let provider = provider_manager
-        .get_provider(&provider_id)
-        .await
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+) -> Result<(), AppError> {
+    // Validate provider
+    let _provider = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
-    let stream_info = provider
-        .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
-        .await
-        .map_err(|e| e.to_string())?;
+    let (stream_url, local_id) = if provider_id == "tidal" {
+        // Tidal Logic
+        let tid = track_id
+            .parse::<u64>()
+            .map_err(|_| AppError::Internal("Invalid Tidal ID".to_string()))?;
 
-    // Import track to library to ensure it has a local UUID
-    let import_track = crate::models::Track {
-        id: track_id.clone(),
-        title: title.clone(),
-        artist: artist.clone(),
-        artist_id: None,
-        album: album.clone(),
-        album_id: None,
-        duration,
-        cover_url: cover_url.clone(),
-    };
+        // Get Stream URL
+        let quality = if let Some(state) = app.try_state::<crate::tidal::TidalConfigState>() {
+            state.lock().quality.clone()
+        } else {
+            crate::tidal::Quality::LOSSLESS
+        };
 
-    let local_id = match library
-        .import_external_track(&import_track, &provider_id)
-        .await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            log::error!("Failed to import external track: {}", e);
-            // Fallback to external ID if import fails
-            track_id.clone()
+        let stream_info = tidal_state
+            .get_track(tid, quality)
+            .await
+            .map_err(|e| AppError::Network(e.to_string()))?;
+
+        // Import Tidal Track
+        let tidal_track = crate::tidal::Track {
+            id: tid,
+            title: title.clone(),
+            artist: Some(crate::tidal::Artist {
+                id: 0, // We don't have artist ID here easily?
+                name: artist.clone(),
+                picture: None,
+                banner: None,
+            }),
+            album: Some(crate::tidal::Album {
+                id: 0,
+                title: album.clone(),
+                cover: None,
+                artist: None,
+                artists: None,
+                number_of_tracks: None,
+                release_date: None,
+            }),
+            duration: Some(duration as u32),
+            audio_quality: None,
+            cover: None,
+            track_number: None,
+        };
+
+        match library
+            .import_tidal_track(&tidal_track, cover_url.clone())
+            .await
+        {
+            Ok(id) => (stream_info.url, id),
+            Err(e) => {
+                log::error!("Failed to import tidal track: {}", e);
+                (stream_info.url, track_id.clone())
+            }
+        }
+    } else {
+        // Generic Provider Logic
+        let provider = provider_manager
+            .get_provider(&provider_id)
+            .await
+            .ok_or_else(|| {
+                AppError::InvalidProvider(format!("Provider {} not found", provider_id))
+            })?;
+
+        let stream_info = provider
+            .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
+            .await
+            .map_err(|e| AppError::Network(e.to_string()))?;
+
+        let import_track = crate::models::Track {
+            id: track_id.clone(),
+            title: title.clone(),
+            artist: artist.clone(),
+            artist_id: None,
+            album: album.clone(),
+            album_id: None,
+            duration,
+            cover_url: cover_url.clone(),
+        };
+
+        match library
+            .import_external_track(&import_track, &provider_id)
+            .await
+        {
+            Ok(id) => (stream_info.url, id),
+            Err(e) => {
+                log::error!("Failed to import external track: {}", e);
+                (stream_info.url, track_id.clone())
+            }
         }
     };
 
@@ -1006,7 +1108,7 @@ pub async fn play_provider_track(
         album,
         duration,
         cover_image: cover_url,
-        path: stream_info.url.clone(),
+        path: stream_url.clone(),
     };
 
     {
@@ -1014,7 +1116,7 @@ pub async fn play_provider_track(
         q.add_to_queue(track.clone());
     }
 
-    audio_state.play(stream_info.url);
+    audio_state.play(stream_url);
 
     // Update media controls with track info
     audio_state.media_controls.set_metadata(

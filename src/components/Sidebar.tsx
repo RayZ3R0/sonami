@@ -208,10 +208,11 @@ export const Sidebar = ({
           <nav className="flex flex-col gap-1">
             <button
               onClick={() => setActiveTab("search")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "search" || activeTab.startsWith("search:")
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
+                activeTab === "search" || activeTab.startsWith("search:")
                   ? "bg-theme-surface-active text-theme-primary"
                   : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+              }`}
               title="Search"
             >
               <svg
@@ -234,10 +235,11 @@ export const Sidebar = ({
             </button>
             <button
               onClick={() => setActiveTab("favorites")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
+                activeTab === "favorites"
                   ? "bg-theme-surface-active text-theme-primary"
                   : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+              }`}
               title="Liked Songs"
             >
               <svg
@@ -259,10 +261,11 @@ export const Sidebar = ({
             </button>
             <button
               onClick={() => setActiveTab("recent")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "recent"
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
+                activeTab === "recent"
                   ? "bg-theme-surface-active text-theme-primary"
                   : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+              }`}
               title="Recently Played"
             >
               <svg
@@ -306,10 +309,11 @@ export const Sidebar = ({
               <button
                 key={pl.id}
                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${
+                  activeTab === `playlist:${pl.id}`
                     ? "bg-theme-surface-active text-theme-primary"
                     : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                  }`}
+                }`}
                 title={pl.title}
               >
                 <div

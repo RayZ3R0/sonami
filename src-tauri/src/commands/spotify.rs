@@ -258,7 +258,10 @@ pub async fn add_spotify_tracks_to_playlist(
             continue;
         }
 
-        if let Ok(Some(track_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
+        if let Ok(Some(track_id)) = playlist
+            .find_track_id_by_external_id("tidal", &tidal_id.to_string())
+            .await
+        {
             if let Err(e) = playlist.add_track_entry(&playlist_id, &track_id).await {
                 errors.push(format!(
                     "{} - {}: {}",
@@ -372,7 +375,10 @@ async fn add_spotify_tracks_internal(
             continue;
         }
 
-        if let Ok(Some(track_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
+        if let Ok(Some(track_id)) = playlist
+            .find_track_id_by_external_id("tidal", &tidal_id.to_string())
+            .await
+        {
             if let Err(e) = playlist.add_track_entry(playlist_id, &track_id).await {
                 errors.push(format!(
                     "{} - {}: {}",

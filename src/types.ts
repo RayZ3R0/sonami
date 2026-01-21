@@ -15,8 +15,7 @@ export interface Track {
     provider_id?: string;
     /** External ID from the provider */
     external_id?: string;
-    /** Tidal-specific ID (numeric) */
-    tidal_id?: number;
+
 }
 
 export interface PlayerState {

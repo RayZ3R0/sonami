@@ -4,6 +4,7 @@ pub mod database;
 pub mod discord;
 pub mod download;
 pub mod dsp;
+pub mod errors;
 pub mod favorites;
 pub mod history;
 pub mod jellyfin;
@@ -347,7 +348,7 @@ pub fn run() {
             commands::download::get_download_path,
             commands::download::set_download_path,
             commands::download::open_download_folder,
-            commands::download::delete_downloaded_track,
+            commands::download::delete_track_download,
             commands::download::download_provider_track,
             // Window Management
             commands::is_tiling_wm,

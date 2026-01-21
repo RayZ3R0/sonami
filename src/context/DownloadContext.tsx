@@ -42,7 +42,10 @@ interface DownloadContextType {
   isDownloading: boolean;
   isTrackCompleted: (trackId: string) => boolean;
   downloadTrack: (track: Track) => Promise<void>;
-  deleteDownloadedTrack: (tidalId: number) => Promise<void>;
+  deleteDownloadedTrack: (
+    providerId: string,
+    externalId: string,
+  ) => Promise<void>;
   setDownloadPath: (path: string) => Promise<void>;
   openDownloadFolder: () => Promise<void>;
   refreshDownloadPath: () => Promise<void>;
@@ -58,7 +61,7 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   );
   const [downloadPath, setDownloadPathState] = useState<string>("");
 
-  // Persistent set of completed track IDs - survives state resets
+  // Persistent set of completed track keys - survives state resets
   const completedTracksRef = useRef<Set<string>>(new Set());
 
   const refreshDownloadPath = useCallback(async () => {
@@ -85,21 +88,25 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
           progress,
           status: backendStatus,
         } = event.payload;
-        const track_id = String(rawId);
-        // Backend sends progress as 0.0-1.0 (e.g., 0.5 = 50%)
+        const track_key = String(rawId);
+        // Backend key is usually provider_id:external_id OR just external_id for Tidal legacy?
+        // Actually, backend now returns whatever key it uses.
+        // For Tidal legacy, it might return number ID.
+        // We should normalize handling.
+        // But let's assume backend events send the correct ID that matches our map keys if possible.
 
         setDownloads((prev) => {
           const next = new Map(prev);
-          const existing = next.get(track_id);
+          const existing = next.get(track_key);
           if (existing) {
             // Check persistent completed set first
-            if (completedTracksRef.current.has(track_id)) {
+            if (completedTracksRef.current.has(track_key)) {
               return prev;
             }
 
             // Never downgrade from "complete" status
             if (existing.status === "complete") {
-              completedTracksRef.current.add(track_id);
+              completedTracksRef.current.add(track_key);
               return prev;
             }
 
@@ -108,7 +115,7 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
             const isComplete = backendStatus === "complete" || progress >= 0.99;
             const newStatus = isComplete ? "complete" : "downloading";
 
-            next.set(track_id, {
+            next.set(track_key, {
               ...existing,
               progress: progress,
               status: newStatus,
@@ -124,24 +131,24 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
       "download-complete",
       (event) => {
         const { track_id: rawId } = event.payload;
-        const track_id = String(rawId);
+        const track_key = String(rawId);
 
         setDownloads((prev) => {
           const next = new Map(prev);
-          const existing = next.get(track_id);
+          const existing = next.get(track_key);
 
           // Add to persistent completed set
-          completedTracksRef.current.add(track_id);
+          completedTracksRef.current.add(track_key);
 
           if (existing) {
-            next.set(track_id, {
+            next.set(track_key, {
               ...existing,
               progress: 1,
               status: "complete",
             });
           } else {
             console.warn(
-              `[DownloadContext] Track ${track_id} completed but not found in map`,
+              `[DownloadContext] Track ${track_key} completed but not found in map`,
             );
           }
           return next;
@@ -151,7 +158,8 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
 
     const unlistenError = listen<string>("download-error", (event) => {
       console.error("Download error:", event.payload);
-      const match = event.payload.match(/track (\d+):/);
+      // Rough matching
+      const match = event.payload.match(/track (\S+):/);
       if (match) {
         const trackId = match[1];
         setDownloads((prev) => {
@@ -177,79 +185,64 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const downloadTrack = useCallback(async (track: Track) => {
-    // Detect track source
+    // Detect track source and IDs
     let source: string | undefined = (track as any).source;
     let providerId: string | undefined = (track as any).provider_id;
     let externalId: string | undefined = (track as any).external_id;
-    let tidalId: number | undefined = (track as any).tidal_id;
 
     // Try to infer source from path if not explicitly set
-    if (!source && track.path) {
+    if (!providerId && track.path) {
       if (track.path.startsWith("tidal:")) {
-        source = "TIDAL";
-        const pathId = parseInt(track.path.split(":")[1], 10);
-        if (!isNaN(pathId) && pathId > 0) {
-          tidalId = pathId;
-        }
+        providerId = "tidal";
+        externalId = track.path.split(":")[1];
       } else if (track.path.startsWith("subsonic:")) {
-        source = "SUBSONIC";
         providerId = "subsonic";
         externalId = track.path.split(":")[1];
       } else if (track.path.startsWith("jellyfin:")) {
-        source = "JELLYFIN";
         providerId = "jellyfin";
         externalId = track.path.split(":")[1];
-      } else if (/^[a-f0-9-]{36}$/i.test(track.id)) {
-        // UUID-style ID likely from Subsonic/Jellyfin
-        // Check from provider_id if available
-        if (providerId) {
-          source = providerId.toUpperCase();
-          externalId = externalId || track.id;
-        }
       } else if (/^\d+$/.test(track.id)) {
         // Numeric ID is likely Tidal
-        source = "TIDAL";
-        tidalId = parseInt(track.id, 10);
+        providerId = "tidal";
+        externalId = track.id;
       }
     }
 
-    // For Tidal tracks with provider_id but no tidal_id, try external_id
-    if (
-      (source === "TIDAL" || providerId === "tidal") &&
-      !tidalId &&
-      externalId
-    ) {
-      const parsedId = parseInt(externalId, 10);
-      if (!isNaN(parsedId) && parsedId > 0) {
-        tidalId = parsedId;
-        source = "TIDAL";
-      }
+    // Normalize source
+    if (source === "TIDAL") providerId = "tidal";
+    if (source === "SUBSONIC") providerId = "subsonic";
+    if (source === "JELLYFIN") providerId = "jellyfin";
+
+    if (!providerId || !externalId) {
+      console.error(
+        "Cannot download track: Missing providerId or externalId",
+        track,
+      );
+      return;
     }
 
-    // For Tidal tracks, use the existing download command
-    if (source === "TIDAL" || tidalId) {
-      if (!tidalId) {
-        console.error("Cannot download track: No valid Tidal ID found", track);
-        return;
-      }
+    // Create uniform track key (provider:externalId format for all providers)
+    const trackKey = `${providerId}:${externalId}`;
 
-      const trackKey = tidalId.toString();
-
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        next.set(trackKey, {
-          trackId: trackKey,
-          title: track.title,
-          artist: track.artist,
-          progress: 0,
-          status: "pending",
-        });
-        return next;
+    setDownloads((prev) => {
+      const next = new Map(prev);
+      next.set(trackKey, {
+        trackId: trackKey,
+        title: track.title,
+        artist: track.artist,
+        progress: 0,
+        status: "pending",
       });
+      return next;
+    });
 
-      try {
+    try {
+      if (providerId === "tidal") {
+        // Use legacy start_download for Tidal
+        // We must pass u64
+        const numId = parseInt(externalId, 10);
         await invoke("start_download", {
-          trackId: tidalId,
+          trackId: numId,
           metadata: {
             title: track.title,
             artist: track.artist || "Unknown Artist",
@@ -258,51 +251,8 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
           },
           quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
         });
-
-        setDownloads((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, { ...existing, status: "downloading" });
-          }
-          return next;
-        });
-      } catch (e) {
-        console.error("Failed to start download:", e);
-        setDownloads((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, {
-              ...existing,
-              status: "error",
-              error: String(e),
-            });
-          }
-          return next;
-        });
-      }
-      return;
-    }
-
-    // For Subsonic/Jellyfin tracks, use the provider download command
-    if ((source === "SUBSONIC" || source === "JELLYFIN") && externalId) {
-      const trackKey = `${source.toLowerCase()}:${externalId}`;
-      providerId = providerId || source.toLowerCase();
-
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        next.set(trackKey, {
-          trackId: trackKey,
-          title: track.title,
-          artist: track.artist,
-          progress: 0,
-          status: "pending",
-        });
-        return next;
-      });
-
-      try {
+      } else {
+        // Generic provider download
         await invoke("download_provider_track", {
           providerId,
           externalId,
@@ -314,44 +264,56 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
           },
           quality: localStorage.getItem("sonami-stream-quality") || "LOSSLESS",
         });
+      }
 
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackKey);
+        if (existing) {
+          next.set(trackKey, { ...existing, status: "downloading" });
+        }
+        return next;
+      });
+    } catch (e) {
+      console.error("Failed to start download:", e);
+      setDownloads((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackKey);
+        if (existing) {
+          next.set(trackKey, {
+            ...existing,
+            status: "error",
+            error: String(e),
+          });
+        }
+        return next;
+      });
+    }
+  }, []);
+
+  const deleteDownloadedTrack = useCallback(
+    async (providerId: string, externalId: string) => {
+      try {
+        await invoke("delete_track_download", { providerId, externalId });
+        // Create uniform track key (provider:externalId format for all providers)
+        const trackKey = `${providerId}:${externalId}`;
+
+        // Remove from persistent set
+        completedTracksRef.current.delete(trackKey);
+
+        // Remove from downloads map
         setDownloads((prev) => {
           const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, { ...existing, status: "downloading" });
-          }
+          next.delete(trackKey);
           return next;
         });
       } catch (e) {
-        console.error("Failed to start provider download:", e);
-        setDownloads((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(trackKey);
-          if (existing) {
-            next.set(trackKey, {
-              ...existing,
-              status: "error",
-              error: String(e),
-            });
-          }
-          return next;
-        });
+        console.error("Failed to delete downloaded track:", e);
+        throw e;
       }
-      return;
-    }
-
-    // Local tracks don't need downloading
-    if (
-      source === "LOCAL" ||
-      (!source && track.path && !track.path.includes(":"))
-    ) {
-      console.log("Track is already local, no download needed:", track.title);
-      return;
-    }
-
-    console.error("Cannot download track: Unknown source or missing ID", track);
-  }, []);
+    },
+    [],
+  );
 
   const setDownloadPath = useCallback(async (path: string) => {
     try {
@@ -378,23 +340,6 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   // Direct check on the persistent ref
   const isTrackCompleted = useCallback((trackId: string) => {
     return completedTracksRef.current.has(trackId);
-  }, []);
-
-  const deleteDownloadedTrack = useCallback(async (tidalId: number) => {
-    try {
-      await invoke("delete_downloaded_track", { tidalId });
-      // Remove from completed tracks ref
-      completedTracksRef.current.delete(String(tidalId));
-      // Remove from downloads map
-      setDownloads((prev) => {
-        const next = new Map(prev);
-        next.delete(String(tidalId));
-        return next;
-      });
-    } catch (e) {
-      console.error("Failed to delete downloaded track:", e);
-      throw e;
-    }
   }, []);
 
   return (

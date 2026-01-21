@@ -122,52 +122,49 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
 
                 // 2. (Optional) Check Local Library for Offline Playback
                 // Currently only supported for Tidal IDs (numeric)
-                if scheme == "tidal" {
-                    if let Ok(tid) = id_str.parse::<u64>() {
-                        if let Some(library) = app_handle.try_state::<LibraryManager>() {
-                            if let Ok(Some((path, quality_str))) =
-                                library.get_track_local_info(tid).await
-                            {
-                                log::debug!(
-                                    "[Resolver] Found local file: {} (Quality: {:?})",
-                                    path,
-                                    quality_str
-                                );
+                // 2. Check Local Library for Offline Playback (Generic)
+                if let Some(library) = app_handle.try_state::<LibraryManager>() {
+                    if let Ok(Some((path, quality_str))) =
+                        library.get_track_local_info(scheme, id_str).await
+                    {
+                        log::debug!(
+                            "[Resolver] Found local file: {} (Quality: {:?})",
+                            path,
+                            quality_str
+                        );
 
-                                if Path::new(&path).exists() {
-                                    // Smart Quality Check
-                                    let local_is_sufficient = if prefer_high_quality {
-                                        if let Some(ref q_str) = quality_str {
-                                            if let Ok(local_quality) =
-                                                q_str.parse::<crate::tidal::Quality>()
-                                            {
-                                                let sufficient = local_quality >= target_quality;
-                                                if !sufficient {
-                                                    log::warn!("[Resolver] Local quality {:?} < Target {:?}. Streaming preferred.", local_quality, target_quality);
-                                                }
-                                                sufficient
-                                            } else {
-                                                true
-                                            }
-                                        } else {
-                                            true
+                        if Path::new(&path).exists() {
+                            // Smart Quality Check
+                            let local_is_sufficient = if prefer_high_quality {
+                                if let Some(ref q_str) = quality_str {
+                                    if let Ok(local_quality) =
+                                        q_str.parse::<crate::tidal::Quality>()
+                                    {
+                                        let sufficient = local_quality >= target_quality;
+                                        if !sufficient {
+                                            log::warn!("[Resolver] Local quality {:?} < Target {:?}. Streaming preferred.", local_quality, target_quality);
                                         }
+                                        sufficient
                                     } else {
                                         true
-                                    };
-
-                                    if local_is_sufficient {
-                                        return Ok(ResolvedAudio {
-                                            path,
-                                            source: "LOCAL".to_string(),
-                                            quality: quality_str.unwrap_or("UNKNOWN".to_string()),
-                                        });
                                     }
                                 } else {
-                                    // Stale record cleanup
-                                    let _ = library.clear_download_info(tid).await;
+                                    true
                                 }
+                            } else {
+                                true
+                            };
+
+                            if local_is_sufficient {
+                                return Ok(ResolvedAudio {
+                                    path,
+                                    source: "LOCAL".to_string(),
+                                    quality: quality_str.unwrap_or("UNKNOWN".to_string()),
+                                });
                             }
+                        } else {
+                            // Stale record cleanup
+                            let _ = library.clear_download_info(scheme, id_str).await;
                         }
                     }
                 }
