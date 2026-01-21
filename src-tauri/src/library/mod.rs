@@ -1,7 +1,7 @@
 pub mod models;
 
 use crate::tidal::models::{get_cover_url, CoverSize};
-use models::{LibraryAlbum, LibraryArtist, TrackSource, UnifiedTrack};
+use models::{LibraryAlbum, LibraryArtist, LocalSearchResults, TrackSource, UnifiedTrack};
 use sqlx::{Pool, Row, Sqlite};
 use uuid::Uuid;
 
@@ -186,7 +186,13 @@ impl LibraryManager {
             let local_path: Option<String> = row.try_get("file_path").ok();
 
             let path = match source {
-                TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
+                TrackSource::Tidal => {
+                    let tid_str = tidal_id
+                        .map(|id| id.to_string())
+                        .or_else(|| external_id.clone())
+                        .unwrap_or_else(|| "0".to_string());
+                    format!("tidal:{}", tid_str)
+                }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
                     if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
@@ -229,6 +235,80 @@ impl LibraryManager {
         Ok(tracks)
     }
 
+    pub async fn search_albums(&self, query: &str) -> Result<Vec<LibraryAlbum>, String> {
+        if query.len() < 2 {
+            return Ok(Vec::new());
+        }
+
+        let like_pattern = format!("%{}%", query);
+
+        let albums = sqlx::query_as::<_, LibraryAlbum>(
+            r#"
+            SELECT 
+                al.id, al.title, a.name as artist, al.cover_url as cover_image, 
+                al.tidal_id, al.provider_id, al.external_id
+            FROM albums al
+            JOIN artists a ON al.artist_id = a.id
+            WHERE al.title LIKE ? COLLATE NOCASE
+            ORDER BY al.title ASC
+            LIMIT 20
+            "#,
+        )
+        .bind(&like_pattern)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            log::error!("Album search failed: {}", e);
+            e.to_string()
+        })?;
+
+        log::info!("Found {} albums for query: '{}'", albums.len(), query);
+        Ok(albums)
+    }
+
+    pub async fn search_artists(&self, query: &str) -> Result<Vec<LibraryArtist>, String> {
+        if query.len() < 2 {
+            return Ok(Vec::new());
+        }
+
+        let like_pattern = format!("%{}%", query);
+
+        let artists = sqlx::query_as::<_, LibraryArtist>(
+            r#"
+            SELECT 
+                id, name, cover_url as cover_image, tidal_id, provider_id, external_id
+            FROM artists
+            WHERE name LIKE ? COLLATE NOCASE
+            ORDER BY name ASC
+            LIMIT 20
+            "#,
+        )
+        .bind(&like_pattern)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            log::error!("Artist search failed: {}", e);
+            e.to_string()
+        })?;
+
+        log::info!("Found {} artists for query: '{}'", artists.len(), query);
+        Ok(artists)
+    }
+
+    pub async fn search_full(&self, query: &str) -> Result<LocalSearchResults, String> {
+        let (tracks, albums, artists) = tokio::join!(
+            self.search_library(query),
+            self.search_albums(query),
+            self.search_artists(query)
+        );
+
+        Ok(LocalSearchResults {
+            tracks: tracks.unwrap_or_default(),
+            albums: albums.unwrap_or_default(),
+            artists: artists.unwrap_or_default(),
+        })
+    }
+
     pub async fn get_all_tracks(&self) -> Result<Vec<UnifiedTrack>, String> {
         let rows = sqlx::query(
             r#"
@@ -261,7 +341,13 @@ impl LibraryManager {
             let local_path: Option<String> = row.try_get("file_path").ok();
 
             let path = match source {
-                TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
+                TrackSource::Tidal => {
+                    let tid_str = tidal_id
+                        .map(|id| id.to_string())
+                        .or_else(|| external_id.clone())
+                        .unwrap_or_else(|| "0".to_string());
+                    format!("tidal:{}", tid_str)
+                }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
                     if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
@@ -535,11 +621,17 @@ impl LibraryManager {
         // 4. Create Track
         let new_track_id = Uuid::new_v4().to_string();
         let duration = track.duration as i64;
+        
+        let tidal_id = if provider_id == "tidal" {
+            external_id.parse::<i64>().ok()
+        } else {
+            None
+        };
 
         sqlx::query(
             r#"
-            INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, added_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+            INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, tidal_id, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
             "#,
         )
         .bind(&new_track_id)
@@ -550,6 +642,7 @@ impl LibraryManager {
         .bind(provider_id.to_uppercase())
         .bind(provider_id)
         .bind(external_id)
+        .bind(tidal_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;

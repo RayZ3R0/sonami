@@ -160,6 +160,7 @@ pub async fn play_track(
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     path: String,
 ) -> Result<(), String> {
+    log::info!("[Command] play_track called with path: {}", path);
     // Use the smart resolver from audio/resolver.rs
     let resolved = crate::audio::resolver::resolve_uri(&app, &path).await?;
 
@@ -559,6 +560,55 @@ pub async fn tidal_search_artists(
         .search_artists(&query)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_get_album(
+    state: State<'_, crate::tidal::TidalClient>,
+    album_id: u64,
+) -> Result<crate::tidal::Album, String> {
+    state.get_album(album_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_get_album_tracks(
+    state: State<'_, crate::tidal::TidalClient>,
+    album_id: u64,
+) -> Result<Vec<crate::tidal::Track>, String> {
+    state.get_album_tracks(album_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_get_artist(
+    state: State<'_, crate::tidal::TidalClient>,
+    artist_id: u64,
+) -> Result<crate::tidal::Artist, String> {
+    state.get_artist(artist_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_get_artist_top_tracks(
+    state: State<'_, crate::tidal::TidalClient>,
+    artist_id: u64,
+) -> Result<Vec<crate::tidal::Track>, String> {
+    state.get_artist_top_tracks(artist_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_get_artist_albums(
+    state: State<'_, crate::tidal::TidalClient>,
+    artist_id: u64,
+) -> Result<Vec<crate::tidal::Album>, String> {
+    state.get_artist_albums(artist_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tidal_debug_endpoint(
+    state: State<'_, crate::tidal::TidalClient>,
+    path: String,
+    params: std::collections::HashMap<String, String>,
+) -> Result<String, String> {
+    state.debug_endpoint(&path, params).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]

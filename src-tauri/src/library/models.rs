@@ -106,3 +106,10 @@ pub struct LibraryArtist {
     pub provider_id: Option<String>,
     pub external_id: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LocalSearchResults {
+    pub tracks: Vec<UnifiedTrack>,
+    pub albums: Vec<LibraryAlbum>,
+    pub artists: Vec<LibraryArtist>,
+}

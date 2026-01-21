@@ -207,12 +207,37 @@ export const Sidebar = ({
 
           <nav className="flex flex-col gap-1">
             <button
-              onClick={() => setActiveTab("favorites")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "favorites"
+              onClick={() => setActiveTab("search")}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "search" || activeTab.startsWith("search:")
                   ? "bg-theme-surface-active text-theme-primary"
                   : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+                }`}
+              title="Search"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5 flex-shrink-0"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              {!isCollapsed && (
+                <span className="text-[13px] font-medium pt-[4.4px]">
+                  Search
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("favorites")}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "favorites"
+                  ? "bg-theme-surface-active text-theme-primary"
+                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
               title="Liked Songs"
             >
               <svg
@@ -234,11 +259,10 @@ export const Sidebar = ({
             </button>
             <button
               onClick={() => setActiveTab("recent")}
-              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
-                activeTab === "recent"
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${activeTab === "recent"
                   ? "bg-theme-surface-active text-theme-primary"
                   : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-              }`}
+                }`}
               title="Recently Played"
             >
               <svg
@@ -282,11 +306,10 @@ export const Sidebar = ({
               <button
                 key={pl.id}
                 onClick={() => setActiveTab(`playlist:${pl.id}`)}
-                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${
-                  activeTab === `playlist:${pl.id}`
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all duration-200 ${activeTab === `playlist:${pl.id}`
                     ? "bg-theme-surface-active text-theme-primary"
                     : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-                }`}
+                  }`}
                 title={pl.title}
               >
                 <div

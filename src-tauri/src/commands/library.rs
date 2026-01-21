@@ -43,6 +43,14 @@ pub async fn search_library(
 }
 
 #[command]
+pub async fn search_library_full(
+    library: State<'_, LibraryManager>,
+    query: String,
+) -> Result<crate::library::models::LocalSearchResults, String> {
+    library.search_full(&query).await
+}
+
+#[command]
 pub async fn rebuild_search_index(library: State<'_, LibraryManager>) -> Result<(), String> {
     library.rebuild_index().await
 }

@@ -17,6 +17,8 @@ export interface LibraryAlbum {
     artist: string;
     cover_image?: string;
     tidal_id?: number;
+    provider_id?: string;
+    external_id?: string;
 }
 
 export interface LibraryArtist {
@@ -24,6 +26,14 @@ export interface LibraryArtist {
     name: string;
     cover_image?: string;
     tidal_id?: number;
+    provider_id?: string;
+    external_id?: string;
+}
+
+export interface LocalSearchResults {
+    tracks: UnifiedTrack[];
+    albums: LibraryAlbum[];
+    artists: LibraryArtist[];
 }
 
 export const getLibraryTracks = async (): Promise<UnifiedTrack[]> => {
@@ -40,6 +50,10 @@ export const getLibraryArtists = async (): Promise<LibraryArtist[]> => {
 
 export async function searchLibrary(query: string): Promise<UnifiedTrack[]> {
     return await invoke("search_library", { query });
+}
+
+export async function searchLibraryFull(query: string): Promise<LocalSearchResults> {
+    return await invoke("search_library_full", { query });
 }
 
 export async function rebuildSearchIndex(): Promise<void> {

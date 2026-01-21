@@ -54,6 +54,8 @@ pub struct Artist {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banner: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,8 +66,12 @@ pub struct Album {
     pub cover: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artist: Option<Artist>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artists: Option<Vec<Artist>>,
     #[serde(rename = "numberOfTracks", skip_serializing_if = "Option::is_none")]
     pub number_of_tracks: Option<u32>,
+    #[serde(rename = "releaseDate", skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +97,18 @@ pub struct TrackStreamInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResponse<T> {
     pub items: Vec<T>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistInfoResponse {
+    pub albums: Option<AlbumList>,
+    pub tracks: Option<Vec<Track>>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AlbumList {
+    pub items: Vec<Album>,
 }
 
 // Helper function to build cover art URLs

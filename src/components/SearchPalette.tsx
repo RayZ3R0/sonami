@@ -212,11 +212,10 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${
-                          isAdded
-                            ? "bg-pink-500/20 text-pink-400 cursor-default"
-                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-                        }
+                        ${isAdded
+              ? "bg-pink-500/20 text-pink-400 cursor-default"
+              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+            }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -294,9 +293,10 @@ const SkeletonSection = ({
 interface SearchPaletteProps {
   isOpen: boolean;
   onClose: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
+export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProps) => {
   const {
     playTrack,
     playlists,
@@ -1060,9 +1060,19 @@ export const SearchPalette = ({ isOpen, onClose }: SearchPaletteProps) => {
                 <span className="text-[11px]">play</span>
               </span>
             </div>
-            <span className="text-[11px] pt-[2px]">
-              {allResults.length} result{allResults.length !== 1 ? "s" : ""}
-            </span>
+            <div className="flex items-center gap-4">
+              {onNavigate && query.length >= 2 && (
+                <button
+                  onClick={() => onNavigate(`search:${query}`)}
+                  className="text-[11px] text-theme-accent hover:text-theme-accent/80 transition-colors font-medium"
+                >
+                  View all results →
+                </button>
+              )}
+              <span className="text-[11px] pt-[2px]">
+                {allResults.length} result{allResults.length !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
         )}
 
