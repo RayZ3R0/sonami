@@ -79,7 +79,7 @@ impl DownloadManager {
         tidal_client: &TidalClient,
         quality: Quality,
     ) -> Result<PathBuf, String> {
-        let id_str = track_id.to_string();
+        let id_str = format!("tidal:{}", track_id);
 
         {
             let mut active = self.active_downloads.lock().unwrap();
@@ -122,7 +122,7 @@ impl DownloadManager {
         if let Err(ref e) = result {
             let _ = self.app_handle.emit(
                 "download-error",
-                format!("Failed to download track {}: {}", track_id, e),
+                format!("Failed to download track tidal:{}: {}", track_id, e),
             );
         }
 
@@ -401,7 +401,7 @@ impl DownloadManager {
                 let _ = self.app_handle.emit(
                     "download-progress",
                     DownloadProgress {
-                        track_id: track_id.to_string(),
+                        track_id: format!("tidal:{}", track_id),
                         total: total_size,
                         downloaded,
                         progress: if total_size > 0 {
@@ -457,7 +457,7 @@ impl DownloadManager {
         let _ = self.app_handle.emit(
             "download-progress",
             DownloadProgress {
-                track_id: track_id.to_string(),
+                track_id: format!("tidal:{}", track_id),
                 total: 100,
                 downloaded: 100,
                 progress: 1.0, // 100%
@@ -470,7 +470,7 @@ impl DownloadManager {
         let _ = self.app_handle.emit(
             "download-complete",
             serde_json::json!({
-                "track_id": track_id.to_string(),
+                "track_id": format!("tidal:{}", track_id),
                 "title": metadata.title,
                 "artist": metadata.artist,
                 "album": metadata.album,

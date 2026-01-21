@@ -215,19 +215,8 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Determine track key for map (e.g. "tidal:12345" or just "12345" for legacy compatibility?)
-    // The backend events likely send "12345" for Tidal if using start_download...
-    // But updated delete uses keys.
-    // Let's use the ID as key if it's unique enough.
-    // For Tidal, backend events seem to use the ID passed to start_download (u64).
-    // So for Tidal, key is externalId.
-    // For others, key is provider:externalId?
-    // Let's stick to simple externalId for Tidal compatibility, and provider:externalId for others.
-
-    let trackKey = externalId;
-    if (providerId !== "tidal") {
-      trackKey = `${providerId}:${externalId}`;
-    }
+    // Create uniform track key (provider:externalId format for all providers)
+    const trackKey = `${providerId}:${externalId}`;
 
     setDownloads((prev) => {
       const next = new Map(prev);
@@ -300,12 +289,8 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   const deleteDownloadedTrack = useCallback(async (providerId: string, externalId: string) => {
     try {
       await invoke("delete_track_download", { providerId, externalId });
-
-      // Determine key to clean up state
-      let trackKey = externalId;
-      if (providerId !== "tidal") {
-        trackKey = `${providerId}:${externalId}`;
-      }
+      // Create uniform track key (provider:externalId format for all providers)
+      const trackKey = `${providerId}:${externalId}`;
 
       // Remove from persistent set
       completedTracksRef.current.delete(trackKey);

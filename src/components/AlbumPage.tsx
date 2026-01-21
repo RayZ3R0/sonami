@@ -530,8 +530,8 @@ export const AlbumPage = ({ albumId, onNavigate }: AlbumPageProps) => {
 
                 <div className="bg-theme-surface-hover/10 rounded-b-xl overflow-hidden">
                     {album.tracks.map((track, index) => {
-                        // Determine download status
-                        const trackKey = track.id.replace("tidal:", ""); // For Tidal album, this is safe for now
+                        // Use uniform format: provider:externalId
+                        const trackKey = track.id.startsWith("tidal:") ? track.id : `tidal:${track.id.replace("tidal:", "")}`;
                         const dlStatus = downloads.get(trackKey);
                         const isDl = isTrackCompleted(trackKey) || false;
 

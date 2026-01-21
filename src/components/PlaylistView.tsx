@@ -686,20 +686,15 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
 
                     if (providerId && externalId) {
                       isStreamingTrack = true;
-                      if (providerId === 'tidal') {
-                        trackKey = externalId;
-                      } else {
-                        trackKey = `${providerId}:${externalId}`;
-                      }
+                      // Uniform format: provider:externalId for all providers
+                      trackKey = `${providerId}:${externalId}`;
                     }
 
                     // Fallback for paths
                     if (!trackKey && track.path) {
-                      if (track.path.startsWith("tidal:")) {
-                        trackKey = track.path.split(":")[1];
-                        isStreamingTrack = true;
-                      } else if (track.path.startsWith("subsonic:") || track.path.startsWith("jellyfin:")) {
-                        trackKey = track.path;
+                      const pathMatch = track.path.match(/^(tidal|subsonic|jellyfin):(.+)$/);
+                      if (pathMatch) {
+                        trackKey = track.path; // Already in correct format
                         isStreamingTrack = true;
                       }
                     }

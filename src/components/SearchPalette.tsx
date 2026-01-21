@@ -1045,7 +1045,7 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
                       result.providerId && result.externalId
-                        ? downloads.get(result.providerId === 'tidal' ? result.externalId : `${result.providerId}:${result.externalId}`)
+                        ? downloads.get(`${result.providerId}:${result.externalId}`)
                         : undefined
                     }
                     isDownloaded={isDownloaded}
