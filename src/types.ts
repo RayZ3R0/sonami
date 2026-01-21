@@ -39,3 +39,21 @@ export interface PlaylistDetails {
     playlist: Playlist;
     tracks: Track[];
 }
+
+export interface Artist {
+    id: string;
+    name: string;
+    cover_url?: string;
+    banner?: string;
+}
+
+export interface Album {
+    id: string;
+    title: string;
+    artist: string;
+    artist_id?: string;
+    cover_url?: string;
+    year?: string;
+    track_count?: number;
+    duration?: number;
+}
