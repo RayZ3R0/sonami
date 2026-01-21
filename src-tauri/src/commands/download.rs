@@ -3,6 +3,8 @@ use tauri::State;
 
 use crate::download::{DownloadManager, TrackMetadata};
 use crate::tidal::{Quality, TidalClient};
+use crate::errors::AppError;
+use crate::providers::types::ProviderId;
 
 #[tauri::command]
 pub async fn start_download(
@@ -11,12 +13,13 @@ pub async fn start_download(
     track_id: u64,
     metadata: TrackMetadata,
     quality: String,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     let quality = quality.parse::<Quality>().unwrap_or(Quality::LOSSLESS);
 
     let path = download_manager
         .download_tidal_track(track_id, metadata, &tidal_client, quality)
-        .await?;
+        .await
+        .map_err(AppError::Download)?;
 
     Ok(path.to_string_lossy().to_string())
 }
@@ -24,7 +27,7 @@ pub async fn start_download(
 #[tauri::command]
 pub async fn get_download_path(
     download_manager: State<'_, DownloadManager>,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     let path = download_manager.get_download_path();
     Ok(path.to_string_lossy().to_string())
 }
@@ -33,21 +36,22 @@ pub async fn get_download_path(
 pub async fn set_download_path(
     download_manager: State<'_, DownloadManager>,
     path: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let path_buf = PathBuf::from(&path);
 
     if !path_buf.exists() {
         std::fs::create_dir_all(&path_buf)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+            .map_err(|e| AppError::FileSystem(e.to_string()))?;
     }
 
     download_manager.set_download_path(path_buf)
+        .map_err(AppError::Config)
 }
 
 #[tauri::command]
 pub async fn open_download_folder(
     download_manager: State<'_, DownloadManager>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     let path = download_manager.get_download_path();
 
     #[cfg(target_os = "windows")]
@@ -55,7 +59,7 @@ pub async fn open_download_folder(
         std::process::Command::new("explorer")
             .arg(&path)
             .spawn()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::FileSystem(e.to_string()))?;
     }
 
     #[cfg(target_os = "macos")]
@@ -63,7 +67,7 @@ pub async fn open_download_folder(
         std::process::Command::new("open")
             .arg(&path)
             .spawn()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::FileSystem(e.to_string()))?;
     }
 
     #[cfg(target_os = "linux")]
@@ -71,7 +75,7 @@ pub async fn open_download_folder(
         std::process::Command::new("xdg-open")
             .arg(&path)
             .spawn()
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| AppError::FileSystem(e.to_string()))?;
     }
 
     Ok(())
@@ -80,9 +84,13 @@ pub async fn open_download_folder(
 #[tauri::command]
 pub async fn delete_track_download(
     library_manager: State<'_, crate::library::LibraryManager>,
-    provider_id: String,
+    provider_id: String, // Keep as String for Tauri, validate internally
     external_id: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
+    // Validate provider
+    let _provider = provider_id.parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
     // Clear from database and get the old path
     let old_path = library_manager
         .clear_download_info(&provider_id, &external_id)
@@ -92,7 +100,7 @@ pub async fn delete_track_download(
     if let Some(path) = old_path {
         let path_buf = std::path::PathBuf::from(&path);
         if path_buf.exists() {
-            std::fs::remove_file(&path_buf).map_err(|e| format!("Failed to delete file: {}", e))?;
+            std::fs::remove_file(&path_buf).map_err(|e| AppError::FileSystem(format!("Failed to delete file: {}", e)))?;
             log::info!("Deleted downloaded file: {}", path);
         }
     }
@@ -108,7 +116,11 @@ pub async fn download_provider_track(
     external_id: String,
     metadata: TrackMetadata,
     quality: String,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
+    // Validate provider
+    let _provider = provider_id.parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
     let quality = quality
         .parse::<crate::models::Quality>()
         .unwrap_or(crate::models::Quality::LOSSLESS);
@@ -121,7 +133,8 @@ pub async fn download_provider_track(
             &provider_manager,
             quality,
         )
-        .await?;
+        .await
+        .map_err(AppError::Download)?;
 
     Ok(path.to_string_lossy().to_string())
 }

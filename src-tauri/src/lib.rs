@@ -3,6 +3,7 @@ pub mod commands;
 pub mod database;
 pub mod discord;
 pub mod download;
+pub mod errors;
 pub mod dsp;
 pub mod favorites;
 pub mod history;

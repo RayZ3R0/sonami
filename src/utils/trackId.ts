@@ -5,9 +5,9 @@
  * All providers use the uniform format: `{provider}:{externalId}`
  */
 
-export type ProviderId = "local" | "tidal" | "subsonic" | "jellyfin";
+export type ProviderId = "local" | "tidal" | "subsonic" | "jellyfin" | "spotify";
 
-export const VALID_PROVIDERS: readonly ProviderId[] = ["local", "tidal", "subsonic", "jellyfin"] as const;
+export const VALID_PROVIDERS: readonly ProviderId[] = ["local", "tidal", "subsonic", "jellyfin", "spotify"] as const;
 
 /**
  * Validates if a string is a valid provider ID
