@@ -139,7 +139,7 @@ export const ArtistPage = ({ artistId, onNavigate }: ArtistPageProps) => {
         album: t.album?.title || "Unknown Album",
         cover_image: getTidalCoverUrl(t.album?.cover, 640),
         duration: t.duration || 0,
-        tidal_id: t.id,
+
         source: "TIDAL",
         provider_id: "tidal",
         external_id: t.id.toString(),
@@ -156,7 +156,7 @@ export const ArtistPage = ({ artistId, onNavigate }: ArtistPageProps) => {
 
         console.log("[ArtistPage] Playing track:", trackToPlay);
         console.log("[ArtistPage] Track Path:", trackToPlay.path);
-        console.log("[ArtistPage] Track Tidal ID:", trackToPlay.tidal_id);
+        console.log("[ArtistPage] Track Provider ID:", trackToPlay.provider_id);
 
         await playTrack(trackToPlay, tracks);
     };

@@ -54,7 +54,9 @@ pub async fn add_tidal_track_to_playlist(
 ) -> Result<(), String> {
     library.import_tidal_track(&track, cover_url).await?;
 
-    let track_id_opt = playlist.find_track_id_by_tidal_id(track.id).await?;
+    let track_id_opt = playlist
+        .find_track_id_by_external_id("tidal", &track.id.to_string())
+        .await?;
 
     if let Some(track_id) = track_id_opt {
         playlist.add_track_entry(&playlist_id, &track_id).await?;
@@ -105,46 +107,6 @@ pub async fn add_to_playlist(
             .import_external_track(&import_track, provider_id)
             .await
         {
-            playlist.add_track_entry(&playlist_id, &new_id).await?;
-            return Ok(());
-        }
-    }
-
-    if let Some(tidal_id) = track.tidal_id {
-        if let Ok(Some(existing_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
-            playlist.add_track_entry(&playlist_id, &existing_id).await?;
-            return Ok(());
-        }
-
-        let tidal_track = TidalTrack {
-            id: tidal_id,
-            title: track.title.clone(),
-            artist: Some(crate::tidal::models::Artist {
-                id: 0,
-                name: track.artist.clone(),
-                picture: None,
-                banner: None,
-            }),
-            album: Some(crate::tidal::models::Album {
-                id: 0,
-                title: track.album.clone(),
-                cover: None,
-                artist: None,
-                artists: None,
-                number_of_tracks: None,
-                release_date: None,
-            }),
-            duration: Some(track.duration as u32),
-            audio_quality: None,
-            cover: None,
-            track_number: None,
-        };
-
-        library
-            .import_tidal_track(&tidal_track, track.cover_image.clone())
-            .await?;
-
-        if let Ok(Some(new_id)) = playlist.find_track_id_by_tidal_id(tidal_id).await {
             playlist.add_track_entry(&playlist_id, &new_id).await?;
             return Ok(());
         }

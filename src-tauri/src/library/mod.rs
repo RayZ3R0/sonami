@@ -18,7 +18,7 @@ impl LibraryManager {
         let result = sqlx::query_as::<_, LibraryAlbum>(
             r#"
             SELECT 
-                al.id, al.title, a.name as artist, al.cover_url as cover_image, al.tidal_id
+                al.id, al.title, a.name as artist, al.cover_url as cover_image, al.provider_id, al.external_id
             FROM albums al
             JOIN artists a ON al.artist_id = a.id
             ORDER BY al.title ASC
@@ -38,7 +38,7 @@ impl LibraryManager {
     pub async fn get_all_artists(&self) -> Result<Vec<LibraryArtist>, String> {
         let result = sqlx::query_as::<_, LibraryArtist>(
             r#"
-            SELECT id, name, cover_url as cover_image, tidal_id
+            SELECT id, name, cover_url as cover_image, provider_id, external_id
             FROM artists
             ORDER BY name ASC
             "#,
@@ -149,7 +149,7 @@ impl LibraryManager {
         let rows = sqlx::query(
             r#"
             SELECT 
-                t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 t.provider_id, t.external_id,
                 a.name as artist_name,
@@ -176,7 +176,6 @@ impl LibraryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
             let provider_id: Option<String> = row.try_get("provider_id").ok();
             let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
@@ -187,11 +186,9 @@ impl LibraryManager {
 
             let path = match source {
                 TrackSource::Tidal => {
-                    let tid_str = tidal_id
-                        .map(|id| id.to_string())
-                        .or_else(|| external_id.clone())
-                        .unwrap_or_else(|| "0".to_string());
-                    format!("tidal:{}", tid_str)
+                    // Fallback to "tidal:external_id" format
+                    let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
+                    format!("tidal:{}", eid)
                 }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
@@ -220,7 +217,6 @@ impl LibraryManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path,
                 local_path,
-                tidal_id: tidal_id.map(|id| id as u64),
                 audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
@@ -246,7 +242,7 @@ impl LibraryManager {
             r#"
             SELECT 
                 al.id, al.title, a.name as artist, al.cover_url as cover_image, 
-                al.tidal_id, al.provider_id, al.external_id
+                al.provider_id, al.external_id
             FROM albums al
             JOIN artists a ON al.artist_id = a.id
             WHERE al.title LIKE ? COLLATE NOCASE
@@ -276,7 +272,7 @@ impl LibraryManager {
         let artists = sqlx::query_as::<_, LibraryArtist>(
             r#"
             SELECT 
-                id, name, cover_url as cover_image, tidal_id, provider_id, external_id
+                id, name, cover_url as cover_image, provider_id, external_id
             FROM artists
             WHERE name LIKE ? COLLATE NOCASE
             ORDER BY name ASC
@@ -313,7 +309,7 @@ impl LibraryManager {
         let rows = sqlx::query(
             r#"
             SELECT 
-                t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 t.provider_id, t.external_id,
                 a.name as artist_name,
@@ -331,7 +327,6 @@ impl LibraryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
             let provider_id: Option<String> = row.try_get("provider_id").ok();
             let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
@@ -342,11 +337,8 @@ impl LibraryManager {
 
             let path = match source {
                 TrackSource::Tidal => {
-                    let tid_str = tidal_id
-                        .map(|id| id.to_string())
-                        .or_else(|| external_id.clone())
-                        .unwrap_or_else(|| "0".to_string());
-                    format!("tidal:{}", tid_str)
+                    let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
+                    format!("tidal:{}", eid)
                 }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
@@ -375,7 +367,6 @@ impl LibraryManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path,
                 local_path,
-                tidal_id: tidal_id.map(|id| id as u64),
                 audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
@@ -492,15 +483,17 @@ impl LibraryManager {
 
     pub async fn get_track_local_info(
         &self,
-        tidal_id: u64,
+        provider_id: &str,
+        external_id: &str,
     ) -> Result<Option<(String, Option<String>)>, String> {
-        let tid = tidal_id as i64;
-        let row =
-            sqlx::query("SELECT file_path, audio_quality FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL")
-                .bind(tid)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+        let row = sqlx::query(
+            "SELECT file_path, audio_quality FROM tracks WHERE provider_id = ? AND external_id = ? AND file_path IS NOT NULL",
+        )
+        .bind(provider_id)
+        .bind(external_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
         if let Some(r) = row {
             let path: String = r.try_get("file_path").unwrap_or_default();
@@ -512,14 +505,17 @@ impl LibraryManager {
         Ok(None)
     }
 
-    pub async fn clear_download_info(&self, tidal_id: u64) -> Result<Option<String>, String> {
-        let tid = tidal_id as i64;
-
+    pub async fn clear_download_info(
+        &self,
+        provider_id: &str,
+        external_id: &str,
+    ) -> Result<Option<String>, String> {
         // First get the current file path so we can return it for deletion
         let row = sqlx::query(
-            "SELECT file_path FROM tracks WHERE tidal_id = ? AND file_path IS NOT NULL",
+            "SELECT file_path FROM tracks WHERE provider_id = ? AND external_id = ? AND file_path IS NOT NULL",
         )
-        .bind(tid)
+        .bind(provider_id)
+        .bind(external_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -527,13 +523,20 @@ impl LibraryManager {
         let old_path: Option<String> = row.and_then(|r| r.try_get("file_path").ok());
 
         // Clear the download info
-        sqlx::query("UPDATE tracks SET file_path = NULL, audio_quality = NULL WHERE tidal_id = ?")
-            .bind(tid)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "UPDATE tracks SET file_path = NULL, audio_quality = NULL WHERE provider_id = ? AND external_id = ?",
+        )
+        .bind(provider_id)
+        .bind(external_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
-        log::info!("Cleared download info for track {}", tidal_id);
+        log::info!(
+            "Cleared download info for track {}:{}",
+            provider_id,
+            external_id
+        );
         Ok(old_path)
     }
 
@@ -682,7 +685,7 @@ impl LibraryManager {
         &self,
         track: &crate::tidal::models::Track,
         cover_url: Option<String>,
-    ) -> Result<(), String> {
+    ) -> Result<String, String> {
         let mut tx = self.pool.begin().await.map_err(|e| e.to_string())?;
 
         let artist_name = track
@@ -706,10 +709,11 @@ impl LibraryManager {
             row.try_get::<String, _>("id").unwrap_or_default()
         } else {
             let new_id = Uuid::new_v4().to_string();
-            sqlx::query("INSERT INTO artists (id, name, tidal_id, cover_url) VALUES (?, ?, ?, ?)")
+            sqlx::query("INSERT INTO artists (id, name, provider_id, external_id, cover_url) VALUES (?, ?, ?, ?, ?)")
                 .bind(&new_id)
                 .bind(&artist_name)
-                .bind(0i64)
+                .bind("tidal")
+                .bind("0") // Tidal artists don't always have simple numeric IDs here
                 .bind(&artist_cover_url)
                 .execute(&mut *tx)
                 .await
@@ -765,8 +769,8 @@ impl LibraryManager {
 
             sqlx::query(
                 r#"
-                INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, tidal_id, added_at)
-                VALUES (?, ?, ?, ?, ?, 'TIDAL', ?, strftime('%s', 'now'))
+                INSERT INTO tracks (id, title, artist_id, album_id, duration, source_type, provider_id, external_id, added_at)
+                VALUES (?, ?, ?, ?, ?, 'TIDAL', 'tidal', ?, strftime('%s', 'now'))
                 "#,
             )
             .bind(&new_id)
@@ -774,7 +778,7 @@ impl LibraryManager {
             .bind(&artist_id)
             .bind(&album_id)
             .bind(duration)
-            .bind(tidal_id_i64)
+            .bind(tidal_id_i64.to_string())
             .execute(&mut *tx)
             .await
             .map_err(|e| e.to_string())?;
@@ -800,6 +804,6 @@ impl LibraryManager {
         .map_err(|e| e.to_string())?;
 
         tx.commit().await.map_err(|e| e.to_string())?;
-        Ok(())
+        Ok(track_id)
     }
 }

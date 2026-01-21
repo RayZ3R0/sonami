@@ -17,7 +17,7 @@ pub async fn add_tidal_track(
     track: TidalTrack,
     cover_url: Option<String>,
 ) -> Result<(), String> {
-    library.import_tidal_track(&track, cover_url).await
+    library.import_tidal_track(&track, cover_url).await.map(|_| ())
 }
 
 #[command]

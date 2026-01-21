@@ -107,8 +107,9 @@ impl DownloadManager {
             };
 
             if let Err(e) = library_manager
-                .update_track_download_info(
-                    track_id,
+                .update_provider_track_download_info(
+                    "tidal",
+                    &track_id.to_string(),
                     path.to_str().unwrap_or_default(),
                     quality_str,
                 )

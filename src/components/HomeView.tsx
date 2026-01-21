@@ -51,7 +51,7 @@ export const HomeView = () => {
           action: () =>
             toggleFavorite({
               ...trackAsTrack,
-              id: track.id || track.tidal_id?.toString() || "",
+              id: track.id || "",
             }),
         },
         {

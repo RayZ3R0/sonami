@@ -25,7 +25,8 @@ interface SearchResult {
   album: string;
   duration: number;
   cover?: string;
-  tidalId?: number;
+  providerId?: string;
+  externalId?: string;
   track: UnifiedTrack | TidalTrack;
 }
 
@@ -318,7 +319,7 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
   const [loadingJellyfin, setLoadingJellyfin] = useState(false);
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [addedTracks, setAddedTracks] = useState<Set<number>>(new Set());
+  const [addedTracks, setAddedTracks] = useState<Set<string>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -335,14 +336,24 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
 
   const currentQueryRef = useRef(query);
 
-  const localTidalIds = useMemo(
-    () => new Set(localResults.filter((r) => r.tidalId).map((r) => r.tidalId)),
+  // Create a set of local track keys (provider:externalId) for deduplication
+  const localTrackKeys = useMemo(
+    () => new Set(
+      localResults
+        .filter((r) => r.providerId && r.externalId)
+        .map((r) => `${r.providerId}:${r.externalId}`)
+    ),
     [localResults],
   );
 
+  // Filter out Tidal results that already exist locally
   const filteredTidalResults = useMemo(
-    () => tidalResults.filter((r) => !localTidalIds.has(r.tidalId)),
-    [tidalResults, localTidalIds],
+    () => tidalResults.filter((r) => {
+      if (!r.providerId || !r.externalId) return true;
+      const key = `${r.providerId}:${r.externalId}`;
+      return !localTrackKeys.has(key);
+    }),
+    [tidalResults, localTrackKeys],
   );
 
   const allResults = useMemo(() => {
@@ -410,7 +421,8 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
             album: track.album,
             duration: track.duration,
             cover: track.cover_image,
-            tidalId: track.tidal_id,
+            providerId: track.provider_id,
+            externalId: track.external_id,
             track,
           })),
         );
@@ -465,7 +477,8 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
             cover: track.album?.cover
               ? `https://resources.tidal.com/images/${track.album.cover.replace(/-/g, "/")}/160x160.jpg`
               : undefined,
-            tidalId: track.id,
+            providerId: "tidal",
+            externalId: track.id.toString(),
             track,
           })),
         );
@@ -780,7 +793,6 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
         ? `https://resources.tidal.com/images/${t.album.cover.replace(/-/g, "/")}/640x640.jpg`
         : undefined,
       path: `tidal:${t.id}`,
-      tidal_id: t.id,
       source: "TIDAL",
       provider_id: "tidal",
       external_id: t.id.toString(),
@@ -986,7 +998,7 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
               };
 
               const isAdded =
-                result.type === "tidal" && addedTracks.has(result.tidalId!);
+                result.type === "tidal" && result.providerId && result.externalId && addedTracks.has(`${result.providerId}:${result.externalId}`);
               const isDownloaded =
                 result.type === "local" &&
                 (() => {
@@ -1024,7 +1036,7 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
                     onMouseEnter={() => setSelectedIndex(index)}
                     formatDuration={formatDuration}
                     showAddButton={result.type === "tidal"}
-                    isAdded={isAdded}
+                    isAdded={!!isAdded}
                     onAdd={
                       result.type === "tidal"
                         ? (e) => handleAddToLikedSongs(result, e)
@@ -1032,8 +1044,8 @@ export const SearchPalette = ({ isOpen, onClose, onNavigate }: SearchPaletteProp
                     }
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
-                      result.tidalId
-                        ? downloads.get(result.tidalId.toString())
+                      result.providerId && result.externalId
+                        ? downloads.get(result.providerId === 'tidal' ? result.externalId : `${result.providerId}:${result.externalId}`)
                         : undefined
                     }
                     isDownloaded={isDownloaded}

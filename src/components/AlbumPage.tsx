@@ -89,7 +89,7 @@ const mapToTrack = (track: TrackData, albumCover?: string): Track => {
         cover_image: albumCover,
         path: track.path,
         source: "TIDAL",
-        tidal_id: tidalId,
+
         provider_id: "tidal",
         external_id: tidalId?.toString(),
     };
@@ -300,7 +300,7 @@ export const AlbumPage = ({ albumId, onNavigate }: AlbumPageProps) => {
 
         console.log("[AlbumPage] Playing track:", trackToPlay);
         console.log("[AlbumPage] Track Path:", trackToPlay.path);
-        console.log("[AlbumPage] Track Tidal ID:", trackToPlay.tidal_id);
+        console.log("[AlbumPage] Track Provider ID:", trackToPlay.provider_id);
 
         await playTrack(trackToPlay, queue);
     }, [album, playTrack]);
@@ -531,7 +531,7 @@ export const AlbumPage = ({ albumId, onNavigate }: AlbumPageProps) => {
                 <div className="bg-theme-surface-hover/10 rounded-b-xl overflow-hidden">
                     {album.tracks.map((track, index) => {
                         // Determine download status
-                        const trackKey = track.id.replace("tidal:", "");
+                        const trackKey = track.id.replace("tidal:", ""); // For Tidal album, this is safe for now
                         const dlStatus = downloads.get(trackKey);
                         const isDl = isTrackCompleted(trackKey) || false;
 
@@ -554,11 +554,10 @@ export const AlbumPage = ({ albumId, onNavigate }: AlbumPageProps) => {
                                 onDownloadClick={(e) => {
                                     e.stopPropagation();
                                     if (isDl) {
-                                        // Pass pure ID number for deletion if tidal
-                                        const idNum = parseInt(trackKey);
-                                        if (!isNaN(idNum)) {
-                                            deleteDownloadedTrack(idNum);
-                                        }
+                                        // Pass providerId and externalId
+                                        const providerId = "tidal";
+                                        const externalId = trackKey;
+                                        deleteDownloadedTrack(providerId, externalId);
                                     } else if (!dlStatus) {
                                         downloadTrack(mapToTrack(track, album.cover));
                                     }

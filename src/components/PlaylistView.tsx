@@ -19,12 +19,15 @@ const mapToTrack = (track: Track): Track => {
 
   let trackPath = track.path;
 
-  // For Tidal tracks, ALWAYS use tidal:ID format so the backend resolver
-  // can decide whether to use local file or stream based on quality preferences
-  if (uTrack.tidal_id) {
-    trackPath = `tidal:${uTrack.tidal_id}`;
-  } else if ((!trackPath || trackPath.trim() === "") && uTrack.local_path) {
+  // Ensure path is set for local lookup or streaming
+  if ((!trackPath || trackPath.trim() === "") && uTrack.local_path) {
     trackPath = uTrack.local_path || "";
+  } else if (!trackPath && uTrack.provider_id && uTrack.external_id) {
+    if (uTrack.provider_id === 'tidal') {
+      trackPath = `tidal:${uTrack.external_id}`;
+    } else {
+      trackPath = `${uTrack.provider_id}:${uTrack.external_id}`;
+    }
   }
 
   return {
@@ -242,12 +245,12 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
       source === "TIDAL" ||
       source === "SUBSONIC" ||
       source === "JELLYFIN" ||
-      ("tidal_id" in track && (track as any).tidal_id) ||
       (track.path && track.path.startsWith("tidal:")) ||
       (track.path && track.path.startsWith("subsonic:")) ||
       (track.path && track.path.startsWith("jellyfin:")) ||
       providerIdVal === "subsonic" ||
       providerIdVal === "jellyfin" ||
+      (providerIdVal && (track as any).external_id) ||
       /^\d+$/.test(track.id);
 
     const items: ContextMenuItem[] = [
@@ -264,9 +267,9 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -411,14 +414,14 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     const streamingTracks = tracks.filter(
       (t) =>
         t.id.match(/^\d+$/) ||
-        (t as any).tidal_id ||
         (t.path && t.path.startsWith("tidal:")) ||
         (t.path && t.path.startsWith("subsonic:")) ||
         (t.path && t.path.startsWith("jellyfin:")) ||
         ("source" in t &&
           ((t as any).source === "TIDAL" ||
             (t as any).source === "SUBSONIC" ||
-            (t as any).source === "JELLYFIN")),
+            (t as any).source === "JELLYFIN")) ||
+        ((t as any).provider_id && (t as any).external_id),
     );
     for (const track of streamingTracks) {
       await downloadTrack(mapToTrack(track));
@@ -494,11 +497,10 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           <button
             onClick={handleShufflePlay}
             disabled={tracks.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
-                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+              : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -590,11 +592,10 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                 key={`${track.id}-${index}`}
                 onContextMenu={(e) => handleContextMenu(e, track)}
                 onClick={() => handlePlayTrack(track)}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
-                    ? "bg-theme-surface-active text-theme-accent"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${isCurrentTrack
+                  ? "bg-theme-surface-active text-theme-accent"
+                  : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
               >
                 <div className="flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
@@ -676,55 +677,28 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                   {(() => {
                     const unifiedTrack = track as any;
                     const source = unifiedTrack.source;
-                    const providerIdField = unifiedTrack.provider_id;
-                    const externalIdField = unifiedTrack.external_id;
+                    const providerId = unifiedTrack.provider_id || (source === 'TIDAL' ? 'tidal' : (source === 'SUBSONIC' ? 'subsonic' : (source === 'JELLYFIN' ? 'jellyfin' : undefined)));
+                    const externalId = unifiedTrack.external_id || (providerId === 'tidal' && /^\d+$/.test(track.id.replace('tidal:', '')) ? track.id.replace('tidal:', '') : undefined);
 
                     // Determine track key for download tracking
                     let trackKey: string | null = null;
                     let isStreamingTrack = false;
 
-                    if (unifiedTrack.tidal_id) {
-                      trackKey = unifiedTrack.tidal_id.toString();
+                    if (providerId && externalId) {
                       isStreamingTrack = true;
-                    } else if (track.path?.startsWith("tidal:")) {
-                      const pathId = track.path.split(":")[1];
-                      if (pathId && pathId !== "0") {
-                        trackKey = pathId;
-                        isStreamingTrack = true;
+                      if (providerId === 'tidal') {
+                        trackKey = externalId;
+                      } else {
+                        trackKey = `${providerId}:${externalId}`;
                       }
-                    } else if (track.id.match(/^\d+$/)) {
-                      trackKey = track.id;
-                      isStreamingTrack = true;
                     }
 
-                    // Handle Tidal tracks that use provider_id + external_id instead of tidal_id
-                    if (
-                      !trackKey &&
-                      (source === "TIDAL" || providerIdField === "tidal") &&
-                      externalIdField
-                    ) {
-                      trackKey = externalIdField;
-                      isStreamingTrack = true;
-                    }
-
-                    // Handle Subsonic/Jellyfin tracks
-                    if (!trackKey) {
-                      if (
-                        source === "SUBSONIC" ||
-                        providerIdField === "subsonic"
-                      ) {
-                        trackKey = `subsonic:${externalIdField || track.id}`;
+                    // Fallback for paths
+                    if (!trackKey && track.path) {
+                      if (track.path.startsWith("tidal:")) {
+                        trackKey = track.path.split(":")[1];
                         isStreamingTrack = true;
-                      } else if (
-                        source === "JELLYFIN" ||
-                        providerIdField === "jellyfin"
-                      ) {
-                        trackKey = `jellyfin:${externalIdField || track.id}`;
-                        isStreamingTrack = true;
-                      } else if (track.path?.startsWith("subsonic:")) {
-                        trackKey = track.path;
-                        isStreamingTrack = true;
-                      } else if (track.path?.startsWith("jellyfin:")) {
+                      } else if (track.path.startsWith("subsonic:") || track.path.startsWith("jellyfin:")) {
                         trackKey = track.path;
                         isStreamingTrack = true;
                       }
@@ -748,13 +722,8 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isDl) {
-                            const numericTidalId =
-                              unifiedTrack.tidal_id ||
-                              (track.id.match(/^\d+$/)
-                                ? Number(track.id)
-                                : null);
-                            if (numericTidalId && !isNaN(numericTidalId)) {
-                              deleteDownloadedTrack(numericTidalId).then(() => {
+                            if (providerId && externalId) {
+                              deleteDownloadedTrack(providerId, externalId).then(() => {
                                 refetch();
                               });
                             }

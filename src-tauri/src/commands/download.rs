@@ -78,12 +78,15 @@ pub async fn open_download_folder(
 }
 
 #[tauri::command]
-pub async fn delete_downloaded_track(
+pub async fn delete_track_download(
     library_manager: State<'_, crate::library::LibraryManager>,
-    tidal_id: u64,
+    provider_id: String,
+    external_id: String,
 ) -> Result<(), String> {
     // Clear from database and get the old path
-    let old_path = library_manager.clear_download_info(tidal_id).await?;
+    let old_path = library_manager
+        .clear_download_info(&provider_id, &external_id)
+        .await?;
 
     // Delete the file if it exists
     if let Some(path) = old_path {

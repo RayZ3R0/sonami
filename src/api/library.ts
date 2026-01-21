@@ -3,7 +3,7 @@ import { Track } from "../types";
 
 export interface UnifiedTrack extends Track {
     source: 'LOCAL' | 'TIDAL' | 'SUBSONIC' | 'JELLYFIN';
-    tidal_id?: number;
+
     local_path?: string;
     liked_at?: number;
     audio_quality?: string;
@@ -16,7 +16,7 @@ export interface LibraryAlbum {
     title: string;
     artist: string;
     cover_image?: string;
-    tidal_id?: number;
+
     provider_id?: string;
     external_id?: string;
 }
@@ -25,7 +25,7 @@ export interface LibraryArtist {
     id: string;
     name: string;
     cover_image?: string;
-    tidal_id?: number;
+
     provider_id?: string;
     external_id?: string;
 }

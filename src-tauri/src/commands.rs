@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub mod download;
 pub mod favorites;
@@ -955,6 +955,7 @@ pub async fn play_provider_track(
     audio_state: State<'_, AudioManager>,
     provider_manager: State<'_, std::sync::Arc<ProviderManager>>,
     library: State<'_, LibraryManager>,
+    tidal_state: State<'_, crate::tidal::TidalClient>,
     discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
     provider_id: String,
     track_id: String,
@@ -964,38 +965,91 @@ pub async fn play_provider_track(
     duration: u64,
     cover_url: Option<String>,
 ) -> Result<(), String> {
-    // Get stream URL from provider
-    let provider = provider_manager
-        .get_provider(&provider_id)
-        .await
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+    let (stream_url, local_id) = if provider_id == "tidal" {
+        // Tidal Logic
+        let tid = track_id
+            .parse::<u64>()
+            .map_err(|_| "Invalid Tidal ID".to_string())?;
 
-    let stream_info = provider
-        .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
-        .await
-        .map_err(|e| e.to_string())?;
+        // Get Stream URL
+        let quality = if let Some(state) = app.try_state::<crate::tidal::TidalConfigState>() {
+            state.lock().quality.clone()
+        } else {
+            crate::tidal::Quality::LOSSLESS
+        };
 
-    // Import track to library to ensure it has a local UUID
-    let import_track = crate::models::Track {
-        id: track_id.clone(),
-        title: title.clone(),
-        artist: artist.clone(),
-        artist_id: None,
-        album: album.clone(),
-        album_id: None,
-        duration,
-        cover_url: cover_url.clone(),
-    };
+        let stream_info = tidal_state
+            .get_track(tid, quality)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    let local_id = match library
-        .import_external_track(&import_track, &provider_id)
-        .await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            log::error!("Failed to import external track: {}", e);
-            // Fallback to external ID if import fails
-            track_id.clone()
+        // Import Tidal Track
+        let tidal_track = crate::tidal::Track {
+            id: tid,
+            title: title.clone(),
+            artist: Some(crate::tidal::Artist {
+                id: 0, // We don't have artist ID here easily?
+                name: artist.clone(),
+                picture: None,
+                banner: None,
+            }),
+            album: Some(crate::tidal::Album {
+                id: 0,
+                title: album.clone(),
+                cover: None,
+                artist: None,
+                artists: None,
+                number_of_tracks: None,
+                release_date: None,
+            }),
+            duration: Some(duration as u32),
+            audio_quality: None,
+            cover: None,
+            track_number: None,
+        };
+
+        match library
+            .import_tidal_track(&tidal_track, cover_url.clone())
+            .await
+        {
+            Ok(id) => (stream_info.url, id),
+            Err(e) => {
+                log::error!("Failed to import tidal track: {}", e);
+                (stream_info.url, track_id.clone())
+            }
+        }
+    } else {
+        // Generic Provider Logic
+        let provider = provider_manager
+            .get_provider(&provider_id)
+            .await
+            .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
+        let stream_info = provider
+            .get_stream_url(&track_id, crate::models::Quality::LOSSLESS)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let import_track = crate::models::Track {
+            id: track_id.clone(),
+            title: title.clone(),
+            artist: artist.clone(),
+            artist_id: None,
+            album: album.clone(),
+            album_id: None,
+            duration,
+            cover_url: cover_url.clone(),
+        };
+
+        match library
+            .import_external_track(&import_track, &provider_id)
+            .await
+        {
+            Ok(id) => (stream_info.url, id),
+            Err(e) => {
+                log::error!("Failed to import external track: {}", e);
+                (stream_info.url, track_id.clone())
+            }
         }
     };
 
@@ -1006,7 +1060,7 @@ pub async fn play_provider_track(
         album,
         duration,
         cover_image: cover_url,
-        path: stream_info.url.clone(),
+        path: stream_url.clone(),
     };
 
     {
@@ -1014,7 +1068,7 @@ pub async fn play_provider_track(
         q.add_to_queue(track.clone());
     }
 
-    audio_state.play(stream_info.url);
+    audio_state.play(stream_url);
 
     // Update media controls with track info
     audio_state.media_controls.set_metadata(

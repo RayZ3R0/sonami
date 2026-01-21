@@ -102,7 +102,7 @@ impl PlayHistoryManager {
         let rows = sqlx::query(
             r#"
             SELECT 
-                t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 t.provider_id, t.external_id,
                 a.name as artist_name,
@@ -123,7 +123,6 @@ impl PlayHistoryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
             let provider_id: Option<String> = row.try_get("provider_id").ok();
             let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
@@ -133,7 +132,10 @@ impl PlayHistoryManager {
             let local_path: Option<String> = row.try_get("file_path").ok();
 
             let path = match source {
-                TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
+                TrackSource::Tidal => {
+                     let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
+                     format!("tidal:{}", eid)
+                }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
                     if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
@@ -161,7 +163,6 @@ impl PlayHistoryManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path,
                 local_path,
-                tidal_id: tidal_id.map(|id| id as u64),
                 audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,
@@ -180,7 +181,7 @@ impl PlayHistoryManager {
         let rows = sqlx::query(
             r#"
             SELECT 
-                t.id, t.title, t.duration, t.source_type, t.file_path, t.tidal_id,
+                t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
                 t.provider_id, t.external_id,
                 a.name as artist_name,
@@ -201,7 +202,6 @@ impl PlayHistoryManager {
         let mut tracks = Vec::new();
         for row in rows {
             let duration: i64 = row.try_get("duration").unwrap_or(0);
-            let tidal_id: Option<i64> = row.try_get("tidal_id").ok().flatten();
             let provider_id: Option<String> = row.try_get("provider_id").ok();
             let external_id: Option<String> = row.try_get("external_id").ok();
             let source = TrackSource::from(
@@ -211,7 +211,10 @@ impl PlayHistoryManager {
             let local_path: Option<String> = row.try_get("file_path").ok();
 
             let path = match source {
-                TrackSource::Tidal => format!("tidal:{}", tidal_id.unwrap_or(0)),
+                TrackSource::Tidal => {
+                     let eid = external_id.clone().unwrap_or_else(|| "0".to_string());
+                     format!("tidal:{}", eid)
+                }
                 TrackSource::Local => local_path.clone().unwrap_or_default(),
                 _ => {
                     if let (Some(pid), Some(eid)) = (&provider_id, &external_id) {
@@ -239,7 +242,6 @@ impl PlayHistoryManager {
                 cover_image: row.try_get("cover_url").ok(),
                 path,
                 local_path,
-                tidal_id: tidal_id.map(|id| id as u64),
                 audio_quality,
                 play_count: play_count as u64,
                 skip_count: skip_count as u64,

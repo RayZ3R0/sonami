@@ -63,7 +63,6 @@ pub struct UnifiedTrack {
     pub path: String,
 
     pub local_path: Option<String>,
-    pub tidal_id: Option<u64>,
     pub provider_id: Option<String>,
     pub external_id: Option<String>,
     pub audio_quality: Option<String>,
@@ -92,7 +91,6 @@ pub struct LibraryAlbum {
     pub title: String,
     pub artist: String,
     pub cover_image: Option<String>,
-    pub tidal_id: Option<i64>,
     pub provider_id: Option<String>,
     pub external_id: Option<String>,
 }
@@ -102,7 +100,6 @@ pub struct LibraryArtist {
     pub id: String,
     pub name: String,
     pub cover_image: Option<String>,
-    pub tidal_id: Option<i64>,
     pub provider_id: Option<String>,
     pub external_id: Option<String>,
 }
