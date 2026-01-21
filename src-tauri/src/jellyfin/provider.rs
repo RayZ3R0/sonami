@@ -192,6 +192,8 @@ impl MusicProvider for JellyfinProvider {
                         artist_id: item.primary_artist_id(),
                         cover_url: Some(self.image_url(&item.id, 640)),
                         year: item.production_year.map(|y| y.to_string()),
+                        track_count: None,
+                        duration: None,
                     });
                 }
                 "MusicArtist" => {
@@ -199,6 +201,7 @@ impl MusicProvider for JellyfinProvider {
                         id: item.id.clone(),
                         name: item.name.clone(),
                         cover_url: Some(self.image_url(&item.id, 640)),
+                        banner: None,
                     });
                 }
                 _ => {}
@@ -288,6 +291,7 @@ impl MusicProvider for JellyfinProvider {
             id: item.id.clone(),
             name: item.name.clone(),
             cover_url: Some(self.image_url(&item.id, 640)),
+            banner: None,
         })
     }
 
@@ -315,6 +319,133 @@ impl MusicProvider for JellyfinProvider {
             artist_id: item.primary_artist_id(),
             cover_url: Some(self.image_url(&item.id, 640)),
             year: item.production_year.map(|y| y.to_string()),
+            track_count: None,
+            duration: None,
         })
+    }
+
+    async fn get_artist_top_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        if !self.initialized {
+            return Err(anyhow!("Jellyfin provider not initialized"));
+        }
+        let base = self.server_url.trim_end_matches('/');
+        // Use ArtistId param if available or ParentId?
+        // Typically Jellyfin uses ArtistIds param for tracks by artist OR ParentId if checking folder structure.
+        // But for "MusicArtist" item type, we should normally use `ArtistIds={id}` or `ParentId={id}` recursively.
+        // Let's rely on ParentId + Recursive for now, or use `ArtistIds`. Safe bet is `ArtistIds` for tracks.
+        let url = format!(
+            "{}/Items?ArtistIds={}&IncludeItemTypes=Audio&Recursive=true&Limit=10&SortBy=PlayCount&SortOrder=Descending&UserId={}",
+            base, artist_id, self.user_id
+        );
+
+        let resp: ItemsResult = self
+            .client
+            .get(&url)
+            .headers(self.headers())
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let tracks = resp.items.into_iter().map(|item| {
+            let artist = item.primary_artist();
+            let artist_id = item.primary_artist_id();
+            let duration = item.ticks_to_seconds();
+            let cover_url = Some(self.image_url(&item.id, 640));
+            Track {
+                id: item.id,
+                title: item.name,
+                artist,
+                artist_id,
+                album: item.album.unwrap_or_default(),
+                album_id: item.album_id,
+                duration,
+                cover_url,
+            }
+        }).collect();
+
+        Ok(tracks)
+    }
+
+    async fn get_artist_albums(&self, artist_id: &str) -> Result<Vec<Album>> {
+        if !self.initialized {
+            return Err(anyhow!("Jellyfin provider not initialized"));
+        }
+        let base = self.server_url.trim_end_matches('/');
+        // For albums we can use ArtistIds or AlbumArtistIds or ParentId. 
+        // Using ArtistIds seems correct for "Albums by Artist".
+        let url = format!(
+            "{}/Items?ArtistIds={}&IncludeItemTypes=MusicAlbum&Recursive=true&SortBy=ProductionYear&SortOrder=Descending&UserId={}",
+            base, artist_id, self.user_id
+        );
+
+        let resp: ItemsResult = self
+            .client
+            .get(&url)
+            .headers(self.headers())
+            .send()
+            .await?
+            .json()
+            .await?;
+        
+        let albums = resp.items.into_iter().map(|item| {
+            let artist = item.primary_artist();
+            let artist_id = item.primary_artist_id();
+            let cover_url = Some(self.image_url(&item.id, 640));
+            let year = item.production_year.map(|y| y.to_string());
+            
+            Album {
+                id: item.id,
+                title: item.name,
+                artist,
+                artist_id,
+                cover_url,
+                year,
+                track_count: None,
+                duration: None,
+            }
+        }).collect();
+
+        Ok(albums)
+    }
+
+    async fn get_album_tracks(&self, album_id: &str) -> Result<Vec<Track>> {
+        if !self.initialized {
+            return Err(anyhow!("Jellyfin provider not initialized"));
+        }
+        let base = self.server_url.trim_end_matches('/');
+        let url = format!(
+            "{}/Items?ParentId={}&IncludeItemTypes=Audio&Recursive=true&SortBy=IndexNumber&SortOrder=Ascending&UserId={}",
+            base, album_id, self.user_id
+        );
+
+        let resp: ItemsResult = self
+            .client
+            .get(&url)
+            .headers(self.headers())
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let tracks = resp.items.into_iter().map(|item| {
+            let artist = item.primary_artist();
+            let artist_id = item.primary_artist_id();
+            let duration = item.ticks_to_seconds();
+            let cover_url = Some(self.image_url(&item.id, 640));
+
+            Track {
+                id: item.id,
+                title: item.name,
+                artist,
+                artist_id,
+                album: item.album.unwrap_or_default(),
+                album_id: item.album_id,
+                duration,
+                cover_url,
+            }
+        }).collect();
+
+        Ok(tracks)
     }
 }

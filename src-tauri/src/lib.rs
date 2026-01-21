@@ -358,6 +358,11 @@ pub fn run() {
             commands::get_providers_list,
             commands::set_active_provider,
             commands::play_provider_track,
+            commands::get_album,
+            commands::get_album_tracks,
+            commands::get_artist,
+            commands::get_artist_top_tracks,
+            commands::get_artist_albums,
             // Provider Configuration
             commands::providers::configure_subsonic,
             commands::providers::configure_jellyfin,

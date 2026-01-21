@@ -202,6 +202,8 @@ impl MusicProvider for SubsonicProvider {
                 artist_id: a.artist_id,
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
                 year: a.year.map(|y| y.to_string()),
+                track_count: a.song_count,
+                duration: a.duration,
             })
             .collect();
 
@@ -212,6 +214,7 @@ impl MusicProvider for SubsonicProvider {
                 id: a.id.clone(),
                 name: a.name,
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
+                banner: None,
             })
             .collect();
 
@@ -330,6 +333,7 @@ impl MusicProvider for SubsonicProvider {
             id: artist.id,
             name: artist.name,
             cover_url: artist.cover_art.map(|c| self.cover_art_url(&c, 640)),
+            banner: None,
         })
     }
 
@@ -361,6 +365,136 @@ impl MusicProvider for SubsonicProvider {
             artist_id: album.artist_id,
             cover_url: album.cover_art.map(|c| self.cover_art_url(&c, 640)),
             year: album.year.map(|y| y.to_string()),
+            track_count: album.song_count,
+            duration: album.duration,
         })
+    }
+
+    async fn get_artist_top_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        if !self.initialized {
+            return Err(anyhow!("Subsonic provider not initialized"));
+        }
+
+        // Subsonic getTopSongs requires artist name, not ID. 
+        // But some servers support getTopSongs with artistId? No, checking API docs...
+        // standard Subsonic `getTopSongs` takes `artist` (name). `getArtist` returns albums but not songs.
+        // `getArtist` returns List<ID3Album>.
+        // Using `getArtist` we get albums. But for top tracks?
+        // We might need to fetch `getArtist` first to get the name if we only have ID?
+        // OR we can search or maybe `getTopSongs` support ID?
+        // Navidrome supports `id` in `getTopSongs`?
+        // Let's first try `getTopSongs` with `artistId` parameter? No standard says `artist`.
+        // However, we have `getArtist` which returns details.
+        // Let's fetch artist details first to get the name, then call getTopSongs?
+        // Or better: `getArtist` in some implementations returns all songs? No.
+        
+        // Wait, standard Subsonic API `getTopSongs`: "Returns top songs for the given artist... Parameter: artist".
+        
+        // Let's try fetching artist details to get the name.
+        let artist = self.get_artist_details(artist_id).await?;
+        let artist_name = artist.name;
+
+        let url = self.build_url(
+            "getTopSongs",
+            &format!("artist={}&count=10", urlencoding::encode(&artist_name)),
+        );
+
+        // We need a model for getTopSongs response
+        // Using generic Value or specific struct?
+        // Let's use `TopSongsData` if it exists or create one?
+        // Let's use generic Value for now or define a struct inline if simpler, but `models.rs` is separate.
+        // Or reuse `SongData` list?
+        // Let's add `TopSongsData` to models if not present, OR parse manually.
+        // I'll check `models.rs` above. It has `SubsonicSong`.
+        // Response format: `subsonic-response` -> `topSongs` -> `song` array.
+
+        // I will use serde_json::Value for intermediate if needed, but better to be typed.
+        // Since I can't easily edit models.rs and provider.rs simultaneously in one step safely if detailed, 
+        // I will trust that `SubsonicResponse<TopSongsResult>` works if I define it?
+        // I'll use `Value` to avoid modifying `models.rs` if possible to save steps, assume structure.
+        
+        let resp: Value = self.client.get(&url).send().await?.json().await?;
+        // println!("DEBUG: {:?}", resp); 
+        
+        // Manual traversal: subsonic-response -> topSongs -> song (array)
+        let binding = resp["subsonic-response"].clone();
+        let top_songs = binding.get("topSongs").and_then(|t| t.get("song")).and_then(|s| s.as_array());
+
+        let mut tracks = Vec::new();
+        if let Some(songs) = top_songs {
+            for s in songs {
+                // Parse SubsonicSong from Value
+                let song: SubsonicSong = serde_json::from_value(s.clone())?;
+                tracks.push(Track {
+                    id: song.id,
+                    title: song.title,
+                    artist: song.artist.unwrap_or_default(),
+                    artist_id: song.artist_id,
+                    album: song.album.unwrap_or_default(),
+                    album_id: song.album_id,
+                    duration: song.duration.unwrap_or(0),
+                    cover_url: song.cover_art.map(|c| self.cover_art_url(&c, 640)),
+                });
+            }
+        }
+        
+        Ok(tracks)
+    }
+
+    async fn get_artist_albums(&self, artist_id: &str) -> Result<Vec<Album>> {
+        if !self.initialized {
+            return Err(anyhow!("Subsonic provider not initialized"));
+        }
+
+        let url = self.build_url("getArtist", &format!("id={}", artist_id));
+        let resp: SubsonicResponse<ArtistData> = self.client.get(&url).send().await?.json().await?;
+
+        if resp.subsonic_response.status != "ok" {
+             return Err(anyhow!("Subsonic error"));
+        }
+        
+        let artist_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.artist;
+        
+        let albums = artist_full.album.into_iter().map(|a| Album {
+            id: a.id,
+            title: a.name,
+            artist: a.artist.unwrap_or_default(),
+            artist_id: a.artist_id,
+            cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
+            year: a.year.map(|y| y.to_string()),
+            track_count: a.song_count,
+            duration: a.duration,
+        }).collect();
+
+        Ok(albums)
+    }
+
+    async fn get_album_tracks(&self, album_id: &str) -> Result<Vec<Track>> {
+        if !self.initialized {
+            return Err(anyhow!("Subsonic provider not initialized"));
+        }
+
+        // getAlbum return Album with songs
+        let url = self.build_url("getAlbum", &format!("id={}", album_id));
+        let resp: SubsonicResponse<AlbumData> = self.client.get(&url).send().await?.json().await?;
+
+        if resp.subsonic_response.status != "ok" {
+            return Err(anyhow!("Subsonic error"));
+        }
+
+        let album_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.album;
+        
+        let tracks = album_full.song.into_iter().map(|s| Track {
+            id: s.id,
+            title: s.title,
+            artist: s.artist.unwrap_or_default(),
+            artist_id: s.artist_id,
+            album: s.album.unwrap_or_default(),
+            album_id: s.album_id,
+            duration: s.duration.unwrap_or(0),
+            cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
+        }).collect();
+
+        Ok(tracks)
     }
 }

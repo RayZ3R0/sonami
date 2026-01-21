@@ -809,6 +809,7 @@ impl LibraryManager {
 
     /// Import a track from any provider into the library
     /// This is the generic version of import_tidal_track
+    #[allow(clippy::too_many_arguments)]
     pub async fn import_provider_track(
         &self,
         provider_id: &str,

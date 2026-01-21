@@ -94,6 +94,7 @@ pub async fn verify_spotify_tracks(
 /// Falls back through the priority list until a match is found or all providers are exhausted.
 /// Verify a track against multiple providers in priority order.
 /// Falls back through the priority list until a match is found or all providers are exhausted.
+#[allow(clippy::too_many_arguments)]
 async fn verify_track_internal(
     tidal: &TidalClient,
     provider_manager: &ProviderManagerArc,

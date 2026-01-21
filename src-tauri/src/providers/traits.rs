@@ -24,6 +24,14 @@ pub trait MusicProvider: Send + Sync {
     async fn get_track_details(&self, track_id: &str) -> Result<Track>;
     async fn get_artist_details(&self, artist_id: &str) -> Result<Artist>;
     async fn get_album_details(&self, album_id: &str) -> Result<Album>;
+    async fn get_artist_top_tracks(&self, artist_id: &str) -> Result<Vec<Track>>;
+    async fn get_artist_albums(&self, artist_id: &str) -> Result<Vec<Album>>;
+    async fn get_album_tracks(&self, _album_id: &str) -> Result<Vec<Track>> {
+        // Default implementation for providers that might return tracks in get_album_details?
+        // Actually, it's better to force implementation. Be we can provide a default that returns empty? No.
+        // Let's make it required.
+        Err(anyhow::anyhow!("Not implemented"))
+    }
 }
 
 #[async_trait]

@@ -990,6 +990,127 @@ pub async fn set_active_provider(
 }
 
 #[tauri::command]
+pub async fn get_album(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+    album_id: String,
+) -> Result<crate::models::Album, AppError> {
+    // Validate provider
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
+
+    provider
+        .get_album_details(&album_id)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_album_tracks(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+    album_id: String,
+) -> Result<Vec<crate::models::Track>, AppError> {
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
+
+    provider
+        .get_album_tracks(&album_id)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_artist(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+    artist_id: String,
+) -> Result<crate::models::Artist, AppError> {
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
+
+    provider
+        .get_artist_details(&artist_id)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_artist_top_tracks(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+    artist_id: String,
+) -> Result<Vec<crate::models::Track>, AppError> {
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
+
+    provider
+        .get_artist_top_tracks(&artist_id)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_artist_albums(
+    state: State<'_, std::sync::Arc<ProviderManager>>,
+    provider_id: String,
+    artist_id: String,
+) -> Result<Vec<crate::models::Album>, AppError> {
+    let _ = provider_id
+        .parse::<ProviderId>()
+        .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
+
+    let provider = state
+        .get_provider(&provider_id)
+        .await
+        .ok_or(AppError::InvalidProvider(format!(
+            "Provider instance for {} not found",
+            provider_id
+        )))?;
+
+    provider
+        .get_artist_albums(&artist_id)
+        .await
+        .map_err(|e| AppError::Network(e.to_string()))
+}
+
+#[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn play_provider_track(
     app: AppHandle,

@@ -74,8 +74,8 @@ impl MusicProvider for TidalProvider {
                     .unwrap_or_default(),
                 album_id: t.album.as_ref().map(|a| a.id.to_string()),
                 duration: t.duration.unwrap_or(0) as u64,
-                cover_url: t
-                    .cover
+                cover_url: t.cover
+                    .or_else(|| t.album.as_ref().and_then(|a| a.cover.clone()))
                     .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
             })
             .collect();
@@ -96,6 +96,8 @@ impl MusicProvider for TidalProvider {
                     .cover
                     .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
                 year: None,
+                track_count: a.number_of_tracks,
+                duration: None, // Tidal search doesn't return album duration
             })
             .collect();
 
@@ -108,8 +110,10 @@ impl MusicProvider for TidalProvider {
                 cover_url: a
                     .picture
                     .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
+                banner: a.banner.map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
             })
             .collect();
+
 
         let playlists: Vec<Playlist> = playlists_res
             .items
@@ -204,6 +208,7 @@ impl MusicProvider for TidalProvider {
             cover_url: a
                 .picture
                 .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
+            banner: a.banner.map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
         })
     }
 
@@ -228,7 +233,119 @@ impl MusicProvider for TidalProvider {
             cover_url: a
                 .cover
                 .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
-            year: None,
+            year: a.release_date.map(|d| d.chars().take(4).collect()),
+            track_count: a.number_of_tracks,
+            duration: None, 
         })
+    }
+
+    async fn get_artist_top_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        let aid = artist_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let tracks_res = self
+            .client
+            .get_artist_top_tracks(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        let tracks: Vec<Track> = tracks_res
+            .into_iter()
+            .map(|t| Track {
+                id: t.id.to_string(),
+                title: t.title,
+                artist: t
+                    .artist
+                    .as_ref()
+                    .map(|a| a.name.clone())
+                    .unwrap_or_default(),
+                artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
+                album: t
+                    .album
+                    .as_ref()
+                    .map(|a| a.title.clone())
+                    .unwrap_or_default(),
+                album_id: t.album.as_ref().map(|a| a.id.to_string()),
+                duration: t.duration.unwrap_or(0) as u64,
+                cover_url: t.album.as_ref().and_then(|a| {
+                    a.cover
+                        .as_ref()
+                        .map(|c| crate::tidal::models::get_cover_url(c, 640))
+                }),
+            })
+            .collect();
+
+        Ok(tracks)
+    }
+
+    async fn get_artist_albums(&self, artist_id: &str) -> Result<Vec<Album>> {
+        let aid = artist_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let albums_res = self
+            .client
+            .get_artist_albums(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        let albums: Vec<Album> = albums_res
+            .into_iter()
+            .map(|a| Album {
+                id: a.id.to_string(),
+                title: a.title,
+                artist: a
+                    .artist
+                    .as_ref()
+                    .map(|ar| ar.name.clone())
+                    .unwrap_or_default(),
+                artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
+                cover_url: a
+                    .cover
+                    .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+                year: a.release_date.map(|d| d.chars().take(4).collect()),
+                track_count: a.number_of_tracks,
+                duration: None,
+            })
+            .collect();
+        Ok(albums)
+    }
+
+    async fn get_album_tracks(&self, album_id: &str) -> Result<Vec<Track>> {
+        let aid = album_id
+            .parse::<u64>()
+            .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        let tracks_res = self
+            .client
+            .get_album_tracks(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        let tracks: Vec<Track> = tracks_res
+            .into_iter()
+            .map(|t| Track {
+                id: t.id.to_string(),
+                title: t.title,
+                artist: t
+                    .artist
+                    .as_ref()
+                    .map(|a| a.name.clone())
+                    .unwrap_or_default(),
+                artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
+                album: t
+                    .album
+                    .as_ref()
+                    .map(|a| a.title.clone())
+                    .unwrap_or_default(),
+                album_id: t.album.as_ref().map(|a| a.id.to_string()),
+                duration: t.duration.unwrap_or(0) as u64,
+                cover_url: t.album.as_ref().and_then(|a| {
+                    a.cover
+                        .as_ref()
+                        .map(|c| crate::tidal::models::get_cover_url(c, 640))
+                }),
+            })
+            .collect();
+
+        Ok(tracks)
     }
 }

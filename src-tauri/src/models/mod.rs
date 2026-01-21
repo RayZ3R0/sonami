@@ -39,6 +39,7 @@ pub struct Track {
     pub album: String,
     pub album_id: Option<String>,
     pub duration: u64,
+    #[serde(rename = "cover_image")]
     pub cover_url: Option<String>,
 }
 
@@ -47,6 +48,7 @@ pub struct Artist {
     pub id: String,
     pub name: String,
     pub cover_url: Option<String>,
+    pub banner: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +59,8 @@ pub struct Album {
     pub artist_id: Option<String>,
     pub cover_url: Option<String>,
     pub year: Option<String>,
+    pub track_count: Option<u32>,
+    pub duration: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
