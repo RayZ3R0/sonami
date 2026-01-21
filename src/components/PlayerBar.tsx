@@ -1,6 +1,8 @@
 import { usePlayer, usePlaybackProgress } from "../context/PlayerContext";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { FullScreenView } from "./FullScreenView";
+import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { useDownload } from "../context/DownloadContext";
 
 const MarqueeText = ({
   text,
@@ -230,7 +232,11 @@ const SourceBadge = ({ path }: { path?: string }) => {
   return null;
 };
 
-export const PlayerBar = () => {
+interface PlayerBarProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
   const {
     currentTrack,
     isPlaying,
@@ -249,15 +255,26 @@ export const PlayerBar = () => {
     playerBarStyle,
     playbackQuality,
     setIsSettingsOpen,
+    favorites,
+    toggleFavorite,
+    playlists,
+    addToPlaylist,
   } = usePlayer();
+  const { downloadTrack } = useDownload();
   const { currentTime, duration } = usePlaybackProgress();
   const seekBarRef = useRef<HTMLDivElement>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
+  const playerBarContainerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    items: ContextMenuItem[];
+    position: { x: number; y: number };
+  }>({ isOpen: false, items: [], position: { x: 0, y: 0 } });
 
   useEffect(() => {
     if (!isDragging) return;
@@ -338,6 +355,77 @@ export const PlayerBar = () => {
     setIsFullScreenOpen(false);
   }, []);
 
+  // Handle artist click - navigate to artist page with provider awareness
+  const handleArtistClick = useCallback(() => {
+    if (!onNavigate || !currentTrack) return;
+
+    // Check if track has artist_id embedded (extended track data)
+    const trackAny = currentTrack as any;
+    const artistId = trackAny.artist_id;
+
+    // If no artist_id, we can't navigate (we only have artist name, not ID)
+    if (!artistId) {
+      console.log("[PlayerBar] No artist_id available for navigation, track data:", currentTrack);
+      return;
+    }
+
+    // Extract provider from path if available
+    const path = currentTrack.path || "";
+    let providerId = currentTrack.provider_id || "local";
+
+    if (path.startsWith("tidal:")) providerId = "tidal";
+    else if (path.includes("subsonic") || path.includes("/rest/stream")) providerId = "subsonic";
+    else if (path.includes("jellyfin") || path.includes("/Items/")) providerId = "jellyfin";
+
+    // Navigate using format: artist:{provider}:{id}
+    onNavigate(`artist:${providerId}:${artistId}`);
+  }, [currentTrack, onNavigate]);
+
+  // Handle right-click context menu for song title
+  const handleSongContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!currentTrack) return;
+
+    // Check if current track is liked
+    const trackId = currentTrack.id;
+    const compositeKey = currentTrack.provider_id && currentTrack.external_id
+      ? `${currentTrack.provider_id}:${currentTrack.external_id}`
+      : null;
+    const isLiked = favorites.has(trackId) || (compositeKey ? favorites.has(compositeKey) : false);
+
+    const menuItems: ContextMenuItem[] = [
+      {
+        label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
+        action: () => toggleFavorite(currentTrack as any),
+      },
+      {
+        label: "Add to Playlist",
+        submenu: playlists.map((pl) => ({
+          label: pl.title,
+          action: async () => {
+            await addToPlaylist(pl.id, currentTrack as any);
+          },
+        })),
+      },
+      {
+        label: "Download",
+        action: () => {
+          downloadTrack(currentTrack);
+        },
+      },
+    ];
+
+    setContextMenu({
+      isOpen: true,
+      items: menuItems,
+      position: { x: e.clientX, y: e.clientY },
+    });
+  }, [currentTrack, favorites, toggleFavorite, playlists, addToPlaylist, downloadTrack]);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
   if (!currentTrack) return null;
 
   const displayTime =
@@ -370,6 +458,16 @@ export const PlayerBar = () => {
     const percent = x / rect.width;
     seek(percent * duration);
   };
+
+  // Check if current track is liked (for UI display)
+  const currentTrackId = currentTrack.id;
+  const compositeId = currentTrack.provider_id && currentTrack.external_id
+    ? `${currentTrack.provider_id}:${currentTrack.external_id}`
+    : null;
+  const isCurrentTrackLiked = favorites.has(currentTrackId) || (compositeId ? favorites.has(compositeId) : false);
+
+  // Check if artist navigation is available
+  const hasArtistId = !!(currentTrack as any).artist_id;
 
   const isFloating = playerBarStyle === "floating";
 
@@ -423,11 +521,16 @@ export const PlayerBar = () => {
                 )}
               </div>
               <div className="flex flex-col overflow-hidden min-w-0 justify-center">
-                <div className="flex items-center">
-                  <MarqueeText
-                    text={currentTrack.title}
-                    className="text-sm font-semibold text-theme-primary leading-tight"
-                  />
+                <div className="flex items-center gap-1">
+                  <span
+                    onContextMenu={handleSongContextMenu}
+                    className="cursor-context-menu"
+                  >
+                    <MarqueeText
+                      text={currentTrack.title}
+                      className="text-sm font-semibold text-theme-primary leading-tight"
+                    />
+                  </span>
                   {playbackQuality &&
                     !currentTrack.path.includes("subsonic") &&
                     !currentTrack.path.includes("/rest/stream") &&
@@ -439,10 +542,38 @@ export const PlayerBar = () => {
                       />
                     )}
                   <SourceBadge path={currentTrack.path} />
+                  {/* Heart Button */}
+                  <button
+                    onClick={() => toggleFavorite(currentTrack as any)}
+                    className="flex-shrink-0 p-1 rounded-full hover:bg-white/10 transition-colors ml-1"
+                    title={isCurrentTrackLiked ? "Remove from Liked Songs" : "Add to Liked Songs"}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill={isCurrentTrackLiked ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`w-3.5 h-3.5 transition-colors ${isCurrentTrackLiked ? "text-pink-500" : "text-theme-secondary hover:text-pink-400"}`}
+                    >
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                  </button>
                 </div>
-                <span className="text-xs text-theme-secondary truncate">
-                  {currentTrack.artist}
-                </span>
+                {hasArtistId ? (
+                  <button
+                    onClick={handleArtistClick}
+                    className="text-xs text-theme-secondary truncate text-left hover:text-theme-accent hover:underline transition-colors cursor-pointer"
+                    title={`Go to ${currentTrack.artist}`}
+                  >
+                    {currentTrack.artist}
+                  </button>
+                ) : (
+                  <span className="text-xs text-theme-secondary truncate">
+                    {currentTrack.artist}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -646,6 +777,15 @@ export const PlayerBar = () => {
           </div>
         </div>
       </div>
+
+      {contextMenu.isOpen && (
+        <ContextMenu
+          items={contextMenu.items}
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          containerRef={playerBarContainerRef}
+        />
+      )}
     </>
   );
 };
