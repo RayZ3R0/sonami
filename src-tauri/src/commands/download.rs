@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use tauri::State;
 
+use crate::database::DatabaseManager;
 use crate::download::{DownloadManager, TrackMetadata};
 use crate::tidal::{Quality, TidalClient};
 
@@ -32,6 +33,7 @@ pub async fn get_download_path(
 #[tauri::command]
 pub async fn set_download_path(
     download_manager: State<'_, DownloadManager>,
+    db: State<'_, DatabaseManager>,
     path: String,
 ) -> Result<(), String> {
     let path_buf = PathBuf::from(&path);
@@ -41,7 +43,12 @@ pub async fn set_download_path(
             .map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    download_manager.set_download_path(path_buf)
+    download_manager.set_download_path(path_buf)?;
+
+    // Persist to database
+    download_manager.save_path(&db.pool).await?;
+
+    Ok(())
 }
 
 #[tauri::command]

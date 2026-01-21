@@ -126,6 +126,13 @@ impl DatabaseManager {
             CREATE INDEX IF NOT EXISTS idx_albums_provider_external ON albums(provider_id, external_id);
             CREATE INDEX IF NOT EXISTS idx_artists_provider_external ON artists(provider_id, external_id);
             "#,
+            // Migration 7: App Settings (for download path persistence)
+            r#"
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            "#,
         ];
 
         // 3. Apply Migrations
