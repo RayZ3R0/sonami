@@ -100,6 +100,10 @@ pub fn run() {
                         let hist_manager = history::PlayHistoryManager::new(pool.clone());
                         handle_clone_db.manage(hist_manager);
 
+                        // Load saved download path
+                        let download_manager = handle_clone_db.state::<DownloadManager>();
+                        download_manager.load_saved_path(&pool).await;
+
                         log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
 
                         // Load configured providers from database

@@ -68,6 +68,40 @@ impl DownloadManager {
         Ok(())
     }
 
+    pub async fn load_saved_path(&self, pool: &sqlx::Pool<sqlx::Sqlite>) {
+        let result: Result<(String,), _> = sqlx::query_as(
+            "SELECT value FROM app_settings WHERE key = 'download_path'"
+        )
+        .fetch_one(pool)
+        .await;
+
+        if let Ok((saved_path,)) = result {
+            let path = PathBuf::from(&saved_path);
+            if path.exists() || std::fs::create_dir_all(&path).is_ok() {
+                let mut dir = self.music_dir.lock().unwrap();
+                *dir = path;
+                log::info!("Loaded download path from settings: {}", saved_path);
+            }
+        }
+    }
+
+    pub async fn save_path(&self, pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), String> {
+        let path = self.get_download_path();
+        let path_str = path.to_string_lossy().to_string();
+
+        sqlx::query(
+            "INSERT INTO app_settings (key, value) VALUES ('download_path', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .bind(&path_str)
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Failed to save download path: {}", e))?;
+
+        log::info!("Saved download path to settings: {}", path_str);
+        Ok(())
+    }
+
     pub fn get_download_path(&self) -> PathBuf {
         self.music_dir.lock().unwrap().clone()
     }
