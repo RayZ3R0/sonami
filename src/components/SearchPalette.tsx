@@ -213,11 +213,10 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${
-                          isAdded
-                            ? "bg-pink-500/20 text-pink-400 cursor-default"
-                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-                        }
+                        ${isAdded
+              ? "bg-pink-500/20 text-pink-400 cursor-default"
+              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+            }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -308,7 +307,7 @@ export const SearchPalette = ({
     playlists,
     addToPlaylist,
     toggleFavorite,
-
+    favorites,
     streamQuality,
     searchProviderOrder,
   } = usePlayer();
@@ -324,7 +323,6 @@ export const SearchPalette = ({
   const [loadingJellyfin, setLoadingJellyfin] = useState(false);
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [addedTracks, setAddedTracks] = useState<Set<string>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -388,7 +386,6 @@ export const SearchPalette = ({
       setSubsonicResults([]);
       setJellyfinResults([]);
       setSelectedIndex(0);
-      setAddedTracks(new Set());
       setTimeout(() => inputRef.current?.focus(), 50);
 
       // Fetch configured providers
@@ -813,6 +810,12 @@ export const SearchPalette = ({
     const track = getTrackFromResult(result);
     const isLocal = result.type === "local";
 
+    // Check if track is liked
+    const compositeKey = result.providerId && result.externalId
+      ? `${result.providerId}:${result.externalId}`
+      : null;
+    const isLiked = favorites.has(result.id) || (compositeKey ? favorites.has(compositeKey) : false);
+
     setContextMenu({
       isOpen: true,
       items: [
@@ -821,7 +824,7 @@ export const SearchPalette = ({
           action: () => handlePlay(result),
         },
         {
-          label: "Add to Liked Songs",
+          label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
           action: () => {
             if (isLocal) {
               toggleFavorite(track);
@@ -1004,11 +1007,11 @@ export const SearchPalette = ({
                 color: "bg-gray-500",
               };
 
-              const isAdded =
-                result.type === "tidal" &&
-                result.providerId &&
-                result.externalId &&
-                addedTracks.has(`${result.providerId}:${result.externalId}`);
+              // Check liked state using global favorites
+              const compositeKey = result.providerId && result.externalId
+                ? `${result.providerId}:${result.externalId}`
+                : null;
+              const isAdded = favorites.has(result.id) || (compositeKey ? favorites.has(compositeKey) : false);
               const isDownloaded =
                 result.type === "local" &&
                 (() => {
@@ -1045,19 +1048,15 @@ export const SearchPalette = ({
                     onPlay={() => handlePlay(result)}
                     onMouseEnter={() => setSelectedIndex(index)}
                     formatDuration={formatDuration}
-                    showAddButton={result.type === "tidal"}
+                    showAddButton={true}
                     isAdded={!!isAdded}
-                    onAdd={
-                      result.type === "tidal"
-                        ? (e) => handleAddToLikedSongs(result, e)
-                        : undefined
-                    }
+                    onAdd={(e) => handleAddToLikedSongs(result, e)}
                     onContextMenu={(e) => handleContextMenu(e, result)}
                     downloadState={
                       result.providerId && result.externalId
                         ? downloads.get(
-                            `${result.providerId}:${result.externalId}`,
-                          )
+                          `${result.providerId}:${result.externalId}`,
+                        )
                         : undefined
                     }
                     isDownloaded={isDownloaded}
