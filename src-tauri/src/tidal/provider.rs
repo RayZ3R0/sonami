@@ -59,20 +59,20 @@ impl MusicProvider for TidalProvider {
             .items
             .into_iter()
             .map(|t| Track {
-                id: t.id.to_string(),
+                id: format!("tidal:{}", t.id),
                 title: t.title,
                 artist: t
                     .artist
                     .as_ref()
                     .map(|a| a.name.clone())
                     .unwrap_or_default(),
-                artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
+                artist_id: t.artist.as_ref().map(|a| format!("tidal:{}", a.id)),
                 album: t
                     .album
                     .as_ref()
                     .map(|a| a.title.clone())
                     .unwrap_or_default(),
-                album_id: t.album.as_ref().map(|a| a.id.to_string()),
+                album_id: t.album.as_ref().map(|a| format!("tidal:{}", a.id)),
                 duration: t.duration.unwrap_or(0) as u64,
                 cover_url: t.cover
                     .or_else(|| t.album.as_ref().and_then(|a| a.cover.clone()))
@@ -84,14 +84,14 @@ impl MusicProvider for TidalProvider {
             .items
             .into_iter()
             .map(|a| Album {
-                id: a.id.to_string(),
+                id: format!("tidal:{}", a.id),
                 title: a.title,
                 artist: a
                     .artist
                     .as_ref()
                     .map(|ar| ar.name.clone())
                     .unwrap_or_default(),
-                artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
+                artist_id: a.artist.as_ref().map(|ar| format!("tidal:{}", ar.id)),
                 cover_url: a
                     .cover
                     .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
@@ -105,7 +105,7 @@ impl MusicProvider for TidalProvider {
             .items
             .into_iter()
             .map(|a| Artist {
-                id: a.id.to_string(),
+                id: format!("tidal:{}", a.id),
                 name: a.name,
                 cover_url: a
                     .picture
@@ -203,7 +203,7 @@ impl MusicProvider for TidalProvider {
             .await
             .map_err(|e| anyhow!(e.to_string()))?;
         Ok(Artist {
-            id: a.id.to_string(),
+            id: format!("tidal:{}", a.id),
             name: a.name,
             cover_url: a
                 .picture
@@ -222,14 +222,14 @@ impl MusicProvider for TidalProvider {
             .await
             .map_err(|e| anyhow!(e.to_string()))?;
         Ok(Album {
-            id: a.id.to_string(),
+            id: format!("tidal:{}", a.id),
             title: a.title,
             artist: a
                 .artist
                 .as_ref()
                 .map(|ar| ar.name.clone())
                 .unwrap_or_default(),
-            artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
+            artist_id: a.artist.as_ref().map(|ar| format!("tidal:{}", ar.id)),
             cover_url: a
                 .cover
                 .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
@@ -243,6 +243,14 @@ impl MusicProvider for TidalProvider {
         let aid = artist_id
             .parse::<u64>()
             .map_err(|_| anyhow!("Invalid Tidal ID"))?;
+        
+        // Fetch artist info first so we can inject it into tracks
+        let artist_info = self
+            .client
+            .get_artist(aid)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+        
         let tracks_res = self
             .client
             .get_artist_top_tracks(aid)
@@ -251,27 +259,32 @@ impl MusicProvider for TidalProvider {
 
         let tracks: Vec<Track> = tracks_res
             .into_iter()
-            .map(|t| Track {
-                id: t.id.to_string(),
-                title: t.title,
-                artist: t
-                    .artist
-                    .as_ref()
-                    .map(|a| a.name.clone())
-                    .unwrap_or_default(),
-                artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
-                album: t
-                    .album
-                    .as_ref()
-                    .map(|a| a.title.clone())
-                    .unwrap_or_default(),
-                album_id: t.album.as_ref().map(|a| a.id.to_string()),
-                duration: t.duration.unwrap_or(0) as u64,
-                cover_url: t.album.as_ref().and_then(|a| {
-                    a.cover
+            .map(|t| {
+                // Use track's artist if available, otherwise inject the fetched artist
+                let (artist_name, track_artist_id) = if let Some(ref a) = t.artist {
+                    (a.name.clone(), Some(format!("tidal:{}", a.id)))
+                } else {
+                    (artist_info.name.clone(), Some(format!("tidal:{}", artist_info.id)))
+                };
+                
+                Track {
+                    id: format!("tidal:{}", t.id),
+                    title: t.title,
+                    artist: artist_name,
+                    artist_id: track_artist_id,
+                    album: t
+                        .album
                         .as_ref()
-                        .map(|c| crate::tidal::models::get_cover_url(c, 640))
-                }),
+                        .map(|a| a.title.clone())
+                        .unwrap_or_default(),
+                    album_id: t.album.as_ref().map(|a| format!("tidal:{}", a.id)),
+                    duration: t.duration.unwrap_or(0) as u64,
+                    cover_url: t.album.as_ref().and_then(|a| {
+                        a.cover
+                            .as_ref()
+                            .map(|c| crate::tidal::models::get_cover_url(c, 640))
+                    }),
+                }
             })
             .collect();
 
@@ -291,14 +304,14 @@ impl MusicProvider for TidalProvider {
         let albums: Vec<Album> = albums_res
             .into_iter()
             .map(|a| Album {
-                id: a.id.to_string(),
+                id: format!("tidal:{}", a.id),
                 title: a.title,
                 artist: a
                     .artist
                     .as_ref()
                     .map(|ar| ar.name.clone())
                     .unwrap_or_default(),
-                artist_id: a.artist.as_ref().map(|ar| ar.id.to_string()),
+                artist_id: a.artist.as_ref().map(|ar| format!("tidal:{}", ar.id)),
                 cover_url: a
                     .cover
                     .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
@@ -323,20 +336,20 @@ impl MusicProvider for TidalProvider {
         let tracks: Vec<Track> = tracks_res
             .into_iter()
             .map(|t| Track {
-                id: t.id.to_string(),
+                id: format!("tidal:{}", t.id),
                 title: t.title,
                 artist: t
                     .artist
                     .as_ref()
                     .map(|a| a.name.clone())
                     .unwrap_or_default(),
-                artist_id: t.artist.as_ref().map(|a| a.id.to_string()),
+                artist_id: t.artist.as_ref().map(|a| format!("tidal:{}", a.id)),
                 album: t
                     .album
                     .as_ref()
                     .map(|a| a.title.clone())
                     .unwrap_or_default(),
-                album_id: t.album.as_ref().map(|a| a.id.to_string()),
+                album_id: t.album.as_ref().map(|a| format!("tidal:{}", a.id)),
                 duration: t.duration.unwrap_or(0) as u64,
                 cover_url: t.album.as_ref().and_then(|a| {
                     a.cover

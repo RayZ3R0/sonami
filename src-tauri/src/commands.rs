@@ -80,10 +80,14 @@ fn parse_audio_file(path_str: &str) -> Option<Track> {
         id: uuid::Uuid::new_v4().to_string(),
         title,
         artist,
+        artist_id: None,
         album,
+        album_id: None,
         duration,
         cover_image,
         path: path_str.to_string(),
+        provider_id: Some("local".to_string()),
+        external_id: None,
     })
 }
 
@@ -502,10 +506,14 @@ pub async fn play_stream(
         id: "stream".to_string(),
         title: "Network Stream".to_string(),
         artist: "Tidal".to_string(),
+        artist_id: None,
         album: "Unknown".to_string(),
+        album_id: None,
         duration: 0,
         cover_image: None,
         path: url.clone(),
+        provider_id: Some("tidal".to_string()),
+        external_id: None,
     };
 
     {
@@ -635,7 +643,9 @@ pub async fn play_tidal_track(
     track_id: u64,
     title: String,
     artist: String,
+    artist_id: Option<u64>,
     album: String,
+    album_id: Option<u64>,
     duration: u64,
     cover_url: Option<String>,
     quality: String,
@@ -653,10 +663,14 @@ pub async fn play_tidal_track(
         id: track_id.to_string(),
         title,
         artist,
+        artist_id: artist_id.map(|id| id.to_string()),
         album,
+        album_id: album_id.map(|id| id.to_string()),
         duration,
         cover_image: cover_url,
         path: stream_info.url.clone(),
+        provider_id: Some("tidal".to_string()),
+        external_id: Some(track_id.to_string()),
     };
 
     {
@@ -1123,7 +1137,9 @@ pub async fn play_provider_track(
     track_id: String,
     title: String,
     artist: String,
+    artist_id: Option<String>,
     album: String,
+    album_id: Option<String>,
     duration: u64,
     cover_url: Option<String>,
 ) -> Result<(), AppError> {
@@ -1226,10 +1242,14 @@ pub async fn play_provider_track(
         id: local_id,
         title,
         artist,
+        artist_id: artist_id.clone(),
         album,
+        album_id: album_id.clone(),
         duration,
         cover_image: cover_url,
         path: stream_url.clone(),
+        provider_id: Some(provider_id.clone()),
+        external_id: Some(track_id.clone()),
     };
 
     {

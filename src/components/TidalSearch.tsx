@@ -48,7 +48,9 @@ export const TidalSearch = () => {
         trackId: track.id,
         title: track.title,
         artist: track.artist?.name || "Unknown",
+        artistId: track.artist?.id || null,
         album: track.album?.title || "Unknown",
+        albumId: track.album?.id || null,
         duration: track.duration || 0,
         coverUrl: coverUrl,
         quality: streamQuality,
@@ -160,16 +162,16 @@ export const TidalSearch = () => {
                         title: track.title,
                         artist: track.artist
                           ? {
-                              id: track.artist.id || 0,
-                              name: track.artist.name,
-                            }
+                            id: track.artist.id || 0,
+                            name: track.artist.name,
+                          }
                           : undefined,
                         album: track.album
                           ? {
-                              id: track.album.id || 0,
-                              title: track.album.title,
-                              cover: track.album.cover,
-                            }
+                            id: track.album.id || 0,
+                            title: track.album.title,
+                            cover: track.album.cover,
+                          }
                           : undefined,
                         duration: track.duration,
                         audioQuality: track.audioQuality || track.audio_quality,

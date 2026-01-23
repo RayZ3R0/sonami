@@ -174,22 +174,22 @@ impl MusicProvider for JellyfinProvider {
             match item.item_type.as_str() {
                 "Audio" => {
                     tracks.push(Track {
-                        id: item.id.clone(),
+                        id: format!("jellyfin:{}", item.id),
                         title: item.name.clone(),
                         artist: item.primary_artist(),
-                        artist_id: item.primary_artist_id(),
+                        artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
                         album: item.album.clone().unwrap_or_default(),
-                        album_id: item.album_id.clone(),
+                        album_id: item.album_id.clone().map(|id| format!("jellyfin:{}", id)),
                         duration: item.ticks_to_seconds(),
                         cover_url: Some(self.image_url(&item.id, 640)),
                     });
                 }
                 "MusicAlbum" => {
                     albums.push(Album {
-                        id: item.id.clone(),
+                        id: format!("jellyfin:{}", item.id),
                         title: item.name.clone(),
                         artist: item.primary_artist(),
-                        artist_id: item.primary_artist_id(),
+                        artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
                         cover_url: Some(self.image_url(&item.id, 640)),
                         year: item.production_year.map(|y| y.to_string()),
                         track_count: None,
@@ -198,7 +198,7 @@ impl MusicProvider for JellyfinProvider {
                 }
                 "MusicArtist" => {
                     artists.push(Artist {
-                        id: item.id.clone(),
+                        id: format!("jellyfin:{}", item.id),
                         name: item.name.clone(),
                         cover_url: Some(self.image_url(&item.id, 640)),
                         banner: None,
@@ -259,12 +259,12 @@ impl MusicProvider for JellyfinProvider {
             .await?;
 
         Ok(Track {
-            id: item.id.clone(),
+            id: format!("jellyfin:{}", item.id),
             title: item.name.clone(),
             artist: item.primary_artist(),
-            artist_id: item.primary_artist_id(),
+            artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
             album: item.album.clone().unwrap_or_default(),
-            album_id: item.album_id.clone(),
+            album_id: item.album_id.clone().map(|id| format!("jellyfin:{}", id)),
             duration: item.ticks_to_seconds(),
             cover_url: Some(self.image_url(&item.id, 640)),
         })
@@ -288,7 +288,7 @@ impl MusicProvider for JellyfinProvider {
             .await?;
 
         Ok(Artist {
-            id: item.id.clone(),
+            id: format!("jellyfin:{}", item.id),
             name: item.name.clone(),
             cover_url: Some(self.image_url(&item.id, 640)),
             banner: None,
@@ -313,10 +313,10 @@ impl MusicProvider for JellyfinProvider {
             .await?;
 
         Ok(Album {
-            id: item.id.clone(),
+            id: format!("jellyfin:{}", item.id),
             title: item.name.clone(),
             artist: item.primary_artist(),
-            artist_id: item.primary_artist_id(),
+            artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
             cover_url: Some(self.image_url(&item.id, 640)),
             year: item.production_year.map(|y| y.to_string()),
             track_count: None,
@@ -349,16 +349,16 @@ impl MusicProvider for JellyfinProvider {
 
         let tracks = resp.items.into_iter().map(|item| {
             let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id();
+            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
             let duration = item.ticks_to_seconds();
             let cover_url = Some(self.image_url(&item.id, 640));
             Track {
-                id: item.id,
+                id: format!("jellyfin:{}", item.id),
                 title: item.name,
                 artist,
                 artist_id,
                 album: item.album.unwrap_or_default(),
-                album_id: item.album_id,
+                album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
                 duration,
                 cover_url,
             }
@@ -390,12 +390,12 @@ impl MusicProvider for JellyfinProvider {
         
         let albums = resp.items.into_iter().map(|item| {
             let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id();
+            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
             let cover_url = Some(self.image_url(&item.id, 640));
             let year = item.production_year.map(|y| y.to_string());
             
             Album {
-                id: item.id,
+                id: format!("jellyfin:{}", item.id),
                 title: item.name,
                 artist,
                 artist_id,
@@ -430,17 +430,17 @@ impl MusicProvider for JellyfinProvider {
 
         let tracks = resp.items.into_iter().map(|item| {
             let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id();
+            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
             let duration = item.ticks_to_seconds();
             let cover_url = Some(self.image_url(&item.id, 640));
 
             Track {
-                id: item.id,
+                id: format!("jellyfin:{}", item.id),
                 title: item.name,
                 artist,
                 artist_id,
                 album: item.album.unwrap_or_default(),
-                album_id: item.album_id,
+                album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
                 duration,
                 cover_url,
             }

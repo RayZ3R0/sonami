@@ -100,9 +100,13 @@ impl PlaylistManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at as track_added_at, t.audio_quality,
-                t.provider_id, t.external_id,
+                t.provider_id, t.external_id, t.artist_id, t.album_id,
                 a.name as artist_name,
+                a.provider_id as artist_provider_id,
+                a.external_id as artist_external_id,
                 al.title as album_title, al.cover_url,
+                al.provider_id as album_provider_id,
+                al.external_id as album_external_id,
                 pt.added_at
             FROM playlist_tracks pt
             JOIN tracks t ON pt.track_id = t.id
@@ -150,11 +154,41 @@ impl PlaylistManager {
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
             let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
+            // Construct artist_id - favor external ID for external sources
+            let artist_provider_id: Option<String> = row.try_get("artist_provider_id").ok();
+            let artist_external_id: Option<String> = row.try_get("artist_external_id").ok();
+            
+            let artist_id = if let (Some(pid), Some(eid)) = (artist_provider_id, artist_external_id) {
+                if !eid.is_empty() {
+                    Some(format!("{}:{}", pid, eid))
+                } else {
+                    row.try_get("artist_id").ok()
+                }
+            } else {
+                row.try_get("artist_id").ok()
+            };
+
+            // Construct album_id - favor external ID
+            let album_provider_id: Option<String> = row.try_get("album_provider_id").ok();
+            let album_external_id: Option<String> = row.try_get("album_external_id").ok();
+
+            let album_id = if let (Some(pid), Some(eid)) = (album_provider_id, album_external_id) {
+                 if !eid.is_empty() {
+                    Some(format!("{}:{}", pid, eid))
+                } else {
+                    row.try_get("album_id").ok()
+                }
+            } else {
+                row.try_get("album_id").ok()
+            };
+
             tracks.push(UnifiedTrack {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
                 artist: row.try_get("artist_name").unwrap_or_default(),
+                artist_id,
                 album: row.try_get("album_title").unwrap_or_default(),
+                album_id,
                 duration: duration as u64,
                 source,
                 cover_image: row.try_get("cover_url").ok(),

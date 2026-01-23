@@ -719,7 +719,9 @@ export const SearchPalette = ({
           trackId: track.id,
           title: track.title,
           artist: track.artist?.name || "Unknown",
+          artistId: track.artist?.id || null,
           album: track.album?.title || "Unknown",
+          albumId: track.album?.id || null,
           duration: track.duration || 0,
           coverUrl,
           quality: streamQuality,
@@ -733,13 +735,17 @@ export const SearchPalette = ({
       try {
         const providerId = result.type;
         const trackId = result.id.replace(`${providerId}-`, "");
+        // Get artist_id and album_id from the track if available
+        const track = result.track as UnifiedTrack;
 
         await invoke("play_provider_track", {
           providerId,
           trackId,
           title: result.title,
           artist: result.artist,
+          artistId: track.artist_id || null,
           album: result.album,
+          albumId: track.album_id || null,
           duration: result.duration,
           coverUrl: result.cover,
         });
@@ -791,7 +797,9 @@ export const SearchPalette = ({
       id: `tidal-${t.id}`,
       title: t.title,
       artist: t.artist?.name || "Unknown",
+      artist_id: t.artist?.id ? `tidal:${t.artist.id}` : undefined,
       album: t.album?.title || "Unknown",
+      album_id: t.album?.id ? `tidal:${t.album.id}` : undefined,
       duration: t.duration || 0,
       cover_image: t.album?.cover
         ? `https://resources.tidal.com/images/${t.album.cover.replace(/-/g, "/")}/640x640.jpg`

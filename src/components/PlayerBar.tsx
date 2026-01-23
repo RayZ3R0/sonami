@@ -369,16 +369,9 @@ export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
       return;
     }
 
-    // Extract provider from path if available
-    const path = currentTrack.path || "";
-    let providerId = currentTrack.provider_id || "local";
-
-    if (path.startsWith("tidal:")) providerId = "tidal";
-    else if (path.includes("subsonic") || path.includes("/rest/stream")) providerId = "subsonic";
-    else if (path.includes("jellyfin") || path.includes("/Items/")) providerId = "jellyfin";
-
-    // Navigate using format: artist:{provider}:{id}
-    onNavigate(`artist:${providerId}:${artistId}`);
+    // artist_id is already prefixed with provider (e.g., "tidal:10449431")
+    // Navigate using format: artist:{prefixed_id}
+    onNavigate(`artist:${artistId}`);
   }, [currentTrack, onNavigate]);
 
   // Handle right-click context menu for song title

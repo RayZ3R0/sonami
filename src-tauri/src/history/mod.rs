@@ -104,7 +104,7 @@ impl PlayHistoryManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
-                t.provider_id, t.external_id,
+                t.provider_id, t.external_id, t.artist_id, t.album_id,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM tracks t
@@ -157,7 +157,9 @@ impl PlayHistoryManager {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
                 artist: row.try_get("artist_name").unwrap_or_default(),
+                artist_id: row.try_get("artist_id").ok(),
                 album: row.try_get("album_title").unwrap_or_default(),
+                album_id: row.try_get("album_id").ok(),
                 duration: duration as u64,
                 source,
                 cover_image: row.try_get("cover_url").ok(),
@@ -183,7 +185,7 @@ impl PlayHistoryManager {
             SELECT 
                 t.id, t.title, t.duration, t.source_type, t.file_path,
                 t.play_count, t.skip_count, t.last_played_at, t.added_at, t.audio_quality,
-                t.provider_id, t.external_id,
+                t.provider_id, t.external_id, t.artist_id, t.album_id,
                 a.name as artist_name,
                 al.title as album_title, al.cover_url
             FROM tracks t
@@ -236,7 +238,9 @@ impl PlayHistoryManager {
                 id: row.try_get("id").unwrap_or_default(),
                 title: row.try_get("title").unwrap_or_default(),
                 artist: row.try_get("artist_name").unwrap_or_default(),
+                artist_id: row.try_get("artist_id").ok(),
                 album: row.try_get("album_title").unwrap_or_default(),
+                album_id: row.try_get("album_id").ok(),
                 duration: duration as u64,
                 source,
                 cover_image: row.try_get("cover_url").ok(),

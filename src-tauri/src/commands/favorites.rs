@@ -14,12 +14,18 @@ pub async fn add_favorite(
                 id: external_id.clone(),
                 title: track.title.clone(),
                 artist: track.artist.clone(),
-                artist_id: None,
+                artist_id: track.artist_id.clone(), // Pass the artist_id (e.g. tidal:123)
                 album: track.album.clone(),
-                album_id: None,
+                album_id: track.album_id.clone(),   // Pass the album_id (e.g. tidal:456)
                 duration: track.duration,
                 cover_url: track.cover_image.clone(),
             };
+            log::info!(
+                "[add_favorite] Importing track '{}' with artist_id={:?}, album_id={:?}",
+                import_track.title,
+                import_track.artist_id,
+                import_track.album_id
+            );
             library
                 .import_external_track(&import_track, provider_id)
                 .await

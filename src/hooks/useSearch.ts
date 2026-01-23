@@ -18,6 +18,8 @@ export interface UnifiedSearchTrack extends Omit<Track, 'source'> {
     cover?: string;
     providerId?: string;
     externalId?: string;
+    artistId?: string;  // Provider-prefixed artist ID for navigation
+    albumId?: string;   // Provider-prefixed album ID for navigation
     raw: any;
 }
 
@@ -218,7 +220,9 @@ export function useSearch({
             } else {
                 const provider = results as ProviderSearchResults;
                 provider.tracks.forEach(t => {
-                    const unifiedId: string = createTrackKey(type, t.id); // Assuming t.id is external ID for provider
+                    // Backend now returns prefixed IDs (e.g., "tidal:12345")
+                    // Use the prefixed ID directly as the unified ID
+                    const unifiedId: string = t.id.includes(":") ? t.id : createTrackKey(type, t.id);
 
                     // Deduplication: Skip if this track exists locally
                     if (localTrackKeys.has(unifiedId)) return;
@@ -229,32 +233,36 @@ export function useSearch({
                         type: type, // TypeScript knows type is ProviderId
                         cover: t.cover_image,
                         providerId: type,
-                        externalId: t.id,
+                        externalId: t.id.includes(":") ? t.id.split(":")[1] : t.id,
+                        artistId: t.artist_id,  // Already prefixed by backend
+                        albumId: t.album_id,    // Already prefixed by backend
                         raw: t,
                         path: t.path || unifiedId,
                     } as unknown as UnifiedSearchTrack); // Need unknown cast because UnifiedSearchTrack expects specific type literal union, but we have generic ProviderId
                 });
                 provider.albums.forEach(a => {
-                    const unifiedId = createTrackKey(type, a.id);
+                    // Backend now returns prefixed IDs - use directly or prefix if needed
+                    const unifiedId = a.id.includes(":") ? a.id : createTrackKey(type, a.id);
                     target.albums.push({
                         ...a,
                         id: unifiedId,
                         type: type,
                         cover: a.cover_url,
                         providerId: type,
-                        externalId: a.id,
+                        externalId: a.id.includes(":") ? a.id.split(":")[1] : a.id,
                         raw: a,
                     } as unknown as UnifiedSearchAlbum);
                 });
                 provider.artists.forEach(a => {
-                    const unifiedId = createTrackKey(type, a.id);
+                    // Backend now returns prefixed IDs - use directly or prefix if needed
+                    const unifiedId = a.id.includes(":") ? a.id : createTrackKey(type, a.id);
                     target.artists.push({
                         ...a,
                         id: unifiedId,
                         type: type,
                         cover: a.cover_url,
                         providerId: type,
-                        externalId: a.id,
+                        externalId: a.id.includes(":") ? a.id.split(":")[1] : a.id,
                         raw: a,
                     } as unknown as UnifiedSearchArtist);
                 });

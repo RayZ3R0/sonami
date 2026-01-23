@@ -30,10 +30,13 @@ const normalizeTrack = (track: Track, providerId: string): Track => {
         ...track,
         id: unifiedId,
         // Ensure provider_id is set
-        provider_id: providerId,
+        provider_id: track.provider_id || providerId,
         external_id: isPrefixed ? track.id.split(":")[1] : track.id,
         source: providerId.toUpperCase() as any,
         path: track.path || unifiedId, // Use existing path or unified ID as path
+        // Preserve artist_id and album_id from backend (already prefixed)
+        artist_id: track.artist_id,
+        album_id: track.album_id,
     };
 };
 

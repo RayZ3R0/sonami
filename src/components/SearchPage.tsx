@@ -8,6 +8,7 @@ import {
 import { usePlayer } from "../context/PlayerContext";
 import { AppLogo } from "./icons/AppLogo";
 import { Track } from "../types";
+import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 
 interface SearchPageProps {
   initialQuery?: string;
@@ -152,11 +153,13 @@ const TrackRow = ({
   index,
   onPlay,
   isPlaying,
+  onContextMenu,
 }: {
   track: UnifiedSearchTrack;
   index: number;
   onPlay: () => void;
   isPlaying?: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) => {
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -167,6 +170,7 @@ const TrackRow = ({
   return (
     <button
       onClick={onPlay}
+      onContextMenu={onContextMenu}
       className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-theme-surface-hover transition-colors group text-left ${isPlaying ? "bg-theme-accent/10" : ""}`}
     >
       <div className="w-8 text-center text-theme-muted text-sm font-mono tabular-nums">
@@ -245,7 +249,13 @@ export const SearchPage = ({
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { playTrack } = usePlayer();
+  const { playTrack, toggleFavorite, favorites, playlists, addToPlaylist } = usePlayer();
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    position: { x: number; y: number };
+    track: UnifiedSearchTrack;
+  } | null>(null);
 
   const searchTypes = useMemo((): ("track" | "album" | "artist")[] => {
     if (activeTab === "all") return ["track", "album", "artist"];
@@ -264,26 +274,88 @@ export const SearchPage = ({
     inputRef.current?.focus();
   }, []);
 
+  // Convert search track to Track format for like/play operations
+  const convertToTrack = useCallback((track: UnifiedSearchTrack): Track => {
+    return {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      artist_id: track.artistId || track.artist_id,
+      album: track.album,
+      album_id: track.albumId || track.album_id,
+      duration: track.duration,
+      cover_image: track.cover,
+      path: track.path || track.id,
+      source: track.type.toUpperCase() as Track["source"],
+      provider_id: track.providerId || track.type,
+      external_id: track.externalId || track.id.split(":").pop() || track.id,
+    };
+  }, []);
+
   const handlePlayTrack = useCallback(
     async (track: UnifiedSearchTrack) => {
-      const t = {
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: track.duration,
-        cover_image: track.cover,
-        path: track.path || track.id,
-        source: track.type.toUpperCase(),
-        provider_id: track.providerId || track.type,
-        external_id: track.externalId || track.id.split(":").pop() || track.id,
-      };
-
+      const t = convertToTrack(track);
       console.log("[SearchPage] Playing track:", t);
-      await playTrack(t as unknown as Track, [t as unknown as Track]);
+      await playTrack(t, [t]);
     },
-    [playTrack],
+    [playTrack, convertToTrack],
   );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, track: UnifiedSearchTrack) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ position: { x: e.clientX, y: e.clientY }, track });
+    },
+    [],
+  );
+
+  const getContextMenuItems = useCallback((): ContextMenuItem[] => {
+    if (!contextMenu) return [];
+    const track = convertToTrack(contextMenu.track);
+    const isFavorited = favorites.has(track.id) || favorites.has(track.path);
+
+    const items: ContextMenuItem[] = [
+      {
+        label: "Play",
+        icon: (
+          <svg fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        ),
+        action: () => handlePlayTrack(contextMenu.track),
+      },
+      {
+        label: isFavorited ? "Remove from Liked Songs" : "Add to Liked Songs",
+        icon: (
+          <svg fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        ),
+        action: () => toggleFavorite(track),
+      },
+    ];
+
+    // Add to playlist submenu
+    if (playlists.length > 0) {
+      items.push({
+        label: "Add to Playlist",
+        icon: (
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 4v16m8-8H4" />
+          </svg>
+        ),
+        submenu: playlists.map((p) => ({
+          label: p.title,
+          action: () => addToPlaylist(p.id, track),
+        })),
+      });
+    }
+
+    return items;
+  }, [contextMenu, favorites, playlists, toggleFavorite, addToPlaylist, handlePlayTrack, convertToTrack]);
 
   const handleNavigateToArtist = (artist: UnifiedSearchArtist) => {
     onNavigate(`artist:${artist.id}`);
@@ -450,6 +522,7 @@ export const SearchPage = ({
                       track={track}
                       index={index}
                       onPlay={() => handlePlayTrack(track)}
+                      onContextMenu={(e) => handleContextMenu(e, track)}
                     />
                   ))}
                 </div>
@@ -490,11 +563,21 @@ export const SearchPage = ({
                 track={track}
                 index={index}
                 onPlay={() => handlePlayTrack(track)}
+                onContextMenu={(e) => handleContextMenu(e, track)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          items={getContextMenuItems()}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };

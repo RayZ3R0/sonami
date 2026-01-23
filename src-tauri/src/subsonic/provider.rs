@@ -181,12 +181,12 @@ impl MusicProvider for SubsonicProvider {
             .song
             .into_iter()
             .map(|s| Track {
-                id: s.id.clone(),
+                id: format!("subsonic:{}", s.id),
                 title: s.title,
                 artist: s.artist.unwrap_or_default(),
-                artist_id: s.artist_id,
+                artist_id: s.artist_id.map(|id| format!("subsonic:{}", id)),
                 album: s.album.unwrap_or_default(),
-                album_id: s.album_id,
+                album_id: s.album_id.map(|id| format!("subsonic:{}", id)),
                 duration: s.duration.unwrap_or(0),
                 cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
             })
@@ -196,10 +196,10 @@ impl MusicProvider for SubsonicProvider {
             .album
             .into_iter()
             .map(|a| Album {
-                id: a.id.clone(),
+                id: format!("subsonic:{}", a.id),
                 title: a.name,
                 artist: a.artist.unwrap_or_default(),
-                artist_id: a.artist_id,
+                artist_id: a.artist_id.map(|id| format!("subsonic:{}", id)),
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
                 year: a.year.map(|y| y.to_string()),
                 track_count: a.song_count,
@@ -211,7 +211,7 @@ impl MusicProvider for SubsonicProvider {
             .artist
             .into_iter()
             .map(|a| Artist {
-                id: a.id.clone(),
+                id: format!("subsonic:{}", a.id),
                 name: a.name,
                 cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
                 banner: None,
@@ -297,12 +297,12 @@ impl MusicProvider for SubsonicProvider {
             .song;
 
         Ok(Track {
-            id: song.id,
+            id: format!("subsonic:{}", song.id),
             title: song.title,
             artist: song.artist.unwrap_or_default(),
-            artist_id: song.artist_id,
+            artist_id: song.artist_id.map(|id| format!("subsonic:{}", id)),
             album: song.album.unwrap_or_default(),
-            album_id: song.album_id,
+            album_id: song.album_id.map(|id| format!("subsonic:{}", id)),
             duration: song.duration.unwrap_or(0),
             cover_url: song.cover_art.map(|c| self.cover_art_url(&c, 640)),
         })
@@ -330,7 +330,7 @@ impl MusicProvider for SubsonicProvider {
             .artist;
 
         Ok(Artist {
-            id: artist.id,
+            id: format!("subsonic:{}", artist.id),
             name: artist.name,
             cover_url: artist.cover_art.map(|c| self.cover_art_url(&c, 640)),
             banner: None,
@@ -359,10 +359,10 @@ impl MusicProvider for SubsonicProvider {
             .album;
 
         Ok(Album {
-            id: album.id,
+            id: format!("subsonic:{}", album.id),
             title: album.name,
             artist: album.artist.unwrap_or_default(),
-            artist_id: album.artist_id,
+            artist_id: album.artist_id.map(|id| format!("subsonic:{}", id)),
             cover_url: album.cover_art.map(|c| self.cover_art_url(&c, 640)),
             year: album.year.map(|y| y.to_string()),
             track_count: album.song_count,
@@ -426,12 +426,12 @@ impl MusicProvider for SubsonicProvider {
                 // Parse SubsonicSong from Value
                 let song: SubsonicSong = serde_json::from_value(s.clone())?;
                 tracks.push(Track {
-                    id: song.id,
+                    id: format!("subsonic:{}", song.id),
                     title: song.title,
                     artist: song.artist.unwrap_or_default(),
-                    artist_id: song.artist_id,
+                    artist_id: song.artist_id.map(|id| format!("subsonic:{}", id)),
                     album: song.album.unwrap_or_default(),
-                    album_id: song.album_id,
+                    album_id: song.album_id.map(|id| format!("subsonic:{}", id)),
                     duration: song.duration.unwrap_or(0),
                     cover_url: song.cover_art.map(|c| self.cover_art_url(&c, 640)),
                 });
@@ -456,10 +456,10 @@ impl MusicProvider for SubsonicProvider {
         let artist_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.artist;
         
         let albums = artist_full.album.into_iter().map(|a| Album {
-            id: a.id,
+            id: format!("subsonic:{}", a.id),
             title: a.name,
             artist: a.artist.unwrap_or_default(),
-            artist_id: a.artist_id,
+            artist_id: a.artist_id.map(|id| format!("subsonic:{}", id)),
             cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
             year: a.year.map(|y| y.to_string()),
             track_count: a.song_count,
@@ -485,12 +485,12 @@ impl MusicProvider for SubsonicProvider {
         let album_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.album;
         
         let tracks = album_full.song.into_iter().map(|s| Track {
-            id: s.id,
+            id: format!("subsonic:{}", s.id),
             title: s.title,
             artist: s.artist.unwrap_or_default(),
-            artist_id: s.artist_id,
+            artist_id: s.artist_id.map(|id| format!("subsonic:{}", id)),
             album: s.album.unwrap_or_default(),
-            album_id: s.album_id,
+            album_id: s.album_id.map(|id| format!("subsonic:{}", id)),
             duration: s.duration.unwrap_or(0),
             cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
         }).collect();

@@ -15,10 +15,14 @@ pub struct Track {
     pub id: String,
     pub title: String,
     pub artist: String,
+    pub artist_id: Option<String>,
     pub album: String,
+    pub album_id: Option<String>,
     pub duration: u64,
     pub cover_image: Option<String>,
     pub path: String,
+    pub provider_id: Option<String>,
+    pub external_id: Option<String>,
 }
 
 pub struct PlayQueue {
