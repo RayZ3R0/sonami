@@ -3,8 +3,6 @@ pub trait DspProcessor: Send + Sync {
     fn reset(&mut self) {}
 }
 
-/// Audio DSP chain with built-in processors
-/// Industry-grade architecture: processors are always present but can be enabled/disabled
 pub struct DspChain {
     loudness_normalizer: LoudnessNormalizer,
     custom_processors: Vec<Box<dyn DspProcessor>>,
@@ -24,34 +22,27 @@ impl DspChain {
         }
     }
 
-    /// Add a custom processor to the chain
     pub fn add(&mut self, processor: Box<dyn DspProcessor>) {
         self.custom_processors.push(processor);
     }
 
-    /// Enable or disable loudness normalization
     pub fn set_loudness_normalization(&mut self, enabled: bool) {
         self.loudness_normalizer.set_enabled(enabled);
     }
 
-    /// Check if loudness normalization is enabled
     pub fn is_loudness_normalization_enabled(&self) -> bool {
         self.loudness_normalizer.is_enabled()
     }
 
-    /// Process samples through the entire DSP chain
     pub fn process(&mut self, samples: &mut [f32], channels: usize, sample_rate: u32) {
-        // Built-in processors first
         self.loudness_normalizer
             .process(samples, channels, sample_rate);
 
-        // Then custom processors
         for processor in &mut self.custom_processors {
             processor.process(samples, channels, sample_rate);
         }
     }
 
-    /// Reset all processors (call on track change)
     pub fn reset(&mut self) {
         self.loudness_normalizer.reset();
         for processor in &mut self.custom_processors {
@@ -60,8 +51,6 @@ impl DspChain {
     }
 }
 
-/// Loudness normalization processor using RMS-based dynamic gain
-/// Targets -14 LUFS (Spotify/YouTube standard) for consistent playback volume
 pub struct LoudnessNormalizer {
     enabled: bool,
     target_db: f32,
@@ -81,7 +70,7 @@ impl Default for LoudnessNormalizer {
 impl LoudnessNormalizer {
     pub fn new() -> Self {
         Self {
-            enabled: false, // Disabled by default - user must opt-in
+            enabled: false,
             target_db: -14.0,
             current_gain: 1.0,
             rms_sum: 0.0,
@@ -94,7 +83,6 @@ impl LoudnessNormalizer {
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
         if !enabled {
-            // Reset gain when disabled for clean transition
             self.current_gain = 1.0;
         }
     }

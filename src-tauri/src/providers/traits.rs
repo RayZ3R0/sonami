@@ -27,9 +27,6 @@ pub trait MusicProvider: Send + Sync {
     async fn get_artist_top_tracks(&self, artist_id: &str) -> Result<Vec<Track>>;
     async fn get_artist_albums(&self, artist_id: &str) -> Result<Vec<Album>>;
     async fn get_album_tracks(&self, _album_id: &str) -> Result<Vec<Track>> {
-        // Default implementation for providers that might return tracks in get_album_details?
-        // Actually, it's better to force implementation. Be we can provide a default that returns empty? No.
-        // Let's make it required.
         Err(anyhow::anyhow!("Not implemented"))
     }
 }
@@ -37,6 +34,4 @@ pub trait MusicProvider: Send + Sync {
 #[async_trait]
 pub trait LyricsProvider: Send + Sync {
     fn id(&self) -> &str;
-    // We'll define the lyrics result struct/logic later or reuse the existing one
-    // async fn get_lyrics(&self, track: &Track) -> Result<Option<LyricsResult>>;
 }

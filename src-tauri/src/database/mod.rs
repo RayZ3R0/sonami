@@ -198,12 +198,11 @@ impl DatabaseManager {
 
     /// Get a setting value by key
     pub async fn get_setting(&self, key: &str) -> Result<Option<String>, String> {
-        let row: Option<(String,)> =
-            sqlx::query_as("SELECT value FROM settings WHERE key = ?")
-                .bind(key)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(|e| e.to_string())?;
+        let row: Option<(String,)> = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(row.map(|r| r.0))
     }

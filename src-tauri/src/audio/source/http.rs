@@ -84,10 +84,6 @@ impl HttpSource {
 
         let mut req = self.client.get(&self.url);
 
-        // Only use Range header if:
-        // 1. Position is not 0 (we need to seek)
-        // 2. Server supports ranges
-        // 3. Range hasn't failed before
         let use_range = self.position > 0 && self.supports_ranges && !self.range_failed;
 
         if use_range {
@@ -100,7 +96,6 @@ impl HttpSource {
 
         let status = resp.status();
 
-        // Handle 416 Range Not Satisfiable
         if status.as_u16() == 416 {
             log::warn!(
                 "[HttpSource] Range request failed (416). Marking as non-seekable and restarting from beginning."
@@ -108,7 +103,6 @@ impl HttpSource {
             self.range_failed = true;
             self.position = 0;
 
-            // Retry without range header
             let resp = self
                 .client
                 .get(&self.url)
@@ -186,7 +180,6 @@ impl Read for HttpSource {
 
 impl Seek for HttpSource {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        // If range requests don't work, we can't actually seek
         if self.range_failed {
             return match pos {
                 SeekFrom::Start(0) => Ok(0),
@@ -224,7 +217,6 @@ impl Seek for HttpSource {
 
 impl MediaSource for HttpSource {
     fn is_seekable(&self) -> bool {
-        // Only seekable if range requests work
         self.supports_ranges && !self.range_failed
     }
 

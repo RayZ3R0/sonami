@@ -69,7 +69,6 @@ pub struct UnifiedTrack {
     pub external_id: Option<String>,
     pub audio_quality: Option<String>,
 
-    // Analytics
     #[serde(default)]
     pub play_count: u64,
     #[serde(default)]
@@ -77,12 +76,9 @@ pub struct UnifiedTrack {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_played_at: Option<i64>,
 
-    // For favorites - when this track was liked
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liked_at: Option<i64>,
 
-    // For playlist tracks - when this track was added to playlist
-    // Or library tracks - when added to library
     #[serde(skip_serializing_if = "Option::is_none")]
     pub added_at: Option<i64>,
 }

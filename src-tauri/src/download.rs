@@ -36,13 +36,12 @@ pub struct DownloadProgress {
 pub struct DownloadManager {
     app_handle: AppHandle,
     music_dir: Arc<Mutex<PathBuf>>,
-    active_downloads: Arc<Mutex<Vec<String>>>, // List of track IDs being downloaded
+    active_downloads: Arc<Mutex<Vec<String>>>,
     client: Client,
 }
 
 impl DownloadManager {
     pub fn new(app_handle: &AppHandle) -> Self {
-        // Default to "Music" directory in home/Sonami
         let music_dir = dirs::audio_dir()
             .unwrap_or_else(|| dirs::home_dir().unwrap().join("Music"))
             .join("Sonami");
@@ -162,7 +161,6 @@ impl DownloadManager {
             active.retain(|id| id != &id_str);
         }
 
-        // Update database with download info for persistence
         if let Ok(ref path) = result {
             let library_manager = self.app_handle.state::<LibraryManager>();
             let quality_str = match quality {
@@ -352,13 +350,11 @@ impl DownloadManager {
         tidal_client: &TidalClient,
         quality: Quality,
     ) -> Result<PathBuf, String> {
-        // 1. Fetch Stream URL (Metadata provided by caller)
         let stream_info = tidal_client
             .get_track(track_id, quality.clone())
             .await
             .map_err(|e| format!("Failed to fetch stream URL: {}", e))?;
 
-        // 3. Prepare File Path
         let music_dir = self.music_dir.lock().unwrap().clone();
         let safe_artist = sanitize_filename(&metadata.artist);
         let safe_album = sanitize_filename(&metadata.album);
@@ -367,8 +363,6 @@ impl DownloadManager {
         let album_dir = music_dir.join(&safe_artist).join(&safe_album);
         fs::create_dir_all(&album_dir).map_err(|e| format!("Failed to create directory: {}", e))?;
 
-        // Determine extension based on codec/quality.
-        // Usually FLAC for lossless, MP4/M4A for High/Low (AAC).
         let extension = if quality == Quality::LOSSLESS {
             "flac"
         } else {
@@ -376,7 +370,6 @@ impl DownloadManager {
         };
         let file_path = album_dir.join(format!("{}.{}", safe_title, extension));
 
-        // 4. Download Audio
         let response = self
             .client
             .get(&stream_info.url)
@@ -423,7 +416,6 @@ impl DownloadManager {
             }
         }
 
-        // 5. Download Cover Art (if available)
         let mut cover_data: Option<Vec<u8>> = None;
         let mut mime_type = MimeType::Jpeg;
 
@@ -441,7 +433,6 @@ impl DownloadManager {
             }
         }
 
-        // 6. Write Metadata Tags
         if let Err(e) = self.write_metadata(
             &file_path,
             &metadata.title,
@@ -466,7 +457,6 @@ impl DownloadManager {
         );
         log::info!("Emitting download-complete for track {}", track_id);
 
-        // Emit completion with basic info
         let _ = self.app_handle.emit(
             "download-complete",
             serde_json::json!({

@@ -41,15 +41,15 @@ pub fn run() {
             let _playlist_manager_placeholder = ();
             app.manage((*discord_rpc).clone());
 
-            // Initialize DownloadManager
+
             let download_manager = DownloadManager::new(&handle);
             app.manage(download_manager);
 
-            // Initialize TidalConfig
+
             let tidal_config = std::sync::Arc::new(parking_lot::Mutex::new(tidal::TidalConfig::default()));
             app.manage(tidal_config);
 
-            // Initialize ProviderManager
+
             let provider_manager = std::sync::Arc::new(providers::ProviderManager::new());
             app.manage(provider_manager.clone());
 
@@ -57,7 +57,7 @@ pub fn run() {
             let provider_manager_clone = provider_manager.clone();
             let handle_clone = handle.clone();
             tauri::async_runtime::spawn(async move {
-                // Initialize Tidal Client
+
                 match tidal::TidalClient::new().await {
                     Ok(client) => {
                         handle_clone.manage(client);
@@ -68,7 +68,7 @@ pub fn run() {
                     }
                 }
 
-                // Initialize Tidal Provider
+
                 match tidal::provider::TidalProvider::new().await {
                     Ok(provider) => {
                         provider_manager_clone.register_provider(std::sync::Arc::new(provider)).await;
@@ -103,7 +103,7 @@ pub fn run() {
 
                         log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
 
-                        // Load configured providers from database
+
                         let configs: Vec<(String, String, String, String)> = sqlx::query_as(
                             "SELECT provider_id, server_url, username, password FROM provider_configs WHERE enabled = 1"
                         )
@@ -117,12 +117,21 @@ pub fn run() {
                                     let provider = subsonic::SubsonicProvider::with_config(
                                         server_url.clone(), username, password
                                     );
-                                    if provider.ping().await.is_ok() {
-                                        provider_manager_for_db.register_provider(std::sync::Arc::new(provider)).await;
-                                        log::info!("Loaded Subsonic provider from database for {}", server_url);
-                                    } else {
-                                        log::warn!("Failed to connect to saved Subsonic server: {}", server_url);
+                                    // Use authenticate() (getUser.view) for better hifi compatibility
+                                    // Register provider even if initial check fails to ensure it's available for later retries
+                                    match provider.authenticate().await {
+                                        Ok(_) => {
+                                            log::info!("Loaded and connected to Subsonic provider: {}", server_url);
+                                        }
+                                        Err(e) => {
+                                            log::warn!(
+                                                "Failed to connect to saved Subsonic server at startup (provider registered anyway): {} - Error: {}",
+                                                server_url, e
+                                            );
+                                        }
                                     }
+                                    // Always register the provider so it's available in the UI
+                                    provider_manager_for_db.register_provider(std::sync::Arc::new(provider)).await;
                                 }
                                 "jellyfin" => {
                                     let mut provider = jellyfin::JellyfinProvider::new();
@@ -155,7 +164,7 @@ pub fn run() {
                         state_for_controls
                             .is_playing
                             .store(true, std::sync::atomic::Ordering::SeqCst);
-                        // Update MPRIS state with current position
+
                         let position = state_for_controls.get_position_seconds();
                         media_controls_for_handler.set_playback(true, Some(position));
                     }
@@ -163,7 +172,7 @@ pub fn run() {
                         state_for_controls
                             .is_playing
                             .store(false, std::sync::atomic::Ordering::SeqCst);
-                        // Update MPRIS state with current position
+
                         let position = state_for_controls.get_position_seconds();
                         media_controls_for_handler.set_playback(false, Some(position));
                     }
@@ -175,7 +184,7 @@ pub fn run() {
                         state_for_controls
                             .is_playing
                             .store(new_state, std::sync::atomic::Ordering::SeqCst);
-                        // Update MPRIS state with current position
+
                         let position = state_for_controls.get_position_seconds();
                         media_controls_for_handler.set_playback(new_state, Some(position));
                     }
@@ -183,7 +192,7 @@ pub fn run() {
                         let track = queue_for_controls.write().get_next_track(true);
                         if let Some(ref track) = track {
                             let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
-                            // Update MPRIS metadata for the new track
+
                             media_controls_for_handler.set_metadata(
                                 &track.title,
                                 &track.artist,
@@ -198,7 +207,7 @@ pub fn run() {
                         let track = queue_for_controls.write().get_prev_track();
                         if let Some(ref track) = track {
                             let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
-                            // Update MPRIS metadata for the new track
+
                             media_controls_for_handler.set_metadata(
                                 &track.title,
                                 &track.artist,
@@ -331,28 +340,28 @@ pub fn run() {
             commands::library::rebuild_search_index,
             commands::library::factory_reset,
             commands::library::library_has_data,
-            // Spotify Import
+
             commands::spotify::fetch_spotify_playlist,
             commands::spotify::verify_spotify_track,
             commands::spotify::verify_spotify_tracks,
             commands::spotify::add_spotify_tracks_to_playlist,
             commands::spotify::create_playlist_from_spotify,
-            // DSP / Audio Processing
+
             commands::set_loudness_normalization,
             commands::get_loudness_normalization,
-            // Discord Rich Presence
+
             commands::set_discord_rpc_enabled,
             commands::get_discord_rpc_enabled,
-            // Downloads
+
             commands::download::start_download,
             commands::download::get_download_path,
             commands::download::set_download_path,
             commands::download::open_download_folder,
             commands::download::delete_track_download,
             commands::download::download_provider_track,
-            // Window Management
+
             commands::is_tiling_wm,
-            // Generic Provider Commands
+
             commands::search_music,
             commands::get_music_stream_url,
             commands::get_providers_list,
@@ -363,7 +372,7 @@ pub fn run() {
             commands::get_artist,
             commands::get_artist_top_tracks,
             commands::get_artist_albums,
-            // Provider Configuration
+
             commands::providers::configure_subsonic,
             commands::providers::configure_jellyfin,
             commands::providers::get_provider_configs,

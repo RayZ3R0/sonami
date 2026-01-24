@@ -131,9 +131,8 @@ pub fn decoder_thread(
                                 resampler = None;
                             }
 
-                            // Memory fence to ensure all setup is complete
                             std::sync::atomic::fence(Ordering::SeqCst);
-                            // Resume playback with clean buffers and new track loaded
+
                             state.is_playing.store(true, Ordering::Release);
                         }
                         Err(e) => {
@@ -697,8 +696,6 @@ pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
     let mss = MediaSourceStream::new(source, Default::default());
 
     let hint = Hint::new();
-    // Hint based on content type or extension from metadata could go here
-    // For now we rely on Symphonia probing
 
     let format_opts = FormatOptions {
         enable_gapless: true,

@@ -178,7 +178,6 @@ impl TidalClient {
                 return items
                     .iter()
                     .filter_map(|raw_item| {
-                        // Handle wrapped items: { "item": {...}, "type": "track" }
                         let item_to_parse = if let Some(inner) = raw_item.get("item") {
                             inner.clone()
                         } else {
@@ -189,13 +188,11 @@ impl TidalClient {
                     .collect();
             }
 
-            // Try nested key.items
             if let Some(nested) = obj.get(key).and_then(|v| v.as_object()) {
                 if let Some(items) = nested.get("items").and_then(|v| v.as_array()) {
                     return items
                         .iter()
                         .filter_map(|raw_item| {
-                            // Handle wrapped items
                             let item_to_parse = if let Some(inner) = raw_item.get("item") {
                                 inner.clone()
                             } else {
@@ -259,7 +256,6 @@ impl TidalClient {
             )
             .await?;
 
-        // Debug: Log raw API response for quality debugging
         log::info!(
             "[get_track] Track {} with quality {:?} - API response keys: {:?}, codec: {:?}",
             track_id,
@@ -270,7 +266,6 @@ impl TidalClient {
 
         let url = Self::extract_stream_url(&data)?;
 
-        // Log the stream URL format (truncated for security)
         let url_preview = if url.len() > 80 {
             format!("{}...", &url[..80])
         } else {

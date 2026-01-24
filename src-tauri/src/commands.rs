@@ -167,12 +167,11 @@ pub async fn play_track(
     path: String,
 ) -> Result<(), String> {
     log::info!("[Command] play_track called with path: {}", path);
-    // Use the smart resolver from audio/resolver.rs
+
     let resolved = crate::audio::resolver::resolve_uri(&app, &path).await?;
 
     state.play(resolved.path.clone());
 
-    // Emit quality change event to frontend
     let _ = app.emit("playback-quality-changed", resolved);
 
     let track = {
@@ -191,7 +190,6 @@ pub async fn play_track(
         );
         state.media_controls.set_playback(true, Some(0.0));
 
-        // Update Discord presence
         discord_rpc.set_playing(
             crate::discord::TrackInfo {
                 title: t.title.clone(),
@@ -216,7 +214,6 @@ pub async fn pause_track(
     let position = state.get_position();
     state.media_controls.set_playback(false, Some(position));
 
-    // Update Discord presence to paused state
     let track = state.queue.read().get_current_track();
     if let Some(ref t) = track {
         discord_rpc.set_paused(
@@ -243,7 +240,6 @@ pub async fn resume_track(
     let position = state.get_position();
     state.media_controls.set_playback(true, Some(position));
 
-    // Update Discord presence to playing state
     let track = state.queue.read().get_current_track();
     if let Some(ref t) = track {
         discord_rpc.set_playing(
@@ -340,7 +336,6 @@ pub async fn next_track(
             Ok(resolved) => {
                 state.play(resolved.path.clone());
                 let _ = app.emit("playback-quality-changed", resolved);
-                // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
         }
@@ -355,7 +350,6 @@ pub async fn next_track(
         );
         state.media_controls.set_playback(true, Some(0.0));
 
-        // Update Discord presence
         discord_rpc.set_playing(
             crate::discord::TrackInfo {
                 title: track.title.clone(),
@@ -386,7 +380,6 @@ pub async fn prev_track(
             Ok(resolved) => {
                 state.play(resolved.path.clone());
                 let _ = app.emit("playback-quality-changed", resolved);
-                // Decoder will set is_playing=true after buffers are cleared
             }
             Err(e) => return Err(e),
         }
@@ -401,7 +394,6 @@ pub async fn prev_track(
         );
         state.media_controls.set_playback(true, Some(0.0));
 
-        // Update Discord presence
         discord_rpc.set_playing(
             crate::discord::TrackInfo {
                 title: track.title.clone(),
@@ -523,13 +515,11 @@ pub async fn play_stream(
 
     state.play(url);
 
-    // Update media controls
     state
         .media_controls
         .set_metadata(&track.title, &track.artist, &track.album, None, 0.0);
     state.media_controls.set_playback(true, Some(0.0));
 
-    // Update Discord presence
     discord_rpc.set_playing(
         crate::discord::TrackInfo {
             title: track.title.clone(),
@@ -680,7 +670,6 @@ pub async fn play_tidal_track(
 
     audio_state.play(stream_info.url);
 
-    // Update media controls with track info
     audio_state.media_controls.set_metadata(
         &track.title,
         &track.artist,
@@ -690,7 +679,6 @@ pub async fn play_tidal_track(
     );
     audio_state.media_controls.set_playback(true, Some(0.0));
 
-    // Update Discord presence
     discord_rpc.set_playing(
         crate::discord::TrackInfo {
             title: track.title.clone(),
@@ -920,19 +908,22 @@ pub async fn search_music(
     query: String,
     provider_id: Option<String>,
 ) -> Result<SearchResults, AppError> {
+    log::info!(
+        "search_music called: query='{}', provider_id={:?}",
+        query,
+        provider_id
+    );
+
     let provider = if let Some(id) = provider_id {
-        // Validation
         let _ = id
             .parse::<ProviderId>()
             .map_err(|_| AppError::InvalidProvider(id.clone()))?;
 
-        state
-            .get_provider(&id)
-            .await
-            .ok_or(AppError::InvalidProvider(format!(
-                "Provider instance for {} not found",
-                id
-            )))?
+        log::debug!("Looking up provider: {}", id);
+        state.get_provider(&id).await.ok_or_else(|| {
+            log::warn!("Provider instance for {} not found", id);
+            AppError::InvalidProvider(format!("Provider instance for {} not found", id))
+        })?
     } else {
         state
             .get_active_provider()
@@ -940,10 +931,20 @@ pub async fn search_music(
             .ok_or(AppError::Config("No active provider".to_string()))?
     };
 
-    provider
-        .search(&query)
-        .await
-        .map_err(|e| AppError::Network(e.to_string()))
+    log::info!("Searching with provider: {}", provider.id());
+    let results = provider.search(&query).await.map_err(|e| {
+        log::error!("Search failed for provider {}: {}", provider.id(), e);
+        AppError::Network(e.to_string())
+    })?;
+
+    log::info!(
+        "Search returned {} tracks, {} albums, {} artists",
+        results.tracks.len(),
+        results.albums.len(),
+        results.artists.len()
+    );
+
+    Ok(results)
 }
 
 #[tauri::command]
@@ -953,7 +954,6 @@ pub async fn get_music_stream_url(
     provider_id: String,
     quality: Option<String>,
 ) -> Result<String, AppError> {
-    // Validate provider
     let _provider = provider_id
         .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
@@ -992,7 +992,6 @@ pub async fn set_active_provider(
     state: State<'_, std::sync::Arc<ProviderManager>>,
     provider_id: String,
 ) -> Result<(), AppError> {
-    // Validate
     let _ = provider_id
         .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
@@ -1009,7 +1008,6 @@ pub async fn get_album(
     provider_id: String,
     album_id: String,
 ) -> Result<crate::models::Album, AppError> {
-    // Validate provider
     let _ = provider_id
         .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
@@ -1143,18 +1141,15 @@ pub async fn play_provider_track(
     duration: u64,
     cover_url: Option<String>,
 ) -> Result<(), AppError> {
-    // Validate provider
     let _provider = provider_id
         .parse::<ProviderId>()
         .map_err(|_| AppError::InvalidProvider(provider_id.clone()))?;
 
     let (stream_url, local_id) = if provider_id == "tidal" {
-        // Tidal Logic
         let tid = track_id
             .parse::<u64>()
             .map_err(|_| AppError::Internal("Invalid Tidal ID".to_string()))?;
 
-        // Get Stream URL
         let quality = if let Some(state) = app.try_state::<crate::tidal::TidalConfigState>() {
             state.lock().quality.clone()
         } else {
@@ -1166,7 +1161,6 @@ pub async fn play_provider_track(
             .await
             .map_err(|e| AppError::Network(e.to_string()))?;
 
-        // Import Tidal Track
         let tidal_track = crate::tidal::Track {
             id: tid,
             title: title.clone(),
@@ -1202,7 +1196,6 @@ pub async fn play_provider_track(
             }
         }
     } else {
-        // Generic Provider Logic
         let provider = provider_manager
             .get_provider(&provider_id)
             .await
@@ -1259,7 +1252,6 @@ pub async fn play_provider_track(
 
     audio_state.play(stream_url);
 
-    // Update media controls with track info
     audio_state.media_controls.set_metadata(
         &track.title,
         &track.artist,
@@ -1269,7 +1261,6 @@ pub async fn play_provider_track(
     );
     audio_state.media_controls.set_playback(true, Some(0.0));
 
-    // Update Discord presence
     discord_rpc.set_playing(
         crate::discord::TrackInfo {
             title: track.title.clone(),

@@ -10,7 +10,7 @@ use crate::library::LibraryManager;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ResolvedAudio {
     pub path: String,
-    pub source: String, // "LOCAL" or "STREAM"
+    pub source: String,
     pub quality: String,
 }
 
@@ -63,13 +63,11 @@ impl UrlResolver {
     }
 
     pub fn resolve(&self, uri: &str) -> Result<ResolvedAudio, String> {
-        // Check if this is a provider URI that needs async resolution
         let is_provider_uri = uri.starts_with("tidal:")
             || uri.starts_with("subsonic:")
             || uri.starts_with("jellyfin:");
 
         if !is_provider_uri {
-            // For local file paths, verify the file exists
             if !uri.starts_with("http://")
                 && !uri.starts_with("https://")
                 && !Path::new(uri).exists()
@@ -96,15 +94,11 @@ impl UrlResolver {
 }
 
 pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAudio, String> {
-    // Try to find a matching provider
     if let Some((scheme, id_str)) = uri.split_once(':') {
         if let Some(state) =
             app_handle.try_state::<std::sync::Arc<crate::providers::ProviderManager>>()
         {
             if let Some(provider) = state.get_provider(scheme).await {
-                // Found a valid provider!
-
-                // 1. Get Quality Config
                 let (target_quality, prefer_high_quality) =
                     if let Some(state) = app_handle.try_state::<crate::tidal::TidalConfigState>() {
                         let config = state.lock();
@@ -113,16 +107,12 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                         (crate::tidal::Quality::LOSSLESS, false)
                     };
 
-                // Map to Unified Quality
                 let unified_quality = match target_quality {
                     crate::tidal::Quality::LOW => crate::models::Quality::LOW,
                     crate::tidal::Quality::HIGH => crate::models::Quality::HIGH,
                     crate::tidal::Quality::LOSSLESS => crate::models::Quality::LOSSLESS,
                 };
 
-                // 2. (Optional) Check Local Library for Offline Playback
-                // Currently only supported for Tidal IDs (numeric)
-                // 2. Check Local Library for Offline Playback (Generic)
                 if let Some(library) = app_handle.try_state::<LibraryManager>() {
                     if let Ok(Some((path, quality_str))) =
                         library.get_track_local_info(scheme, id_str).await
@@ -134,7 +124,6 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                         );
 
                         if Path::new(&path).exists() {
-                            // Smart Quality Check
                             let local_is_sufficient = if prefer_high_quality {
                                 if let Some(ref q_str) = quality_str {
                                     if let Ok(local_quality) =
@@ -163,13 +152,11 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
                                 });
                             }
                         } else {
-                            // Stale record cleanup
                             let _ = library.clear_download_info(scheme, id_str).await;
                         }
                     }
                 }
 
-                // 3. Stream from Provider
                 log::debug!("[Resolver] Streaming {} from {}", id_str, scheme);
                 let stream_info = provider
                     .get_stream_url(id_str, unified_quality)
@@ -185,7 +172,6 @@ pub async fn resolve_uri(app_handle: &AppHandle, uri: &str) -> Result<ResolvedAu
         }
     }
 
-    // Fallback: Local File Handling (Original Logic)
     if !uri.starts_with("http://") && !uri.starts_with("https://") && !Path::new(uri).exists() {
         log::warn!("[Resolver] Local file not found: {}. Cannot play.", uri);
         return Err(format!("File not found: {}", uri));

@@ -365,7 +365,10 @@ export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
 
     // If no artist_id, we can't navigate (we only have artist name, not ID)
     if (!artistId) {
-      console.log("[PlayerBar] No artist_id available for navigation, track data:", currentTrack);
+      console.log(
+        "[PlayerBar] No artist_id available for navigation, track data:",
+        currentTrack,
+      );
       return;
     }
 
@@ -375,48 +378,61 @@ export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
   }, [currentTrack, onNavigate]);
 
   // Handle right-click context menu for song title
-  const handleSongContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!currentTrack) return;
+  const handleSongContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (!currentTrack) return;
 
-    // Check if current track is liked
-    const trackId = currentTrack.id;
-    const compositeKey = currentTrack.provider_id && currentTrack.external_id
-      ? `${currentTrack.provider_id}:${currentTrack.external_id}`
-      : null;
-    const isLiked = favorites.has(trackId) || (compositeKey ? favorites.has(compositeKey) : false);
+      // Check if current track is liked
+      const trackId = currentTrack.id;
+      const compositeKey =
+        currentTrack.provider_id && currentTrack.external_id
+          ? `${currentTrack.provider_id}:${currentTrack.external_id}`
+          : null;
+      const isLiked =
+        favorites.has(trackId) ||
+        (compositeKey ? favorites.has(compositeKey) : false);
 
-    const menuItems: ContextMenuItem[] = [
-      {
-        label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
-        action: () => toggleFavorite(currentTrack as any),
-      },
-      {
-        label: "Add to Playlist",
-        submenu: playlists.map((pl) => ({
-          label: pl.title,
-          action: async () => {
-            await addToPlaylist(pl.id, currentTrack as any);
-          },
-        })),
-      },
-      {
-        label: "Download",
-        action: () => {
-          downloadTrack(currentTrack);
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
+          action: () => toggleFavorite(currentTrack as any),
         },
-      },
-    ];
+        {
+          label: "Add to Playlist",
+          submenu: playlists.map((pl) => ({
+            label: pl.title,
+            action: async () => {
+              await addToPlaylist(pl.id, currentTrack as any);
+            },
+          })),
+        },
+        {
+          label: "Download",
+          action: () => {
+            downloadTrack(currentTrack);
+          },
+        },
+      ];
 
-    setContextMenu({
-      isOpen: true,
-      items: menuItems,
-      position: { x: e.clientX, y: e.clientY },
-    });
-  }, [currentTrack, favorites, toggleFavorite, playlists, addToPlaylist, downloadTrack]);
+      setContextMenu({
+        isOpen: true,
+        items: menuItems,
+        position: { x: e.clientX, y: e.clientY },
+      });
+    },
+    [
+      currentTrack,
+      favorites,
+      toggleFavorite,
+      playlists,
+      addToPlaylist,
+      downloadTrack,
+    ],
+  );
 
   const closeContextMenu = useCallback(() => {
-    setContextMenu(prev => ({ ...prev, isOpen: false }));
+    setContextMenu((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
   if (!currentTrack) return null;
@@ -454,10 +470,13 @@ export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
 
   // Check if current track is liked (for UI display)
   const currentTrackId = currentTrack.id;
-  const compositeId = currentTrack.provider_id && currentTrack.external_id
-    ? `${currentTrack.provider_id}:${currentTrack.external_id}`
-    : null;
-  const isCurrentTrackLiked = favorites.has(currentTrackId) || (compositeId ? favorites.has(compositeId) : false);
+  const compositeId =
+    currentTrack.provider_id && currentTrack.external_id
+      ? `${currentTrack.provider_id}:${currentTrack.external_id}`
+      : null;
+  const isCurrentTrackLiked =
+    favorites.has(currentTrackId) ||
+    (compositeId ? favorites.has(compositeId) : false);
 
   // Check if artist navigation is available
   const hasArtistId = !!(currentTrack as any).artist_id;
@@ -539,7 +558,11 @@ export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
                   <button
                     onClick={() => toggleFavorite(currentTrack as any)}
                     className="flex-shrink-0 p-1 rounded-full hover:bg-white/10 transition-colors ml-1"
-                    title={isCurrentTrackLiked ? "Remove from Liked Songs" : "Add to Liked Songs"}
+                    title={
+                      isCurrentTrackLiked
+                        ? "Remove from Liked Songs"
+                        : "Add to Liked Songs"
+                    }
                   >
                     <svg
                       viewBox="0 0 24 24"

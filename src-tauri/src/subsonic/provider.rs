@@ -44,7 +44,8 @@ impl SubsonicProvider {
             username,
             password,
             initialized: true,
-            use_legacy_auth: false,
+            // Default to legacy auth for maximum compatibility (required by hifi managed mode)
+            use_legacy_auth: true,
         }
     }
 
@@ -56,11 +57,10 @@ impl SubsonicProvider {
 
     fn build_auth_params(&self) -> String {
         if self.use_legacy_auth {
-            let hex_pass = hex::encode(&self.password);
             format!(
-                "u={}&p={}&v=1.16.1&c=sonami&f=json",
+                "c=sonami&f=json&v=1.13.0&u={}&p={}",
                 urlencoding::encode(&self.username),
-                hex_pass
+                urlencoding::encode(&self.password)
             )
         } else {
             let salt = Self::generate_salt();
@@ -68,10 +68,10 @@ impl SubsonicProvider {
             let token = format!("{:x}", md5::compute(token_input.as_bytes()));
 
             format!(
-                "u={}&t={}&s={}&v=1.16.1&c=sonami&f=json",
+                "c=sonami&f=json&v=1.13.0&u={}&s={}&t={}",
                 urlencoding::encode(&self.username),
-                token,
-                salt
+                salt,
+                token
             )
         }
     }
@@ -107,6 +107,24 @@ impl SubsonicProvider {
             Err(anyhow!("Unknown Subsonic error"))
         }
     }
+
+    /// Authenticate using getUser.view - this is what Feishin uses and is more compatible
+    /// with servers like hifi that may handle ping.view differently
+    pub async fn authenticate(&self) -> Result<bool> {
+        let url = self.build_url(
+            "getUser",
+            &format!("username={}", urlencoding::encode(&self.username)),
+        );
+        let resp: SubsonicResponse<Value> = self.client.get(&url).send().await?.json().await?;
+
+        if resp.subsonic_response.status == "ok" {
+            Ok(true)
+        } else if let Some(err) = resp.subsonic_response.error {
+            Err(anyhow!("Subsonic auth error {}: {}", err.code, err.message))
+        } else {
+            Err(anyhow!("Unknown Subsonic error"))
+        }
+    }
 }
 
 #[async_trait]
@@ -136,10 +154,20 @@ impl MusicProvider for SubsonicProvider {
             .ok_or_else(|| anyhow!("Missing password"))?
             .to_string();
 
-        if self.ping().await.is_err() {
+        // Allow explicit legacy auth configuration from settings
+        self.use_legacy_auth = config
+            .get("use_legacy_auth")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        // Use authenticate() (getUser.view) instead of ping() for better hifi compatibility
+        // Try token auth first, fall back to legacy if it fails (unless explicitly set)
+        if !self.use_legacy_auth && self.authenticate().await.is_err() {
             self.use_legacy_auth = true;
-            self.ping().await?;
         }
+
+        // Verify authentication works
+        self.authenticate().await?;
         self.initialized = true;
         Ok(())
     }
@@ -149,6 +177,8 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Subsonic provider not initialized"));
         }
 
+        log::info!("Subsonic search for: '{}'", query);
+
         let url = self.build_url(
             "search3",
             &format!(
@@ -157,11 +187,21 @@ impl MusicProvider for SubsonicProvider {
             ),
         );
 
-        let resp: SubsonicResponse<SearchResult3Data> =
-            self.client.get(&url).send().await?.json().await?;
+        log::debug!("Subsonic search3 URL: {}", url);
+
+        log::info!("Subsonic search3 URL: {}", url);
+
+        // Fetch as text first to debug raw response
+        let resp_text = self.client.get(&url).send().await?.text().await?;
+        log::info!("Subsonic raw search response: {}", resp_text);
+
+        // Parse from text
+        let resp: SubsonicResponse<SearchResult3Data> = serde_json::from_str(&resp_text)?;
+        log::info!("Parsed Subsonic response: {:?}", resp);
 
         if resp.subsonic_response.status != "ok" {
             if let Some(err) = resp.subsonic_response.error {
+                log::error!("Subsonic search3 error: {} - {}", err.code, err.message);
                 return Err(anyhow!("Subsonic error {}: {}", err.code, err.message));
             }
             return Err(anyhow!("Unknown Subsonic error"));
@@ -177,6 +217,13 @@ impl MusicProvider for SubsonicProvider {
                 song: vec![],
             });
 
+        log::info!(
+            "Subsonic search3 response: {} songs, {} albums, {} artists",
+            search_data.song.len(),
+            search_data.album.len(),
+            search_data.artist.len()
+        );
+
         let tracks: Vec<Track> = search_data
             .song
             .into_iter()
@@ -188,7 +235,7 @@ impl MusicProvider for SubsonicProvider {
                 album: s.album.unwrap_or_default(),
                 album_id: s.album_id.map(|id| format!("subsonic:{}", id)),
                 duration: s.duration.unwrap_or(0),
-                cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
+                cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 1200)),
             })
             .collect();
 
@@ -232,7 +279,11 @@ impl MusicProvider for SubsonicProvider {
         }
 
         // Fetch track details to determine the original format
-        let details_url = self.build_url("getSong", &format!("id={}", track_id));
+        // Strip subsonic: prefix if present
+        let clean_id = track_id.strip_prefix("subsonic:").unwrap_or(track_id);
+        let details_url = self.build_url("getSong", &format!("id={}", clean_id));
+        log::debug!("Subsonic getSong URL: {}", details_url);
+
         let resp: SubsonicResponse<SongData> =
             self.client.get(&details_url).send().await?.json().await?;
 
@@ -250,8 +301,7 @@ impl MusicProvider for SubsonicProvider {
             .song;
 
         // Determine format strategy based on file suffix
-        // FLAC, MP3, OGG, OPUS can be streamed raw
-        // M4A, AAC, etc. need transcoding to MP3 due to moov atom issues
+
         let suffix = song.suffix.unwrap_or_default().to_lowercase();
         let (format_param, actual_quality) = match suffix.as_str() {
             "flac" => ("raw", Quality::LOSSLESS),
@@ -261,7 +311,7 @@ impl MusicProvider for SubsonicProvider {
 
         let url = self.build_url(
             "stream",
-            &format!("id={}&format={}", track_id, format_param),
+            &format!("id={}&format={}", clean_id, format_param),
         );
 
         Ok(StreamInfo {
@@ -375,22 +425,6 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Subsonic provider not initialized"));
         }
 
-        // Subsonic getTopSongs requires artist name, not ID. 
-        // But some servers support getTopSongs with artistId? No, checking API docs...
-        // standard Subsonic `getTopSongs` takes `artist` (name). `getArtist` returns albums but not songs.
-        // `getArtist` returns List<ID3Album>.
-        // Using `getArtist` we get albums. But for top tracks?
-        // We might need to fetch `getArtist` first to get the name if we only have ID?
-        // OR we can search or maybe `getTopSongs` support ID?
-        // Navidrome supports `id` in `getTopSongs`?
-        // Let's first try `getTopSongs` with `artistId` parameter? No standard says `artist`.
-        // However, we have `getArtist` which returns details.
-        // Let's fetch artist details first to get the name, then call getTopSongs?
-        // Or better: `getArtist` in some implementations returns all songs? No.
-        
-        // Wait, standard Subsonic API `getTopSongs`: "Returns top songs for the given artist... Parameter: artist".
-        
-        // Let's try fetching artist details to get the name.
         let artist = self.get_artist_details(artist_id).await?;
         let artist_name = artist.name;
 
@@ -399,26 +433,13 @@ impl MusicProvider for SubsonicProvider {
             &format!("artist={}&count=10", urlencoding::encode(&artist_name)),
         );
 
-        // We need a model for getTopSongs response
-        // Using generic Value or specific struct?
-        // Let's use `TopSongsData` if it exists or create one?
-        // Let's use generic Value for now or define a struct inline if simpler, but `models.rs` is separate.
-        // Or reuse `SongData` list?
-        // Let's add `TopSongsData` to models if not present, OR parse manually.
-        // I'll check `models.rs` above. It has `SubsonicSong`.
-        // Response format: `subsonic-response` -> `topSongs` -> `song` array.
-
-        // I will use serde_json::Value for intermediate if needed, but better to be typed.
-        // Since I can't easily edit models.rs and provider.rs simultaneously in one step safely if detailed, 
-        // I will trust that `SubsonicResponse<TopSongsResult>` works if I define it?
-        // I'll use `Value` to avoid modifying `models.rs` if possible to save steps, assume structure.
-        
         let resp: Value = self.client.get(&url).send().await?.json().await?;
-        // println!("DEBUG: {:?}", resp); 
-        
-        // Manual traversal: subsonic-response -> topSongs -> song (array)
+
         let binding = resp["subsonic-response"].clone();
-        let top_songs = binding.get("topSongs").and_then(|t| t.get("song")).and_then(|s| s.as_array());
+        let top_songs = binding
+            .get("topSongs")
+            .and_then(|t| t.get("song"))
+            .and_then(|s| s.as_array());
 
         let mut tracks = Vec::new();
         if let Some(songs) = top_songs {
@@ -437,7 +458,7 @@ impl MusicProvider for SubsonicProvider {
                 });
             }
         }
-        
+
         Ok(tracks)
     }
 
@@ -450,21 +471,29 @@ impl MusicProvider for SubsonicProvider {
         let resp: SubsonicResponse<ArtistData> = self.client.get(&url).send().await?.json().await?;
 
         if resp.subsonic_response.status != "ok" {
-             return Err(anyhow!("Subsonic error"));
+            return Err(anyhow!("Subsonic error"));
         }
-        
-        let artist_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.artist;
-        
-        let albums = artist_full.album.into_iter().map(|a| Album {
-            id: format!("subsonic:{}", a.id),
-            title: a.name,
-            artist: a.artist.unwrap_or_default(),
-            artist_id: a.artist_id.map(|id| format!("subsonic:{}", id)),
-            cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
-            year: a.year.map(|y| y.to_string()),
-            track_count: a.song_count,
-            duration: a.duration,
-        }).collect();
+
+        let artist_full = resp
+            .subsonic_response
+            .data
+            .ok_or(anyhow!("No data"))?
+            .artist;
+
+        let albums = artist_full
+            .album
+            .into_iter()
+            .map(|a| Album {
+                id: format!("subsonic:{}", a.id),
+                title: a.name,
+                artist: a.artist.unwrap_or_default(),
+                artist_id: a.artist_id.map(|id| format!("subsonic:{}", id)),
+                cover_url: a.cover_art.map(|c| self.cover_art_url(&c, 640)),
+                year: a.year.map(|y| y.to_string()),
+                track_count: a.song_count,
+                duration: a.duration,
+            })
+            .collect();
 
         Ok(albums)
     }
@@ -474,7 +503,6 @@ impl MusicProvider for SubsonicProvider {
             return Err(anyhow!("Subsonic provider not initialized"));
         }
 
-        // getAlbum return Album with songs
         let url = self.build_url("getAlbum", &format!("id={}", album_id));
         let resp: SubsonicResponse<AlbumData> = self.client.get(&url).send().await?.json().await?;
 
@@ -483,17 +511,21 @@ impl MusicProvider for SubsonicProvider {
         }
 
         let album_full = resp.subsonic_response.data.ok_or(anyhow!("No data"))?.album;
-        
-        let tracks = album_full.song.into_iter().map(|s| Track {
-            id: format!("subsonic:{}", s.id),
-            title: s.title,
-            artist: s.artist.unwrap_or_default(),
-            artist_id: s.artist_id.map(|id| format!("subsonic:{}", id)),
-            album: s.album.unwrap_or_default(),
-            album_id: s.album_id.map(|id| format!("subsonic:{}", id)),
-            duration: s.duration.unwrap_or(0),
-            cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
-        }).collect();
+
+        let tracks = album_full
+            .song
+            .into_iter()
+            .map(|s| Track {
+                id: format!("subsonic:{}", s.id),
+                title: s.title,
+                artist: s.artist.unwrap_or_default(),
+                artist_id: s.artist_id.map(|id| format!("subsonic:{}", id)),
+                album: s.album.unwrap_or_default(),
+                album_id: s.album_id.map(|id| format!("subsonic:{}", id)),
+                duration: s.duration.unwrap_or(0),
+                cover_url: s.cover_art.map(|c| self.cover_art_url(&c, 640)),
+            })
+            .collect();
 
         Ok(tracks)
     }

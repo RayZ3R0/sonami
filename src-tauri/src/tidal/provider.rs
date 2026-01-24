@@ -29,7 +29,6 @@ impl MusicProvider for TidalProvider {
     }
 
     async fn initialize(&mut self, _config: Value) -> Result<()> {
-        // Config handling could be added here if we want to re-init
         Ok(())
     }
 
@@ -74,7 +73,8 @@ impl MusicProvider for TidalProvider {
                     .unwrap_or_default(),
                 album_id: t.album.as_ref().map(|a| format!("tidal:{}", a.id)),
                 duration: t.duration.unwrap_or(0) as u64,
-                cover_url: t.cover
+                cover_url: t
+                    .cover
                     .or_else(|| t.album.as_ref().and_then(|a| a.cover.clone()))
                     .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
             })
@@ -110,10 +110,11 @@ impl MusicProvider for TidalProvider {
                 cover_url: a
                     .picture
                     .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
-                banner: a.banner.map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
+                banner: a
+                    .banner
+                    .map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
             })
             .collect();
-
 
         let playlists: Vec<Playlist> = playlists_res
             .items
@@ -141,7 +142,7 @@ impl MusicProvider for TidalProvider {
         let tid = track_id
             .parse::<u64>()
             .map_err(|_| anyhow!("Invalid Tidal ID"))?;
-        // Map generic Quality to Tidal Quality
+
         let tidal_quality = match quality {
             Quality::LOW => crate::tidal::Quality::LOW,
             Quality::HIGH => crate::tidal::Quality::HIGH,
@@ -170,25 +171,6 @@ impl MusicProvider for TidalProvider {
             .get_track(tid, crate::tidal::Quality::LOW)
             .await
             .map_err(|e| anyhow!(e.to_string()))?;
-        // Wait, get_track returns StreamInfo. Does get_track return Metadata?
-        // Checking client.rs... get_track returns TrackStreamInfo.
-        // There is no get_track_metadata in client.rs?
-        // In client.rs:
-        // pub async fn get_track(...) -> Result<TrackStreamInfo, ...>
-        // It seems `get_track` is for streaming.
-        // `search_tracks` returns `Track` models.
-        // Is there a way to get metadata for a single track?
-        // I might need to implement `get_track_metadata` in `TidalClient` or use `get_album_tracks` if I know the album.
-        // Let's assume for now I can't easily get single track metadata without adding a method to TidalClient.
-        // I will check `TidalClient` again. It has `get_album`, `get_artist`.
-        // It does NOT have `get_track_metadata`.
-        // I should probably add `get_track_metadata` to `TidalClient` first.
-        // "get_track" endpoint at "/track/" usually returns metadata if you don't pass quality? OR maybe the metadata is in the stream response?
-        // `get_track` in client.rs calls `/track/` with id and quality.
-        // The response parsing seems focused on stream URL.
-
-        // I will stub this for now or implement it properly.
-        // To be "Industry Grade", I should implement `get_track_metadata` in `TidalClient`.
 
         Err(anyhow!("get_track_details not implemented for Tidal yet"))
     }
@@ -208,7 +190,9 @@ impl MusicProvider for TidalProvider {
             cover_url: a
                 .picture
                 .map(|p| crate::tidal::models::get_cover_url(&p, 640)),
-            banner: a.banner.map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
+            banner: a
+                .banner
+                .map(|b| crate::tidal::models::get_cover_url(&b, 1280)),
         })
     }
 
@@ -235,7 +219,7 @@ impl MusicProvider for TidalProvider {
                 .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
             year: a.release_date.map(|d| d.chars().take(4).collect()),
             track_count: a.number_of_tracks,
-            duration: None, 
+            duration: None,
         })
     }
 
@@ -243,14 +227,13 @@ impl MusicProvider for TidalProvider {
         let aid = artist_id
             .parse::<u64>()
             .map_err(|_| anyhow!("Invalid Tidal ID"))?;
-        
-        // Fetch artist info first so we can inject it into tracks
+
         let artist_info = self
             .client
             .get_artist(aid)
             .await
             .map_err(|e| anyhow!(e.to_string()))?;
-        
+
         let tracks_res = self
             .client
             .get_artist_top_tracks(aid)
@@ -260,13 +243,15 @@ impl MusicProvider for TidalProvider {
         let tracks: Vec<Track> = tracks_res
             .into_iter()
             .map(|t| {
-                // Use track's artist if available, otherwise inject the fetched artist
                 let (artist_name, track_artist_id) = if let Some(ref a) = t.artist {
                     (a.name.clone(), Some(format!("tidal:{}", a.id)))
                 } else {
-                    (artist_info.name.clone(), Some(format!("tidal:{}", artist_info.id)))
+                    (
+                        artist_info.name.clone(),
+                        Some(format!("tidal:{}", artist_info.id)),
+                    )
                 };
-                
+
                 Track {
                     id: format!("tidal:{}", t.id),
                     title: t.title,

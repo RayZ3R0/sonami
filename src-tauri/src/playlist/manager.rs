@@ -154,11 +154,11 @@ impl PlaylistManager {
             let last_played_at: Option<i64> = row.try_get("last_played_at").ok();
             let audio_quality: Option<String> = row.try_get("audio_quality").ok();
 
-            // Construct artist_id - favor external ID for external sources
             let artist_provider_id: Option<String> = row.try_get("artist_provider_id").ok();
             let artist_external_id: Option<String> = row.try_get("artist_external_id").ok();
-            
-            let artist_id = if let (Some(pid), Some(eid)) = (artist_provider_id, artist_external_id) {
+
+            let artist_id = if let (Some(pid), Some(eid)) = (artist_provider_id, artist_external_id)
+            {
                 if !eid.is_empty() {
                     Some(format!("{}:{}", pid, eid))
                 } else {
@@ -168,12 +168,11 @@ impl PlaylistManager {
                 row.try_get("artist_id").ok()
             };
 
-            // Construct album_id - favor external ID
             let album_provider_id: Option<String> = row.try_get("album_provider_id").ok();
             let album_external_id: Option<String> = row.try_get("album_external_id").ok();
 
             let album_id = if let (Some(pid), Some(eid)) = (album_provider_id, album_external_id) {
-                 if !eid.is_empty() {
+                if !eid.is_empty() {
                     Some(format!("{}:{}", pid, eid))
                 } else {
                     row.try_get("album_id").ok()
@@ -218,8 +217,6 @@ impl PlaylistManager {
     }
 
     pub async fn rename_playlist(&self, id: &str, new_name: &str) -> Result<(), String> {
-        // Optimistic update: checks row count but doesn't return data.
-        // Frontend should update local cache or refetch.
         let result = sqlx::query(
             "UPDATE playlists SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         )

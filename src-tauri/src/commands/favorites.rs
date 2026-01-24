@@ -16,7 +16,7 @@ pub async fn add_favorite(
                 artist: track.artist.clone(),
                 artist_id: track.artist_id.clone(), // Pass the artist_id (e.g. tidal:123)
                 album: track.album.clone(),
-                album_id: track.album_id.clone(),   // Pass the album_id (e.g. tidal:456)
+                album_id: track.album_id.clone(), // Pass the album_id (e.g. tidal:456)
                 duration: track.duration,
                 cover_url: track.cover_image.clone(),
             };

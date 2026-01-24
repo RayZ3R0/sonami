@@ -249,7 +249,8 @@ export const SearchPage = ({
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { playTrack, toggleFavorite, favorites, playlists, addToPlaylist } = usePlayer();
+  const { playTrack, toggleFavorite, favorites, playlists, addToPlaylist } =
+    usePlayer();
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -328,9 +329,17 @@ export const SearchPage = ({
       {
         label: isFavorited ? "Remove from Liked Songs" : "Add to Liked Songs",
         icon: (
-          <svg fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          <svg
+            fill={isFavorited ? "currentColor" : "none"}
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
           </svg>
         ),
         action: () => toggleFavorite(track),
@@ -343,8 +352,12 @@ export const SearchPage = ({
         label: "Add to Playlist",
         icon: (
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 4v16m8-8H4" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
           </svg>
         ),
         submenu: playlists.map((p) => ({
@@ -355,7 +368,15 @@ export const SearchPage = ({
     }
 
     return items;
-  }, [contextMenu, favorites, playlists, toggleFavorite, addToPlaylist, handlePlayTrack, convertToTrack]);
+  }, [
+    contextMenu,
+    favorites,
+    playlists,
+    toggleFavorite,
+    addToPlaylist,
+    handlePlayTrack,
+    convertToTrack,
+  ]);
 
   const handleNavigateToArtist = (artist: UnifiedSearchArtist) => {
     onNavigate(`artist:${artist.id}`);
@@ -417,10 +438,11 @@ export const SearchPage = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
-                    ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
-                    : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
-                    }`}
+                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
+                    activeTab === tab.id
+                      ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
+                      : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
+                  }`}
                 >
                   {tab.label}
                 </button>

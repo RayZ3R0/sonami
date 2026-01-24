@@ -21,11 +21,11 @@ pub async fn configure_subsonic(
     username: String,
     password: String,
 ) -> Result<String, String> {
-    // 1. Test connection first
+    // 1. Test connection first using getUser.view (compatible with hifi)
     let provider =
         SubsonicProvider::with_config(server_url.clone(), username.clone(), password.clone());
     provider
-        .ping()
+        .authenticate()
         .await
         .map_err(|e| format!("Connection test failed: {}", e))?;
 

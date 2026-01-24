@@ -305,8 +305,6 @@ fn update_playing_activity(
         .unwrap()
         .as_secs() as i64;
 
-    // Calculate timestamps for progress bar simulation
-    // Discord shows "XX:XX left" when both start and end are provided
     let elapsed_since_start = started_at.elapsed().as_secs();
     let current_position = position_secs + elapsed_since_start;
     let start_timestamp = now - current_position as i64;
@@ -315,7 +313,6 @@ fn update_playing_activity(
     let details = &track.title;
     let state_text = &track.artist;
 
-    // Build activity with Spotify-like structure
     let mut activity_builder = activity::Activity::new()
         .activity_type(activity::ActivityType::Listening)
         .details(details)
@@ -331,7 +328,6 @@ fn update_playing_activity(
                 .large_text(&track.album),
         );
 
-    // Add cover art URL if available (Discord supports external URLs)
     if let Some(ref cover_url) = track.cover_url {
         activity_builder = activity_builder.assets(
             activity::Assets::new()
@@ -362,7 +358,6 @@ fn update_paused_activity(
     let details = &track.title;
     let state_text = format!("{} • Paused", track.artist);
 
-    // Format position for display in album text
     let mins = position_secs / 60;
     let secs = position_secs % 60;
     let position_text = format!(
@@ -391,7 +386,6 @@ fn update_paused_activity(
                 .large_text(&position_text),
         );
 
-    // Add cover art URL if available
     if let Some(ref cover_url) = track.cover_url {
         activity_builder = activity_builder.assets(
             activity::Assets::new()

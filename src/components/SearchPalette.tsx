@@ -213,10 +213,11 @@ const SearchResultItem = ({
           disabled={isAdded}
           className={`
                         px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 flex items-center gap-1.5
-                        ${isAdded
-              ? "bg-pink-500/20 text-pink-400 cursor-default"
-              : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
-            }
+                        ${
+                          isAdded
+                            ? "bg-pink-500/20 text-pink-400 cursor-default"
+                            : "bg-white/5 hover:bg-white/10 text-theme-primary hover:text-pink-400"
+                        }
                     `}
           title={isAdded ? "Added to Liked Songs" : "Add to Liked Songs"}
         >
@@ -518,12 +519,19 @@ export const SearchPalette = ({
       setLoadingSubsonic(true);
       try {
         console.log("Searching Subsonic for:", activeQuery);
+        console.log("Active provider configs:", providerConfigs);
+
         const response: any = await invoke("search_music", {
           query: activeQuery,
           providerId: "subsonic",
         });
 
-        if (currentQueryRef.current !== activeQuery) return;
+        console.log("Subsonic raw response:", response);
+
+        if (currentQueryRef.current !== activeQuery) {
+          console.log("Discarding stale Subsonic results");
+          return;
+        }
 
         const tracks = response.tracks || [];
         setSubsonicResults(
@@ -534,7 +542,7 @@ export const SearchPalette = ({
             artist: track.artist || "Unknown Artist",
             album: track.album || "",
             duration: track.duration || 0,
-            cover: track.cover_url,
+            cover: track.cover_image,
             track,
           })),
         );
@@ -586,7 +594,7 @@ export const SearchPalette = ({
             artist: track.artist || "Unknown Artist",
             album: track.album || "",
             duration: track.duration || 0,
-            cover: track.cover_url,
+            cover: track.cover_image,
             track,
           })),
         );
@@ -819,10 +827,13 @@ export const SearchPalette = ({
     const isLocal = result.type === "local";
 
     // Check if track is liked
-    const compositeKey = result.providerId && result.externalId
-      ? `${result.providerId}:${result.externalId}`
-      : null;
-    const isLiked = favorites.has(result.id) || (compositeKey ? favorites.has(compositeKey) : false);
+    const compositeKey =
+      result.providerId && result.externalId
+        ? `${result.providerId}:${result.externalId}`
+        : null;
+    const isLiked =
+      favorites.has(result.id) ||
+      (compositeKey ? favorites.has(compositeKey) : false);
 
     setContextMenu({
       isOpen: true,
@@ -1016,10 +1027,13 @@ export const SearchPalette = ({
               };
 
               // Check liked state using global favorites
-              const compositeKey = result.providerId && result.externalId
-                ? `${result.providerId}:${result.externalId}`
-                : null;
-              const isAdded = favorites.has(result.id) || (compositeKey ? favorites.has(compositeKey) : false);
+              const compositeKey =
+                result.providerId && result.externalId
+                  ? `${result.providerId}:${result.externalId}`
+                  : null;
+              const isAdded =
+                favorites.has(result.id) ||
+                (compositeKey ? favorites.has(compositeKey) : false);
               const isDownloaded =
                 result.type === "local" &&
                 (() => {
@@ -1063,8 +1077,8 @@ export const SearchPalette = ({
                     downloadState={
                       result.providerId && result.externalId
                         ? downloads.get(
-                          `${result.providerId}:${result.externalId}`,
-                        )
+                            `${result.providerId}:${result.externalId}`,
+                          )
                         : undefined
                     }
                     isDownloaded={isDownloaded}

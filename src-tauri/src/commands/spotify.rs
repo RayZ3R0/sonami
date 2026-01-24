@@ -1,10 +1,10 @@
+use crate::database::DatabaseManager;
+use crate::providers::manager::ProviderManagerArc;
 use crate::spotify::{
     models::{SpotifyPlaylistResult, VerificationProgress, VerifiedSpotifyTrack},
     romanize_japanese, SpotifyClient,
 };
 use crate::tidal::{get_cover_url, CoverSize, TidalClient};
-use crate::database::DatabaseManager;
-use crate::providers::manager::ProviderManagerArc;
 use std::sync::Arc;
 use tauri::{command, AppHandle, Emitter, State};
 
@@ -29,7 +29,17 @@ pub async fn verify_spotify_track(
     artist: String,
 ) -> Result<VerifiedSpotifyTrack, String> {
     let priority = db.get_spotify_import_priority().await?;
-    verify_track_internal(&tidal, &provider_manager, &priority, &title, &artist, None, None, None).await
+    verify_track_internal(
+        &tidal,
+        &provider_manager,
+        &priority,
+        &title,
+        &artist,
+        None,
+        None,
+        None,
+    )
+    .await
 }
 
 #[command]
@@ -120,24 +130,26 @@ async fn verify_track_internal(
         match provider_id.as_str() {
             "tidal" => {
                 // Tidal-specific search with romanization support
-                if let Some(result) = try_tidal_match(tidal, &spotify_track, &query, title, artist).await {
+                if let Some(result) =
+                    try_tidal_match(tidal, &spotify_track, &query, title, artist).await
+                {
                     return Ok(result);
                 }
             }
             _ => {
                 // Generic provider search (Subsonic, Jellyfin, etc.)
                 if let Some(provider) = provider_manager.get_provider(provider_id).await {
-                    if let Some(result) = try_generic_provider_match(
-                        provider,
-                        &spotify_track,
-                        &query,
-                        title,
-                        artist
-                    ).await {
+                    if let Some(result) =
+                        try_generic_provider_match(provider, &spotify_track, &query, title, artist)
+                            .await
+                    {
                         return Ok(result);
                     }
                 } else {
-                    log::debug!("Skipping provider {} (not found or not enabled)", provider_id);
+                    log::debug!(
+                        "Skipping provider {} (not found or not enabled)",
+                        provider_id
+                    );
                 }
             }
         }
@@ -183,8 +195,10 @@ async fn try_generic_provider_match(
                 let spotify_title_lower = title.to_lowercase();
 
                 // Simple fuzzy match: check if artist match and title match
-                let artist_match = track_artist.contains(&spotify_artist_lower) || spotify_artist_lower.contains(&track_artist);
-                let title_match = track_title.contains(&spotify_title_lower) || spotify_title_lower.contains(&track_title);
+                let artist_match = track_artist.contains(&spotify_artist_lower)
+                    || spotify_artist_lower.contains(&track_artist);
+                let title_match = track_title.contains(&spotify_title_lower)
+                    || spotify_title_lower.contains(&track_title);
 
                 if artist_match && title_match {
                     let provider_id = provider.id().to_string();
@@ -480,7 +494,10 @@ async fn add_spotify_tracks_internal(
             .album_id
             .clone()
             .or_else(|| track.tidal_album_id.map(|id| id.to_string()));
-        let album_name = track.album_name.clone().or_else(|| track.tidal_album.clone());
+        let album_name = track
+            .album_name
+            .clone()
+            .or_else(|| track.tidal_album.clone());
 
         // Use the new generic import function
         if let Err(e) = library

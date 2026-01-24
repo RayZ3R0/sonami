@@ -177,7 +177,9 @@ impl MusicProvider for JellyfinProvider {
                         id: format!("jellyfin:{}", item.id),
                         title: item.name.clone(),
                         artist: item.primary_artist(),
-                        artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
+                        artist_id: item
+                            .primary_artist_id()
+                            .map(|id| format!("jellyfin:{}", id)),
                         album: item.album.clone().unwrap_or_default(),
                         album_id: item.album_id.clone().map(|id| format!("jellyfin:{}", id)),
                         duration: item.ticks_to_seconds(),
@@ -189,7 +191,9 @@ impl MusicProvider for JellyfinProvider {
                         id: format!("jellyfin:{}", item.id),
                         title: item.name.clone(),
                         artist: item.primary_artist(),
-                        artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
+                        artist_id: item
+                            .primary_artist_id()
+                            .map(|id| format!("jellyfin:{}", id)),
                         cover_url: Some(self.image_url(&item.id, 640)),
                         year: item.production_year.map(|y| y.to_string()),
                         track_count: None,
@@ -262,7 +266,9 @@ impl MusicProvider for JellyfinProvider {
             id: format!("jellyfin:{}", item.id),
             title: item.name.clone(),
             artist: item.primary_artist(),
-            artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
+            artist_id: item
+                .primary_artist_id()
+                .map(|id| format!("jellyfin:{}", id)),
             album: item.album.clone().unwrap_or_default(),
             album_id: item.album_id.clone().map(|id| format!("jellyfin:{}", id)),
             duration: item.ticks_to_seconds(),
@@ -316,7 +322,9 @@ impl MusicProvider for JellyfinProvider {
             id: format!("jellyfin:{}", item.id),
             title: item.name.clone(),
             artist: item.primary_artist(),
-            artist_id: item.primary_artist_id().map(|id| format!("jellyfin:{}", id)),
+            artist_id: item
+                .primary_artist_id()
+                .map(|id| format!("jellyfin:{}", id)),
             cover_url: Some(self.image_url(&item.id, 640)),
             year: item.production_year.map(|y| y.to_string()),
             track_count: None,
@@ -347,22 +355,28 @@ impl MusicProvider for JellyfinProvider {
             .json()
             .await?;
 
-        let tracks = resp.items.into_iter().map(|item| {
-            let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
-            let duration = item.ticks_to_seconds();
-            let cover_url = Some(self.image_url(&item.id, 640));
-            Track {
-                id: format!("jellyfin:{}", item.id),
-                title: item.name,
-                artist,
-                artist_id,
-                album: item.album.unwrap_or_default(),
-                album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
-                duration,
-                cover_url,
-            }
-        }).collect();
+        let tracks = resp
+            .items
+            .into_iter()
+            .map(|item| {
+                let artist = item.primary_artist();
+                let artist_id = item
+                    .primary_artist_id()
+                    .map(|id| format!("jellyfin:{}", id));
+                let duration = item.ticks_to_seconds();
+                let cover_url = Some(self.image_url(&item.id, 640));
+                Track {
+                    id: format!("jellyfin:{}", item.id),
+                    title: item.name,
+                    artist,
+                    artist_id,
+                    album: item.album.unwrap_or_default(),
+                    album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
+                    duration,
+                    cover_url,
+                }
+            })
+            .collect();
 
         Ok(tracks)
     }
@@ -372,7 +386,7 @@ impl MusicProvider for JellyfinProvider {
             return Err(anyhow!("Jellyfin provider not initialized"));
         }
         let base = self.server_url.trim_end_matches('/');
-        // For albums we can use ArtistIds or AlbumArtistIds or ParentId. 
+        // For albums we can use ArtistIds or AlbumArtistIds or ParentId.
         // Using ArtistIds seems correct for "Albums by Artist".
         let url = format!(
             "{}/Items?ArtistIds={}&IncludeItemTypes=MusicAlbum&Recursive=true&SortBy=ProductionYear&SortOrder=Descending&UserId={}",
@@ -387,24 +401,30 @@ impl MusicProvider for JellyfinProvider {
             .await?
             .json()
             .await?;
-        
-        let albums = resp.items.into_iter().map(|item| {
-            let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
-            let cover_url = Some(self.image_url(&item.id, 640));
-            let year = item.production_year.map(|y| y.to_string());
-            
-            Album {
-                id: format!("jellyfin:{}", item.id),
-                title: item.name,
-                artist,
-                artist_id,
-                cover_url,
-                year,
-                track_count: None,
-                duration: None,
-            }
-        }).collect();
+
+        let albums = resp
+            .items
+            .into_iter()
+            .map(|item| {
+                let artist = item.primary_artist();
+                let artist_id = item
+                    .primary_artist_id()
+                    .map(|id| format!("jellyfin:{}", id));
+                let cover_url = Some(self.image_url(&item.id, 640));
+                let year = item.production_year.map(|y| y.to_string());
+
+                Album {
+                    id: format!("jellyfin:{}", item.id),
+                    title: item.name,
+                    artist,
+                    artist_id,
+                    cover_url,
+                    year,
+                    track_count: None,
+                    duration: None,
+                }
+            })
+            .collect();
 
         Ok(albums)
     }
@@ -428,23 +448,29 @@ impl MusicProvider for JellyfinProvider {
             .json()
             .await?;
 
-        let tracks = resp.items.into_iter().map(|item| {
-            let artist = item.primary_artist();
-            let artist_id = item.primary_artist_id().map(|id| format!("jellyfin:{}", id));
-            let duration = item.ticks_to_seconds();
-            let cover_url = Some(self.image_url(&item.id, 640));
+        let tracks = resp
+            .items
+            .into_iter()
+            .map(|item| {
+                let artist = item.primary_artist();
+                let artist_id = item
+                    .primary_artist_id()
+                    .map(|id| format!("jellyfin:{}", id));
+                let duration = item.ticks_to_seconds();
+                let cover_url = Some(self.image_url(&item.id, 640));
 
-            Track {
-                id: format!("jellyfin:{}", item.id),
-                title: item.name,
-                artist,
-                artist_id,
-                album: item.album.unwrap_or_default(),
-                album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
-                duration,
-                cover_url,
-            }
-        }).collect();
+                Track {
+                    id: format!("jellyfin:{}", item.id),
+                    title: item.name,
+                    artist,
+                    artist_id,
+                    album: item.album.unwrap_or_default(),
+                    album_id: item.album_id.map(|id| format!("jellyfin:{}", id)),
+                    duration,
+                    cover_url,
+                }
+            })
+            .collect();
 
         Ok(tracks)
     }

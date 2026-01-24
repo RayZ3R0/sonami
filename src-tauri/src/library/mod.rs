@@ -514,7 +514,6 @@ impl LibraryManager {
         provider_id: &str,
         external_id: &str,
     ) -> Result<Option<String>, String> {
-        // First get the current file path so we can return it for deletion
         let row = sqlx::query(
             "SELECT file_path FROM tracks WHERE provider_id = ? AND external_id = ? AND file_path IS NOT NULL",
         )
@@ -526,7 +525,6 @@ impl LibraryManager {
 
         let old_path: Option<String> = row.and_then(|r| r.try_get("file_path").ok());
 
-        // Clear the download info
         sqlx::query(
             "UPDATE tracks SET file_path = NULL, audio_quality = NULL WHERE provider_id = ? AND external_id = ?",
         )
@@ -589,12 +587,13 @@ impl LibraryManager {
         // Try to find artist by external ID first
         let mut found_artist_id = None;
         if let Some(eid) = &artist_external_id {
-            if let Some(row) = sqlx::query("SELECT id FROM artists WHERE provider_id = ? AND external_id = ?")
-                .bind(provider_id)
-                .bind(eid)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?
+            if let Some(row) =
+                sqlx::query("SELECT id FROM artists WHERE provider_id = ? AND external_id = ?")
+                    .bind(provider_id)
+                    .bind(eid)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?
             {
                 found_artist_id = Some(row.try_get::<String, _>("id").unwrap_or_default());
                 log::info!("[import_external_track] Found artist by external_id");
@@ -610,8 +609,9 @@ impl LibraryManager {
                 .map_err(|e| e.to_string())?
             {
                 let id = row.try_get::<String, _>("id").unwrap_or_default();
-                let existing_external_id: Option<String> = row.try_get("external_id").ok().flatten();
-                
+                let existing_external_id: Option<String> =
+                    row.try_get("external_id").ok().flatten();
+
                 log::info!(
                     "[import_external_track] Found artist by name: id={}, existing_external_id={:?}",
                     id, existing_external_id
@@ -622,15 +622,18 @@ impl LibraryManager {
                     if let Some(eid) = &artist_external_id {
                         log::info!(
                             "[import_external_track] Updating artist {} with external_id={}",
-                            id, eid
+                            id,
+                            eid
                         );
-                        sqlx::query("UPDATE artists SET provider_id = ?, external_id = ? WHERE id = ?")
-                            .bind(provider_id)
-                            .bind(eid)
-                            .bind(&id)
-                            .execute(&mut *tx)
-                            .await
-                            .map_err(|e| e.to_string())?;
+                        sqlx::query(
+                            "UPDATE artists SET provider_id = ?, external_id = ? WHERE id = ?",
+                        )
+                        .bind(provider_id)
+                        .bind(eid)
+                        .bind(&id)
+                        .execute(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?;
                     }
                 }
                 found_artist_id = Some(id);
@@ -643,16 +646,20 @@ impl LibraryManager {
             let new_id = Uuid::new_v4().to_string();
             log::info!(
                 "[import_external_track] Creating new artist: id={}, name={}, external_id={:?}",
-                new_id, artist_name, artist_external_id
+                new_id,
+                artist_name,
+                artist_external_id
             );
-            sqlx::query("INSERT INTO artists (id, name, provider_id, external_id) VALUES (?, ?, ?, ?)")
-                .bind(&new_id)
-                .bind(artist_name)
-                .bind(provider_id)
-                .bind(artist_external_id)
-                .execute(&mut *tx)
-                .await
-                .map_err(|e| e.to_string())?;
+            sqlx::query(
+                "INSERT INTO artists (id, name, provider_id, external_id) VALUES (?, ?, ?, ?)",
+            )
+            .bind(&new_id)
+            .bind(artist_name)
+            .bind(provider_id)
+            .bind(artist_external_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
             new_id
         };
 
@@ -664,7 +671,7 @@ impl LibraryManager {
             &track.album
         };
         if !track.album.is_empty() {
-             // Extract external album ID if available
+            // Extract external album ID if available
             let album_external_id = track.album_id.as_ref().map(|aid| {
                 if aid.starts_with(&format!("{}:", provider_id)) {
                     aid.chars().skip(provider_id.len() + 1).collect::<String>()
@@ -676,17 +683,18 @@ impl LibraryManager {
             // Try to find album by external ID first
             let mut found_album_id = None;
             if let Some(eid) = &album_external_id {
-                found_album_id = sqlx::query("SELECT id FROM albums WHERE provider_id = ? AND external_id = ?")
-                    .bind(provider_id)
-                    .bind(eid)
-                    .fetch_optional(&mut *tx)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .map(|row| row.try_get::<String, _>("id").unwrap_or_default());
+                found_album_id =
+                    sqlx::query("SELECT id FROM albums WHERE provider_id = ? AND external_id = ?")
+                        .bind(provider_id)
+                        .bind(eid)
+                        .fetch_optional(&mut *tx)
+                        .await
+                        .map_err(|e| e.to_string())?
+                        .map(|row| row.try_get::<String, _>("id").unwrap_or_default());
             }
 
             // Fallback: Find by Name + ArtistID
-             if found_album_id.is_none() {
+            if found_album_id.is_none() {
                 found_album_id =
                     sqlx::query("SELECT id FROM albums WHERE title = ? AND artist_id = ?")
                         .bind(album_name)
