@@ -1,7 +1,7 @@
 {
   "name": "sonami",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A lightweight, cross-platform music player built with Tauri, React, and Rust.",
   "author": "RayZ3R0",
   "license": "MIT",
