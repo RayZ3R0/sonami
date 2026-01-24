@@ -36,7 +36,9 @@ pub fn run() {
             let handle = app.handle().clone();
 
             let discord_rpc = std::sync::Arc::new(DiscordRpcManager::new());
+             // Initialize Audio Manager and manage it immediately so it's accessible via State
             let audio_manager = AudioManager::new(handle.clone(), Some(discord_rpc.clone()));
+            app.manage(audio_manager);
 
             let _playlist_manager_placeholder = ();
             app.manage((*discord_rpc).clone());
@@ -103,6 +105,38 @@ pub fn run() {
 
                         log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
 
+                        // Initialize Persistence for Download Manager
+                        let db_ref = handle_clone_db.state::<database::DatabaseManager>();
+                        let dm = handle_clone_db.state::<DownloadManager>();
+                        dm.initialize(&db_ref).await;
+
+                        // Initialize Persistence for Audio Manager
+                        let am = handle_clone_db.state::<AudioManager>();
+                        
+                        if let Ok(Some(vol_str)) = db_ref.get_setting("player_volume").await {
+                             if let Ok(vol) = vol_str.parse::<f32>() {
+                                 am.set_volume(vol);
+                                 log::info!("Restored volume: {}", vol);
+                             }
+                        }
+
+                        if let Ok(Some(shuffle_str)) = db_ref.get_setting("player_shuffle").await {
+                             if let Ok(shuffle) = shuffle_str.parse::<bool>() {
+                                 am.queue.write().shuffle = shuffle;
+                                 log::info!("Restored shuffle: {}", shuffle);
+                             }
+                        }
+
+                        if let Ok(Some(repeat_str)) = db_ref.get_setting("player_repeat").await {
+                             let mode = match repeat_str.as_str() {
+                                 "all" => queue::RepeatMode::All,
+                                 "one" => queue::RepeatMode::One,
+                                 _ => queue::RepeatMode::Off,
+                             };
+                             am.queue.write().repeat = mode;
+                             log::info!("Restored repeat mode: {:?}", mode);
+                        }
+
 
                         let configs: Vec<(String, String, String, String)> = sqlx::query_as(
                             "SELECT provider_id, server_url, username, password FROM provider_configs WHERE enabled = 1"
@@ -152,12 +186,16 @@ pub fn run() {
                     }
                 }
             });
-            let state_for_controls = audio_manager.state.clone();
-            let queue_for_controls = audio_manager.queue.clone();
-            let cmd_tx = audio_manager.command_tx_clone();
-            let media_controls_for_handler = audio_manager.media_controls.clone();
 
-            audio_manager
+            // Retrieve audio_manager from state since it was moved
+            let audio_manager_state = app.state::<AudioManager>();
+
+            let state_for_controls = audio_manager_state.state.clone();
+            let queue_for_controls = audio_manager_state.queue.clone();
+            let cmd_tx = audio_manager_state.command_tx_clone();
+            let media_controls_for_handler = audio_manager_state.media_controls.clone();
+
+            audio_manager_state
                 .media_controls
                 .attach_handler(move |event| match event {
                     MediaControlEvent::Play => {
@@ -245,8 +283,8 @@ pub fn run() {
                     _ => {}
                 });
 
-            let media_controls_for_position = audio_manager.media_controls.clone();
-            let state_for_position = audio_manager.state.clone();
+            let media_controls_for_position = audio_manager_state.media_controls.clone();
+            let state_for_position = audio_manager_state.state.clone();
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -261,10 +299,6 @@ pub fn run() {
                     }
                 }
             });
-
-
-
-            app.manage(audio_manager);
 
             Ok(())
         })

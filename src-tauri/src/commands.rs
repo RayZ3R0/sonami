@@ -264,8 +264,13 @@ pub async fn seek_track(state: State<'_, AudioManager>, position: f64) -> Result
 }
 
 #[tauri::command]
-pub async fn set_volume(state: State<'_, AudioManager>, volume: f32) -> Result<(), String> {
+pub async fn set_volume(
+    state: State<'_, AudioManager>,
+    db: State<'_, crate::database::DatabaseManager>,
+    volume: f32,
+) -> Result<(), String> {
     state.set_volume(volume);
+    let _ = db.set_setting("player_volume", &volume.to_string()).await;
     Ok(())
 }
 
@@ -305,18 +310,32 @@ pub async fn clear_queue(state: State<'_, AudioManager>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn toggle_shuffle(state: State<'_, AudioManager>) -> Result<bool, String> {
-    let mut q = state.queue.write();
-    q.toggle_shuffle();
-    Ok(q.shuffle)
+pub async fn toggle_shuffle(
+    state: State<'_, AudioManager>,
+    db: State<'_, crate::database::DatabaseManager>,
+) -> Result<bool, String> {
+    let shuffle_state = {
+        let mut q = state.queue.write();
+        q.toggle_shuffle();
+        q.shuffle
+    };
+    let _ = db.set_setting("player_shuffle", &shuffle_state.to_string()).await;
+    Ok(shuffle_state)
 }
 
 #[tauri::command]
 pub async fn set_repeat_mode(
     state: State<'_, AudioManager>,
+    db: State<'_, crate::database::DatabaseManager>,
     mode: RepeatMode,
 ) -> Result<(), String> {
     state.queue.write().repeat = mode;
+    let mode_str = match mode {
+        RepeatMode::Off => "off",
+        RepeatMode::All => "all",
+        RepeatMode::One => "one",
+    };
+    let _ = db.set_setting("player_repeat", mode_str).await;
     Ok(())
 }
 

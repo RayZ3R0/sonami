@@ -61,14 +61,34 @@ impl DownloadManager {
         }
     }
 
-    pub fn set_download_path(&self, path: PathBuf) -> Result<(), String> {
-        let mut dir = self.music_dir.lock().unwrap();
-        *dir = path;
+    pub async fn set_download_path(&self, path: PathBuf, db: &crate::database::DatabaseManager) -> Result<(), String> {
+        let path_str = path.to_str().unwrap_or_default().to_string();
+        
+        {
+            let mut dir = self.music_dir.lock().unwrap();
+            *dir = path;
+        }
+        
+        db.set_setting("download_path", &path_str)
+            .await
+            .map_err(|e| e.to_string())?;
+            
         Ok(())
     }
 
     pub fn get_download_path(&self) -> PathBuf {
         self.music_dir.lock().unwrap().clone()
+    }
+
+    pub async fn initialize(&self, db: &crate::database::DatabaseManager) {
+        if let Ok(Some(path_str)) = db.get_setting("download_path").await {
+            let path = PathBuf::from(path_str);
+            if path.exists() {
+                let mut dir = self.music_dir.lock().unwrap();
+                *dir = path;
+                log::info!("Restored download path from settings: {:?}", *dir);
+            }
+        }
     }
 
     pub async fn download_tidal_track(
