@@ -70,6 +70,8 @@ impl AudioManager {
 
         // Context for Decoder
         let context_decoder = context.clone();
+        // Context for Output
+        let context_output = context.clone();
         
         // Spawn Controller Loop (The "Brain")
         let controller_state = state.clone();
