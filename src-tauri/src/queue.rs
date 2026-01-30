@@ -127,8 +127,12 @@ impl PlayQueue {
             Some(idx) => idx + 1,
             None => 0,
         };
-        
-        log::info!("Queue: Advancing from {:?} to {}", self.current_index, next_idx);
+
+        log::info!(
+            "Queue: Advancing from {:?} to {}",
+            self.current_index,
+            next_idx
+        );
 
         if next_idx >= self.tracks.len() {
             if self.repeat == RepeatMode::All {

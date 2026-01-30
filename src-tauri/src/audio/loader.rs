@@ -44,7 +44,7 @@ pub fn load_track(source: Box<dyn MediaSource>) -> LoadTrackResult {
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
     // Use u64 directly from n_frames
     let duration_samples = track.codec_params.n_frames.unwrap_or(0);
-    
+
     let decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
         .map_err(|e| e.to_string())?;

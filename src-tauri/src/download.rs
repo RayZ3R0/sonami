@@ -61,18 +61,22 @@ impl DownloadManager {
         }
     }
 
-    pub async fn set_download_path(&self, path: PathBuf, db: &crate::database::DatabaseManager) -> Result<(), String> {
+    pub async fn set_download_path(
+        &self,
+        path: PathBuf,
+        db: &crate::database::DatabaseManager,
+    ) -> Result<(), String> {
         let path_str = path.to_str().unwrap_or_default().to_string();
-        
+
         {
             let mut dir = self.music_dir.lock().unwrap();
             *dir = path;
         }
-        
+
         db.set_setting("download_path", &path_str)
             .await
             .map_err(|e| e.to_string())?;
-            
+
         Ok(())
     }
 

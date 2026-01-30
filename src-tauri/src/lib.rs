@@ -112,7 +112,7 @@ pub fn run() {
 
                         // Initialize Persistence for Audio Manager
                         let am = handle_clone_db.state::<AudioManager>();
-                        
+
                         if let Ok(Some(vol_str)) = db_ref.get_setting("player_volume").await {
                              if let Ok(vol) = vol_str.parse::<f32>() {
                                  am.set_volume(vol);

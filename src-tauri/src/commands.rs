@@ -319,7 +319,9 @@ pub async fn toggle_shuffle(
         q.toggle_shuffle();
         q.shuffle
     };
-    let _ = db.set_setting("player_shuffle", &shuffle_state.to_string()).await;
+    let _ = db
+        .set_setting("player_shuffle", &shuffle_state.to_string())
+        .await;
     Ok(shuffle_state)
 }
 

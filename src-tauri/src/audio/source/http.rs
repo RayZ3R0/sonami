@@ -162,7 +162,10 @@ impl Read for HttpSource {
                             if self.position < total {
                                 attempts += 1;
                                 if attempts > max_retries {
-                                    return Err(io::Error::new(io::ErrorKind::UnexpectedEof, format!("Premature EOF at {}/{}", self.position, total)));
+                                    return Err(io::Error::new(
+                                        io::ErrorKind::UnexpectedEof,
+                                        format!("Premature EOF at {}/{}", self.position, total),
+                                    ));
                                 }
                                 log::warn!("[HttpSource] Premature EOF at {}/{} (attempt {}/{}). Reconnecting...", self.position, total, attempts, max_retries);
                                 self.reader = None;
