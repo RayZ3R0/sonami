@@ -116,6 +116,7 @@ impl PlayQueue {
 
         if !manual_skip && self.repeat == RepeatMode::One {
             if let Some(idx) = self.current_index {
+                log::info!("Queue: RepeatOne active, keeping index {}", idx);
                 if let Some(track) = self.get_track_at(idx) {
                     return Some(track);
                 }
@@ -126,12 +127,16 @@ impl PlayQueue {
             Some(idx) => idx + 1,
             None => 0,
         };
+        
+        log::info!("Queue: Advancing from {:?} to {}", self.current_index, next_idx);
 
         if next_idx >= self.tracks.len() {
             if self.repeat == RepeatMode::All {
+                log::info!("Queue: End reached, RepeatAll -> Loop to 0");
                 self.current_index = Some(0);
                 return self.get_track_at(0);
             } else {
+                log::info!("Queue: End reached, stopping.");
                 return None;
             }
         }

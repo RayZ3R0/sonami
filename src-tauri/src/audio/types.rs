@@ -101,9 +101,11 @@ impl PlaybackState {
 
 pub enum DecoderCommand {
     Load(String),
+    LoadNext(String), // For pre-loading/crossfade
+    Chain(String), // Load without clearing buffer (Gapless/Append)
     Seek(f64),
     Stop,
-    QueueNext(String),
+    // QueueNext removed as it was unused/ambiguous
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -114,4 +116,11 @@ pub enum CrossfadeState {
         progress_samples: u64,
         total_samples: u64,
     },
+}
+
+#[derive(Debug)]
+pub enum DecoderEvent {
+    Error(String),
+    EndOfStream,
+    RequestNextTrack,
 }
