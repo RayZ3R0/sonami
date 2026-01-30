@@ -188,7 +188,7 @@ pub fn audio_controller_loop(
     command_tx: std::sync::mpsc::Sender<DecoderCommand>,
     shutdown: Arc<AtomicBool>,
     discord_rpc: Option<Arc<crate::discord::DiscordRpcManager>>,
-    _url_resolver: UrlResolver,
+    url_resolver: UrlResolver,
     media_controls: Arc<MediaControlsManager>,
     buffer_monitor: Arc<AudioBuffer>, // Added buffer for monitoring drain
 ) {
@@ -244,22 +244,70 @@ pub fn audio_controller_loop(
 
                     if let Some(track) = next_track_opt {
                         log::info!("[AudioController] Pre-loading next track: {}", track.title);
-                        let rt = tokio::runtime::Runtime::new().unwrap();
+                        // Spawn background thread to load
+                        let tx = command_tx.clone();
+                        let resolver = url_resolver.clone();
                         let path = track.path.clone();
-                        
-                        let resolved_res = rt.block_on(async {
-                             crate::audio::resolver::resolve_uri(&app, &path).await
-                        });
 
-                        match resolved_res {
-                            Ok(resolved) => {
-                                let _ = command_tx.send(DecoderCommand::LoadNext(resolved.path));
-                            }
-                            Err(e) => {
-                                log::error!("[AudioController] Failed to resolve preload track: {}", e);
-                            }
-                        }
+                        std::thread::spawn(move || {
+                            let source_res = super::loader::resolve_source(&path, &resolver);
+                             match source_res.and_then(super::loader::load_track) {
+                                Ok((reader, decoder, loaded_track_id, dur, sr)) => {
+                                    // Send ready decoder
+                                    let _ = tx.send(DecoderCommand::PreloadedDecoder(reader, decoder, loaded_track_id, dur, sr));
+                                    log::info!("[AudioController] Pre-load ready for: {}", path);
+                                }
+                                Err(e) => {
+                                    log::error!("[AudioController] Failed to preload next track resolution: {}", e);
+                                }
+                             }
+                        });
                     }
+                }
+                DecoderEvent::CrossfadeHandover => {
+                    log::info!("[AudioController] Crossfade Handover Complete");
+                    let _ = app.emit("track-ended", ());
+
+                    // Advance queue silently (we are already playing the next track)
+                    let next_track_opt = {
+                        let mut q = queue.write();
+                        q.get_next_track(false)
+                    };
+
+                     if let Some(track) = next_track_opt {
+                        log::info!("[AudioController] Crossfade Handover -> Now Playing: {} (ID: {})", track.title, track.id);
+                        
+                        // Update State (Path)
+                        if let Ok(resolved) = tokio::runtime::Runtime::new().unwrap().block_on(async {
+                             crate::audio::resolver::resolve_uri(&app, &track.path).await
+                        }) {
+                             *state.current_path.write() = Some(resolved.path.clone());
+                              let _ = app.emit("playback-quality-changed", resolved);
+                        }
+
+                        let _ = app.emit("track-changed", track.clone());
+                        
+                        if let Some(ref rpc) = discord_rpc {
+                            rpc.set_playing(
+                                crate::discord::TrackInfo {
+                                    title: track.title.clone(),
+                                    artist: track.artist.clone(),
+                                    album: track.album.clone(),
+                                    duration_secs: track.duration,
+                                    cover_url: track.cover_image.clone(),
+                                },
+                                0,
+                            );
+                        }
+
+                        media_controls.set_metadata(
+                            &track.title,
+                            &track.artist,
+                            &track.album,
+                            track.cover_image.as_deref(),
+                            track.duration as f64,
+                        );
+                     }
                 }
                 DecoderEvent::EndOfStream => {
                     log::info!("[AudioController] End of Stream received");
