@@ -156,6 +156,26 @@ impl Read for HttpSource {
             let reader = self.reader.as_mut().unwrap();
             match reader.read(buf) {
                 Ok(n) => {
+                    if n == 0 {
+                        // Check for premature EOF
+                        if let Some(total) = self.total_size {
+                            if self.position < total {
+                                attempts += 1;
+                                if attempts > max_retries {
+                                    return Err(io::Error::new(
+                                        io::ErrorKind::UnexpectedEof,
+                                        format!("Premature EOF at {}/{}", self.position, total),
+                                    ));
+                                }
+                                log::warn!("[HttpSource] Premature EOF at {}/{} (attempt {}/{}). Reconnecting...", self.position, total, attempts, max_retries);
+                                self.reader = None;
+                                HttpSource::backoff(attempts);
+                                continue;
+                            } else {
+                                // Clean EOF
+                            }
+                        }
+                    }
                     self.position += n as u64;
                     return Ok(n);
                 }

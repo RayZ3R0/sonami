@@ -35,6 +35,7 @@ pub async fn get_download_path(
 #[tauri::command]
 pub async fn set_download_path(
     download_manager: State<'_, DownloadManager>,
+    db: State<'_, crate::database::DatabaseManager>,
     path: String,
 ) -> Result<(), AppError> {
     let path_buf = PathBuf::from(&path);
@@ -44,7 +45,8 @@ pub async fn set_download_path(
     }
 
     download_manager
-        .set_download_path(path_buf)
+        .set_download_path(path_buf, &db)
+        .await
         .map_err(AppError::Config)
 }
 

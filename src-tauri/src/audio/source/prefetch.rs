@@ -74,6 +74,12 @@ impl PrefetchSource {
 
                 match inner.read(&mut buf) {
                     Ok(0) => {
+                        if !state_clone.eof.load(Ordering::SeqCst) {
+                            log::info!(
+                                "[PrefetchSource] Inner source EOF. Buffer size: {}",
+                                state_clone.buffer.lock().len()
+                            );
+                        }
                         state_clone.eof.store(true, Ordering::SeqCst);
                         state_clone.condvar.notify_all();
                         thread::sleep(std::time::Duration::from_millis(100));
@@ -166,6 +172,16 @@ impl Seek for PrefetchSource {
                     self.state.condvar.notify_all();
                     return Ok(new_pos);
                 }
+            }
+        }
+
+        // Fix for premature EOS: Symphonia attempts to seek to the end of the file (metadata/footer)
+        // which dumps our valid audio buffer. If we block seeks near the end, it forces linear read.
+        if let Some(total) = self.total_size {
+            // Block seeks within the last 512KB (approx 5s of FLAC)
+            if new_pos > total.saturating_sub(512 * 1024) {
+                // Return current position effectively ignoring the seek
+                return Ok(self.position);
             }
         }
 

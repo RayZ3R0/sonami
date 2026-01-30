@@ -30,7 +30,7 @@ use serde::Serialize;
 use symphonia::core::codecs::Decoder;
 use symphonia::core::formats::FormatReader;
 
-pub const DEFAULT_CROSSFADE_MS: u32 = 5000;
+pub const DEFAULT_CROSSFADE_MS: u32 = 0;
 
 #[derive(Clone, Serialize)]
 pub struct AudioError {
@@ -101,9 +101,12 @@ impl PlaybackState {
 
 pub enum DecoderCommand {
     Load(String),
+    LoadNext(String), // Legacy, to be removed?
+    PreloadedDecoder(Box<dyn FormatReader>, Box<dyn Decoder>, u32, u64, u32), // Pre-loaded track data
+    Chain(String), // Load without clearing buffer (Gapless/Append)
     Seek(f64),
     Stop,
-    QueueNext(String),
+    // QueueNext removed as it was unused/ambiguous
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -114,4 +117,12 @@ pub enum CrossfadeState {
         progress_samples: u64,
         total_samples: u64,
     },
+}
+
+#[derive(Debug)]
+pub enum DecoderEvent {
+    Error(String),
+    EndOfStream,
+    CrossfadeHandover,
+    RequestNextTrack,
 }

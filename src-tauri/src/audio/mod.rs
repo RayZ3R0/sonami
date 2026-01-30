@@ -1,5 +1,6 @@
 pub mod buffer;
 pub mod decoder;
+pub mod loader;
 pub mod manager;
 pub mod output;
 pub mod resolver;
