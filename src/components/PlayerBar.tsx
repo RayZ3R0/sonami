@@ -234,6 +234,7 @@ const SourceBadge = ({ path }: { path?: string }) => {
 
 interface PlayerBarProps {
   onNavigate?: (tab: string) => void;
+  isMobile?: boolean; // Add isMobile prop
 }
 
 export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {

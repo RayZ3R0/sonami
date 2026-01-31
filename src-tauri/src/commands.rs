@@ -117,45 +117,57 @@ fn scan_directory(dir: &Path, tracks: &mut Vec<Track>) {
 
 #[tauri::command]
 pub async fn import_music(app: AppHandle) -> Result<Vec<Track>, String> {
-    use tauri_plugin_dialog::DialogExt;
+    #[cfg(target_os = "android")]
+    return Ok(vec![]);
 
-    let file_path = app.dialog().file().blocking_pick_file();
+    #[cfg(not(target_os = "android"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
 
-    if let Some(path_buf) = file_path {
-        let path_str = path_buf.to_string();
-        if let Some(track) = parse_audio_file(&path_str) {
-            Ok(vec![track])
+        let file_path = app.dialog().file().blocking_pick_file();
+
+        if let Some(path_buf) = file_path {
+            let path_str = path_buf.to_string();
+            if let Some(track) = parse_audio_file(&path_str) {
+                Ok(vec![track])
+            } else {
+                Err("Failed to parse audio file".to_string())
+            }
         } else {
-            Err("Failed to parse audio file".to_string())
+            Ok(vec![])
         }
-    } else {
-        Ok(vec![])
     }
 }
 
 #[tauri::command]
 pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
-    use tauri_plugin_dialog::DialogExt;
+    #[cfg(target_os = "android")]
+    return Ok(vec![]);
 
-    let folder_path = app.dialog().file().blocking_pick_folder();
+    #[cfg(not(target_os = "android"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
 
-    if let Some(path_buf) = folder_path {
-        let path_str = path_buf.to_string();
-        let path = Path::new(&path_str);
+        let folder_path = app.dialog().file().blocking_pick_folder();
 
-        let mut tracks = Vec::new();
-        scan_directory(path, &mut tracks);
+        if let Some(path_buf) = folder_path {
+            let path_str = path_buf.to_string();
+            let path = Path::new(&path_str);
 
-        tracks.sort_by(|a, b| {
-            a.artist
-                .cmp(&b.artist)
-                .then_with(|| a.album.cmp(&b.album))
-                .then_with(|| a.title.cmp(&b.title))
-        });
+            let mut tracks = Vec::new();
+            scan_directory(path, &mut tracks);
 
-        Ok(tracks)
-    } else {
-        Ok(vec![])
+            tracks.sort_by(|a, b| {
+                a.artist
+                    .cmp(&b.artist)
+                    .then_with(|| a.album.cmp(&b.album))
+                    .then_with(|| a.title.cmp(&b.title))
+            });
+
+            Ok(tracks)
+        } else {
+            Ok(vec![])
+        }
     }
 }
 
