@@ -49,6 +49,7 @@ jobs:
             | macOS Intel | `.dmg` |
             | macOS Apple Silicon | `.dmg` |
             | Linux x64 | `.deb` `.rpm` `.AppImage` |
+            | Android | `app-universal-release.apk` |
             
             ### Installation Notes
             - **Linux**: Use `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), or `.AppImage` (universal)
@@ -112,8 +113,54 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
+  build-android:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup NDK
+        run: |
+          sdkmanager "ndk;26.1.10909125"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build Android APK
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+        run: npm run tauri -- android build --apk true
+
+      - name: Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.create-release.outputs.version }}
+          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+
   publish-release:
-    needs: [create-release, build]
+    needs: [create-release, build, build-android]
     runs-on: ubuntu-latest
     steps:
       - uses: softprops/action-gh-release@v2
