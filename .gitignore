@@ -103,3 +103,11 @@ test-music
 commaro.md
 extracto.py
 scripts/publish_aur_manual.sh
+
+# ===========================
+# Android / Mobile Build
+# ===========================
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/local.properties
+src-tauri/build_output.txt
