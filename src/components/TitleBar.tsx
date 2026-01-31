@@ -36,6 +36,7 @@ interface TitleBarProps {
   activeTab?: string;
   setActiveTab?: (tab: string) => void;
   onOpenSettings?: (tab: "appearance" | "playback") => void;
+  isMobile?: boolean; // Add isMobile prop
 }
 
 export const TitleBar = ({
@@ -43,6 +44,7 @@ export const TitleBar = ({
   activeTab,
   setActiveTab,
   onOpenSettings,
+  isMobile,
 }: TitleBarProps) => {
   const { setIsSettingsOpen } = usePlayer();
   const [osType, setOsType] = useState<string>("windows");
@@ -174,73 +176,78 @@ export const TitleBar = ({
           </div>
         )}
 
-        {/* Home Button moved here */}
-        {setActiveTab && (
-          <button
-            onClick={() => setActiveTab("home")}
-            className={`flex items-center justify-center p-2 rounded-lg transition-all ${
-              activeTab === "home"
-                ? "bg-theme-surface-active text-theme-primary"
-                : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-            }`}
-            title="Home"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-5 h-5"
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </button>
-        )}
+        {/* Desktop Only Controls */}
+        {!isMobile && (
+          <>
+            {setActiveTab && (
+              <button
+                onClick={() => setActiveTab("home")}
+                className={`flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
+                  ? "bg-theme-surface-active text-theme-primary"
+                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+                  }`}
+                title="Home"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+              </button>
+            )}
 
-        <div className="flex items-center gap-1">
-          <ThemeButton onClick={() => openSettings("appearance")} />
-          <SettingsButton onClick={() => openSettings("playback")} />
-          {/* Screenshot button - dev only, invisible */}
-          {import.meta.env.DEV && (
-            <button
-              onClick={handleScreenshot}
-              disabled={isCapturing}
-              className="w-8 h-8 opacity-0 cursor-pointer"
-              title="Capture Screenshot (Dev Only)"
-            />
-          )}
-        </div>
+            <div className="flex items-center gap-1">
+              <ThemeButton onClick={() => openSettings("appearance")} />
+              <SettingsButton onClick={() => openSettings("playback")} />
+              {/* Screenshot button - dev only, invisible */}
+              {import.meta.env.DEV && (
+                <button
+                  onClick={handleScreenshot}
+                  disabled={isCapturing}
+                  className="w-8 h-8 opacity-0 cursor-pointer"
+                  title="Capture Screenshot (Dev Only)"
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Center Section - Search Button */}
+      {/* Center Section - Search Button (Desktop Only) */}
       <div className="flex-1 flex items-center justify-center px-4 pl-32">
-        <button
-          onClick={onSearchClick}
-          className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-theme-surface/60 hover:bg-theme-surface/80 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all cursor-pointer group w-full max-w-xl shadow-lg hover:shadow-xl hover:scale-[1.01]"
-        >
-          <svg
-            className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {!isMobile && (
+          <button
+            onClick={onSearchClick}
+            className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-theme-surface/60 hover:bg-theme-surface/80 backdrop-blur-md border border-white/10 hover:border-white/20 transition-all cursor-pointer group w-full max-w-xl shadow-lg hover:shadow-xl hover:scale-[1.01]"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <span className="text-sm flex-1 text-left text-theme-muted group-hover:text-theme-primary transition-colors pt-[2px]">
-            Search music...
-          </span>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-theme-background/30 text-[11px] font-mono text-theme-muted/70">
-            {isMac ? "⌘" : "Ctrl"}+K
-          </kbd>
-        </button>
+            <svg
+              className="w-4 h-4 text-theme-muted group-hover:text-theme-primary transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <span className="text-sm flex-1 text-left text-theme-muted group-hover:text-theme-primary transition-colors pt-[2px]">
+              Search music...
+            </span>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-theme-background/30 text-[11px] font-mono text-theme-muted/70">
+              {isMac ? "⌘" : "Ctrl"}+K
+            </kbd>
+          </button>
+        )}
       </div>
 
       {/* Right Section (Windows/Linux Controls) */}

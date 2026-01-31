@@ -287,9 +287,9 @@ export const LikedSongsView = () => {
         submenu:
           availablePlaylists.length > 0
             ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
+              label: p.title,
+              action: () => addToPlaylist(p.id, track),
+            }))
             : [{ label: "No available playlists", disabled: true }],
       },
     ];
@@ -397,11 +397,10 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-              shuffle
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
                 ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
                 : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-            }`}
+              }`}
           >
             <svg
               className="w-5 h-5"
@@ -457,9 +456,9 @@ export const LikedSongsView = () => {
           <p className="text-sm opacity-60 mt-1">Like songs to see them here</p>
         </div>
       ) : (
-        <div className="flex flex-col flex-1 overflow-auto px-8">
+        <div className="flex flex-col flex-1 overflow-auto px-4 md:px-8">
           {/* Header Row */}
-          <div className="sticky top-0 bg-theme-secondary z-10 grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+          <div className="sticky top-0 bg-theme-secondary z-10 hidden md:grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-3 text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
             <span>#</span>
             <span
               className="cursor-pointer hover:text-theme-primary transition-colors"
@@ -508,14 +507,13 @@ export const LikedSongsView = () => {
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`grid grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-4 px-4 py-2.5 rounded-lg group transition-colors cursor-pointer ${
-                  isCurrentTrack
+                className={`flex w-full items-center md:grid md:grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-3 md:gap-4 px-3 md:px-4 py-2.5 rounded-lg group transition-colors cursor-pointer border-b md:border-none border-white/5 last:border-0 ${isCurrentTrack
                     ? "bg-pink-500/10 text-pink-500"
                     : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
+                  }`}
               >
                 {/* Number / Playing indicator */}
-                <div className="flex items-center text-xs font-medium justify-center">
+                <div className="hidden md:flex items-center text-xs font-medium justify-center">
                   {isCurrentTrack && isPlaying ? (
                     <div className="flex gap-0.5 items-end h-4">
                       <div
@@ -550,15 +548,15 @@ export const LikedSongsView = () => {
                 </div>
 
                 {/* Title & Cover */}
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   {track.cover_image ? (
                     <img
                       src={track.cover_image}
                       alt={track.album}
-                      className="w-10 h-10 rounded object-cover shadow-sm"
+                      className="w-10 h-10 md:w-10 md:h-10 rounded object-cover shadow-sm flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center">
+                    <div className="w-10 h-10 md:w-10 md:h-10 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
                       <svg
                         className="w-5 h-5 opacity-20"
                         fill="currentColor"
@@ -568,29 +566,33 @@ export const LikedSongsView = () => {
                       </svg>
                     </div>
                   )}
-                  <span
-                    className={`truncate font-medium ${isCurrentTrack ? "text-pink-500" : "text-theme-primary"}`}
-                  >
-                    {track.title}
-                  </span>
-                  {/* Old download indicator removed */}
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className={`truncate font-medium text-sm md:text-base ${isCurrentTrack ? "text-pink-500" : "text-theme-primary"}`}
+                    >
+                      {track.title}
+                    </span>
+                    <span className="truncate text-xs text-theme-muted md:hidden">
+                      {track.artist}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Album */}
-                <div className="flex items-center min-w-0">
+                <div className="hidden md:flex items-center min-w-0">
                   <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.album}
                   </span>
                 </div>
 
                 {/* Artist */}
-                <div className="flex items-center min-w-0">
+                <div className="hidden md:flex items-center min-w-0">
                   <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                     {track.artist}
                   </span>
                 </div>
 
-                <div className="flex items-center text-sm text-theme-muted">
+                <div className="hidden md:flex items-center text-sm text-theme-muted">
                   {formatRelativeDate(track.liked_at)}
                 </div>
 
@@ -611,7 +613,7 @@ export const LikedSongsView = () => {
                     const externalId =
                       unifiedTrack.external_id ||
                       (providerId === "tidal" &&
-                      /^\d+$/.test(track.id.replace("tidal:", ""))
+                        /^\d+$/.test(track.id.replace("tidal:", ""))
                         ? track.id.replace("tidal:", "")
                         : undefined);
 
@@ -680,7 +682,7 @@ export const LikedSongsView = () => {
                 </div>
 
                 {/* Unfavorite Button */}
-                <div className="flex items-center justify-end">
+                <div className="hidden md:flex items-center justify-end">
                   <button
                     onClick={(e) => handleUnfavorite(track, e)}
                     className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 text-pink-500 hover:text-pink-400 transition-all"

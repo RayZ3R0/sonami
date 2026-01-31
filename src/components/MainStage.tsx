@@ -1,3 +1,4 @@
+import { MobileLibrary } from "../layouts/mobile/MobileLibrary";
 import { PlaylistView } from "./PlaylistView";
 import { HomeView } from "./HomeView";
 import { LikedSongsView } from "./LikedSongsView";
@@ -12,6 +13,10 @@ export const MainStage = ({
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }) => {
+  if (activeTab === "library") {
+    return <MobileLibrary onNavigate={setActiveTab} />;
+  }
+
   if (activeTab.startsWith("playlist:")) {
     const playlistId = activeTab.split(":")[1];
     return <PlaylistView playlistId={playlistId} onNavigate={setActiveTab} />;

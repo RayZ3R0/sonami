@@ -438,11 +438,10 @@ export const SearchPage = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
-                    activeTab === tab.id
+                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
                       ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
                       : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>

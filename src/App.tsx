@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "./components/Layout/AppLayout";
+import { DesktopLayout } from "./layouts/desktop/DesktopLayout";
+import { MobileLayout } from "./layouts/mobile/MobileLayout";
 import { WelcomePage } from "./components/WelcomePage";
 import { libraryHasData } from "./api/library";
 import "./styles.css";
@@ -11,10 +12,12 @@ import { SpotifyImportProvider } from "./context/SpotifyImportContext";
 import { ToastProvider } from "./components/Toast";
 import { InputController } from "./components/InputController";
 import { ContextMenuProvider } from "./context/ContextMenuContext";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 function App() {
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const checkOnboarding = async () => {
@@ -61,8 +64,10 @@ function App() {
                 <InputController />
                 {showOnboarding ? (
                   <WelcomePage onComplete={() => setShowOnboarding(false)} />
+                ) : isMobile ? (
+                  <MobileLayout />
                 ) : (
-                  <AppLayout />
+                  <DesktopLayout />
                 )}
               </SpotifyImportProvider>
             </DownloadProvider>
