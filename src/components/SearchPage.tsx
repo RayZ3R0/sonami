@@ -9,6 +9,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { AppLogo } from "./icons/AppLogo";
 import { Track } from "../types";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface SearchPageProps {
   initialQuery?: string;
@@ -17,6 +18,9 @@ interface SearchPageProps {
 
 type FilterTab = "all" | "artists" | "albums" | "tracks";
 
+// ... (ProviderBadge, ArtistCard, AlbumCard, TrackRow components skipped for brevity)
+
+// ProviderBadge
 const ProviderBadge = ({ type }: { type: string }) => {
   const config: Record<string, { label: string; bg: string; text: string }> = {
     local: {
@@ -49,6 +53,7 @@ const ProviderBadge = ({ type }: { type: string }) => {
     </span>
   );
 };
+// ... other components
 
 const ArtistCard = ({
   artist,
@@ -246,6 +251,7 @@ export const SearchPage = ({
   initialQuery = "",
   onNavigate,
 }: SearchPageProps) => {
+  const isMobile = useIsMobile();
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -270,6 +276,10 @@ export const SearchPage = ({
     types: searchTypes,
     enabled: query.length >= 2,
   });
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -401,36 +411,38 @@ export const SearchPage = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 pt-6 pb-2">
-        <div className="flex flex-col gap-4">
-          <div className="relative group">
-            <svg
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 text-theme-muted group-focus-within:text-theme-accent transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      <div className={`sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 ${isMobile ? 'pt-0 pb-2' : 'pt-6 pb-2'}`}>
+        <div className={`flex flex-col ${isMobile ? 'gap-2' : 'gap-4'}`}>
+          {!isMobile && (
+            <div className="relative group">
+              <svg
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 text-theme-muted group-focus-within:text-theme-accent transition-colors"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-12 pr-4 pt-3 pb-1 text-4xl font-bold bg-transparent border-none outline-none ring-0 text-white placeholder:text-white/20 focus:outline-none focus:ring-0 focus:border-none transition-none"
               />
-            </svg>
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-12 pr-4 pt-3 pb-1 text-4xl font-bold bg-transparent border-none outline-none ring-0 text-white placeholder:text-white/20 focus:outline-none focus:ring-0 focus:border-none transition-none"
-            />
-            {isLoading && (
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 animate-pulse">
-                <AppLogo size={24} className="text-theme-accent" />
-              </div>
-            )}
-          </div>
+              {isLoading && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 animate-pulse">
+                  <AppLogo size={24} className="text-theme-accent" />
+                </div>
+              )}
+            </div>
+          )}
 
           {hasQuery && (
             <div className="flex items-center gap-2 pb-2 overflow-x-auto no-scrollbar">
@@ -439,8 +451,8 @@ export const SearchPage = ({
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
-                      ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
-                      : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
+                    ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
+                    : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
                     }`}
                 >
                   {tab.label}

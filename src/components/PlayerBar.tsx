@@ -237,7 +237,7 @@ interface PlayerBarProps {
   isMobile?: boolean; // Add isMobile prop
 }
 
-export const PlayerBar = ({ onNavigate, isMobile }: PlayerBarProps) => {
+export const PlayerBar = ({ onNavigate }: PlayerBarProps) => {
   const {
     currentTrack,
     isPlaying,
