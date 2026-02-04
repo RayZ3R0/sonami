@@ -1540,3 +1540,101 @@ body {
 .animate-spotify-indicator-pulse {
     animation: spotify-indicator-pulse 2s ease-in-out infinite;
 }
+
+/* ============================================
+   MOBILE PLAYER STYLES
+   ============================================ */
+
+/* Mobile Player Bar - Compact mini player */
+.mobile-player-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1rem;
+    background: linear-gradient(180deg, rgba(20, 20, 25, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    min-height: 64px;
+    touch-action: pan-x;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+}
+
+.mobile-player-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Mobile Fullscreen Player */
+.mobile-fullscreen-player {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.mobile-fullscreen-player.closing {
+    pointer-events: none;
+}
+
+/* Safe area padding for notched devices */
+.pt-safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top, 1rem));
+}
+
+/* Swipe hint animation */
+@keyframes swipe-hint {
+    0%, 100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.swipe-hint {
+    animation: swipe-hint 2s ease-in-out infinite;
+}
+
+/* Mobile player button active states */
+.mobile-player-bar button:active,
+.mobile-fullscreen-player button:active {
+    opacity: 0.7;
+}
+
+/* Album art pulse on play */
+@keyframes album-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+}
+
+.album-playing {
+    animation: album-pulse 3s ease-in-out infinite;
+}
+
+/* Mobile seek bar touch area */
+.mobile-fullscreen-player .seek-touch-area {
+    padding: 1rem 0;
+    margin: -1rem 0;
+    touch-action: none;
+}
+
+/* Safe area bottom for iOS devices */
+.safe-area-bottom {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+}

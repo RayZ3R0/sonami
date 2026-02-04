@@ -4,7 +4,7 @@ import { BottomNav } from "./BottomNav";
 import { SpotifyImportIndicator } from "../../components/SpotifyImportIndicator";
 import { useAudioEvents } from "../../hooks/useAudioEvents";
 import { MobileTopBar } from "./MobileTopBar";
-import { PlayerBar } from "../../components/PlayerBar";
+import { MobilePlayerBar } from "../../components/MobilePlayerBar";
 import { usePlayer } from "../../context/PlayerContext";
 import { MobileSettings } from "./MobileSettings";
 
@@ -46,9 +46,7 @@ export const MobileLayout = () => {
                         <MainStage activeTab={activeTab} setActiveTab={setActiveTab} />
                     </div>
 
-                    <div className="mb-0">
-                        <PlayerBar onNavigate={setActiveTab} isMobile={true} />
-                    </div>
+                    <MobilePlayerBar onNavigate={setActiveTab} />
 
                     <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
