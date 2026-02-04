@@ -417,6 +417,9 @@ pub fn run() {
             commands::providers::configure_jellyfin,
             commands::providers::get_provider_configs,
             commands::providers::remove_provider_config,
+            commands::providers::get_hifi_config,
+            commands::providers::set_hifi_config,
+            commands::providers::reset_hifi_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

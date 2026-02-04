@@ -108,7 +108,12 @@ impl EndpointManager {
     async fn fetch_from_github() -> Result<Vec<Endpoint>, TidalError> {
         let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
 
-        let response = client.get(ENDPOINTS_URL).send().await?;
+        // Get the configured endpoints URL
+        let hifi_config = HifiConfig::load();
+        let endpoints_url = hifi_config.get_endpoints_url();
+
+        log::debug!("Fetching endpoints from: {}", endpoints_url);
+        let response = client.get(endpoints_url).send().await?;
 
         if !response.status().is_success() {
             return Err(TidalError::NetworkError(format!(

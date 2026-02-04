@@ -6,9 +6,12 @@ import {
   UnifiedSearchArtist,
 } from "../hooks/useSearch";
 import { usePlayer } from "../context/PlayerContext";
+import { useContextMenu } from "../context/ContextMenuContext";
+import { usePlaylistMenu } from "../hooks/usePlaylistMenu";
 import { AppLogo } from "./icons/AppLogo";
 import { Track } from "../types";
-import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { ContextMenuItem } from "./ContextMenu";
+import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 interface SearchPageProps {
@@ -159,12 +162,14 @@ const TrackRow = ({
   onPlay,
   isPlaying,
   onContextMenu,
+  isMobile,
 }: {
   track: UnifiedSearchTrack;
   index: number;
   onPlay: () => void;
   isPlaying?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
+  isMobile?: boolean;
 }) => {
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -173,49 +178,65 @@ const TrackRow = ({
   };
 
   return (
-    <button
-      onClick={onPlay}
-      onContextMenu={onContextMenu}
-      className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-theme-surface-hover transition-colors group text-left ${isPlaying ? "bg-theme-accent/10" : ""}`}
-    >
-      <div className="w-8 text-center text-theme-muted text-sm font-mono tabular-nums">
-        <span className="group-hover:hidden">{index + 1}</span>
-        <svg
-          className="w-4 h-4 hidden group-hover:block mx-auto text-theme-primary"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </div>
-      <div className="relative flex-shrink-0">
-        {track.cover ? (
-          <img
-            src={track.cover}
-            alt={track.album}
-            className="w-10 h-10 rounded object-cover"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded bg-theme-surface-active flex items-center justify-center">
-            <AppLogo size={20} className="text-theme-muted/50" />
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p
-          className={`font-medium truncate ${isPlaying ? "text-theme-accent" : "text-theme-primary"}`}
-        >
-          {track.title}
-        </p>
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-theme-muted truncate">{track.artist}</p>
-          <ProviderBadge type={track.type} />
+    <div className="flex items-center w-full">
+      <button
+        onClick={onPlay}
+        onContextMenu={onContextMenu}
+        className={`flex-1 flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-theme-surface-hover transition-colors group text-left ${isPlaying ? "bg-theme-accent/10" : ""}`}
+      >
+        <div className="w-8 text-center text-theme-muted text-sm font-mono tabular-nums">
+          <span className="group-hover:hidden">{index + 1}</span>
+          <svg
+            className="w-4 h-4 hidden group-hover:block mx-auto text-theme-primary"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path d="M8 5v14l11-7z" />
+          </svg>
         </div>
-      </div>
-      <div className="text-sm text-theme-muted font-mono tabular-nums">
-        {formatDuration(track.duration)}
-      </div>
-    </button>
+        <div className="relative flex-shrink-0">
+          {track.cover ? (
+            <img
+              src={track.cover}
+              alt={track.album}
+              className="w-10 h-10 rounded object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded bg-theme-surface-active flex items-center justify-center">
+              <AppLogo size={20} className="text-theme-muted/50" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className={`font-medium truncate ${isPlaying ? "text-theme-accent" : "text-theme-primary"}`}
+          >
+            {track.title}
+          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-theme-muted truncate">{track.artist}</p>
+            <ProviderBadge type={track.type} />
+          </div>
+        </div>
+        <div className="text-sm text-theme-muted font-mono tabular-nums">
+          {formatDuration(track.duration)}
+        </div>
+      </button>
+      {/* Mobile menu button */}
+      {isMobile && onContextMenu && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onContextMenu(e);
+          }}
+          className="p-2 mr-2 text-theme-muted hover:text-theme-primary rounded-lg hover:bg-theme-surface-hover transition-colors"
+        >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 };
 
@@ -254,15 +275,18 @@ export const SearchPage = ({
   const isMobile = useIsMobile();
   const [query, setQuery] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { playTrack, toggleFavorite, favorites, playlists, addToPlaylist } =
+  const { playTrack, toggleFavorite, favorites, playlists, refreshPlaylists } =
     usePlayer();
+  const { showMenu } = useContextMenu();
 
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{
-    position: { x: number; y: number };
-    track: UnifiedSearchTrack;
-  } | null>(null);
+  // Playlist menu hook for toggle functionality
+  const { buildPlaylistSubmenu } = usePlaylistMenu({
+    playlists,
+    refreshPlaylists,
+    onCreatePlaylistClick: () => setShowCreatePlaylist(true),
+  });
 
   const searchTypes = useMemo((): ("track" | "album" | "artist")[] => {
     if (activeTab === "all") return ["track", "album", "artist"];
@@ -312,81 +336,58 @@ export const SearchPage = ({
     [playTrack, convertToTrack],
   );
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, track: UnifiedSearchTrack) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setContextMenu({ position: { x: e.clientX, y: e.clientY }, track });
+  // Build context menu items for a track
+  const getMenuItemsForTrack = useCallback(
+    async (searchTrack: UnifiedSearchTrack): Promise<ContextMenuItem[]> => {
+      const track = convertToTrack(searchTrack);
+      const isFavorited = favorites.has(track.id) || favorites.has(track.path);
+
+      // Build playlist submenu with toggle functionality
+      const playlistSubmenu = await buildPlaylistSubmenu(track);
+
+      const items: ContextMenuItem[] = [
+        {
+          label: "Play",
+          action: () => handlePlayTrack(searchTrack),
+        },
+        {
+          label: isFavorited ? "Remove from Liked Songs" : "Add to Liked Songs",
+          action: () => toggleFavorite(track),
+        },
+        {
+          label: "Add to Playlist",
+          submenu: playlistSubmenu,
+        },
+      ];
+
+      return items;
     },
-    [],
+    [
+      favorites,
+      toggleFavorite,
+      handlePlayTrack,
+      convertToTrack,
+      buildPlaylistSubmenu,
+    ],
   );
 
-  const getContextMenuItems = useCallback((): ContextMenuItem[] => {
-    if (!contextMenu) return [];
-    const track = convertToTrack(contextMenu.track);
-    const isFavorited = favorites.has(track.id) || favorites.has(track.path);
-
-    const items: ContextMenuItem[] = [
-      {
-        label: "Play",
-        icon: (
-          <svg fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        ),
-        action: () => handlePlayTrack(contextMenu.track),
-      },
-      {
-        label: isFavorited ? "Remove from Liked Songs" : "Add to Liked Songs",
-        icon: (
-          <svg
-            fill={isFavorited ? "currentColor" : "none"}
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-            />
-          </svg>
-        ),
-        action: () => toggleFavorite(track),
-      },
-    ];
-
-    // Add to playlist submenu
-    if (playlists.length > 0) {
-      items.push({
-        label: "Add to Playlist",
-        icon: (
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-        ),
-        submenu: playlists.map((p) => ({
-          label: p.title,
-          action: () => addToPlaylist(p.id, track),
-        })),
-      });
-    }
-
-    return items;
-  }, [
-    contextMenu,
-    favorites,
-    playlists,
-    toggleFavorite,
-    addToPlaylist,
-    handlePlayTrack,
-    convertToTrack,
-  ]);
+  const handleContextMenu = useCallback(
+    async (e: React.MouseEvent, track: UnifiedSearchTrack) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const items = await getMenuItemsForTrack(track);
+      showMenu(
+        items,
+        { x: e.clientX, y: e.clientY },
+        {
+          title: track.title,
+          subtitle: track.artist,
+          coverImage: track.cover,
+        },
+      );
+    },
+    [getMenuItemsForTrack, showMenu],
+  );
 
   const handleNavigateToArtist = (artist: UnifiedSearchArtist) => {
     onNavigate(`artist:${artist.id}`);
@@ -411,8 +412,10 @@ export const SearchPage = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className={`sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 ${isMobile ? 'pt-0 pb-2' : 'pt-6 pb-2'}`}>
-        <div className={`flex flex-col ${isMobile ? 'gap-2' : 'gap-4'}`}>
+      <div
+        className={`sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 ${isMobile ? "pt-0 pb-2" : "pt-6 pb-2"}`}
+      >
+        <div className={`flex flex-col ${isMobile ? "gap-2" : "gap-4"}`}>
           {!isMobile && (
             <div className="relative group">
               <svg
@@ -450,10 +453,11 @@ export const SearchPage = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
-                    ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
-                    : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
-                    }`}
+                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
+                    activeTab === tab.id
+                      ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
+                      : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -556,6 +560,7 @@ export const SearchPage = ({
                       index={index}
                       onPlay={() => handlePlayTrack(track)}
                       onContextMenu={(e) => handleContextMenu(e, track)}
+                      isMobile={isMobile}
                     />
                   ))}
                 </div>
@@ -597,20 +602,18 @@ export const SearchPage = ({
                 index={index}
                 onPlay={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, track)}
+                isMobile={isMobile}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <ContextMenu
-          items={getContextMenuItems()}
-          position={contextMenu.position}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
+      {/* Create Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+      />
     </div>
   );
 };

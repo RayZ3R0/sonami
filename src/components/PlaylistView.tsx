@@ -1,12 +1,15 @@
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
-import { useState, useMemo, useEffect } from "react";
+import { useContextMenu } from "../context/ContextMenuContext";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { usePlaylistMenu } from "../hooks/usePlaylistMenu";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { UnifiedTrack } from "../api/library";
 import { Track } from "../types";
-import { getPlaylistsContainingTrack } from "../api/playlist";
-import { ContextMenu, ContextMenuItem } from "./ContextMenu";
+import { ContextMenuItem } from "./ContextMenu";
 import { usePlaylistDetails } from "../hooks/queries";
 import { DeletePlaylistModal } from "./DeletePlaylistModal";
+import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import { DownloadIndicator } from "./DownloadIndicator";
 
 interface PlaylistViewProps {
@@ -103,13 +106,25 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     toggleShuffle,
     isPlaying,
     favorites,
-    addToPlaylist,
     playlists,
+    refreshPlaylists,
     toggleFavorite,
   } = usePlayer();
 
   const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } =
     useDownload();
+
+  const { showMenu } = useContextMenu();
+  const isMobile = useIsMobile();
+
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+
+  // Playlist menu hook for toggle functionality
+  const { buildPlaylistSubmenu } = usePlaylistMenu({
+    playlists,
+    refreshPlaylists,
+    onCreatePlaylistClick: () => setShowCreatePlaylist(true),
+  });
 
   const {
     data: details = null,
@@ -118,49 +133,6 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     refetch,
   } = usePlaylistDetails(playlistId);
   const error = queryError ? "Failed to load playlist." : null;
-
-  const [contextMenu, setContextMenu] = useState<{
-    isOpen: boolean;
-    x: number;
-    y: number;
-    track: Track | null;
-    containingPlaylists: Set<string>;
-  }>({
-    isOpen: false,
-    x: 0,
-    y: 0,
-    track: null,
-    containingPlaylists: new Set(),
-  });
-
-  const closeContextMenu = () =>
-    setContextMenu((prev) => ({ ...prev, isOpen: false }));
-
-  const handleContextMenu = async (e: React.MouseEvent, track: Track) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try {
-      const containing = await getPlaylistsContainingTrack(track.id);
-      setContextMenu({
-        isOpen: true,
-        x: e.clientX,
-        y: e.clientY,
-        track,
-        containingPlaylists: new Set(containing),
-      });
-    } catch (error) {
-      console.error("Failed to fetch containing playlists:", error);
-
-      setContextMenu({
-        isOpen: true,
-        x: e.clientX,
-        y: e.clientY,
-        track,
-        containingPlaylists: new Set(),
-      });
-    }
-  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -229,74 +201,93 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
     });
   }, [details, sortBy, sortDirection]);
 
-  const menuItems: ContextMenuItem[] = useMemo(() => {
-    if (!contextMenu.track) return [];
-    const track = contextMenu.track;
-    const isLiked = favorites.has(track.id);
+  // Build context menu items for a track
+  const getMenuItemsForTrack = useCallback(
+    async (track: Track): Promise<ContextMenuItem[]> => {
+      const isLiked = favorites.has(track.id);
 
-    const availablePlaylists = playlists.filter(
-      (p) => p.id !== playlistId && !contextMenu.containingPlaylists.has(p.id),
-    );
+      // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
+      const source = (track as any).source;
+      const providerIdVal = (track as any).provider_id;
+      const isStreamingTrack =
+        source === "TIDAL" ||
+        source === "SUBSONIC" ||
+        source === "JELLYFIN" ||
+        (track.path && track.path.startsWith("tidal:")) ||
+        (track.path && track.path.startsWith("subsonic:")) ||
+        (track.path && track.path.startsWith("jellyfin:")) ||
+        providerIdVal === "subsonic" ||
+        providerIdVal === "jellyfin" ||
+        (providerIdVal && (track as any).external_id) ||
+        /^\d+$/.test(track.id);
 
-    // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
-    const source = (track as any).source;
-    const providerIdVal = (track as any).provider_id;
-    const isStreamingTrack =
-      source === "TIDAL" ||
-      source === "SUBSONIC" ||
-      source === "JELLYFIN" ||
-      (track.path && track.path.startsWith("tidal:")) ||
-      (track.path && track.path.startsWith("subsonic:")) ||
-      (track.path && track.path.startsWith("jellyfin:")) ||
-      providerIdVal === "subsonic" ||
-      providerIdVal === "jellyfin" ||
-      (providerIdVal && (track as any).external_id) ||
-      /^\d+$/.test(track.id);
+      // Build playlist submenu with toggle functionality
+      const playlistSubmenu = await buildPlaylistSubmenu(track);
 
-    const items: ContextMenuItem[] = [
-      {
-        label: "Play",
-        action: () => playTrack(track, sortedTracks),
-      },
-      {
-        label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
-        action: () => toggleFavorite(track),
-      },
-      {
-        label: "Add to Playlist",
-        submenu:
-          availablePlaylists.length > 0
-            ? availablePlaylists.map((p) => ({
-                label: p.title,
-                action: () => addToPlaylist(p.id, track),
-              }))
-            : [{ label: "No available playlists", disabled: true }],
-      },
-    ];
+      const items: ContextMenuItem[] = [
+        {
+          label: "Play",
+          action: () => playTrack(track, sortedTracks),
+        },
+        {
+          label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
+          action: () => toggleFavorite(track),
+        },
+        {
+          label: "Add to Playlist",
+          submenu: playlistSubmenu,
+        },
+      ];
 
-    // Add download option for streaming tracks
-    if (isStreamingTrack) {
+      // Add download option for streaming tracks
+      if (isStreamingTrack) {
+        items.push({
+          label: "Download",
+          action: () => downloadTrack(track),
+        });
+      }
+
       items.push({
-        label: "Download",
-        action: () => downloadTrack(track),
+        label: "Remove from this Playlist",
+        danger: true,
+        action: () => removeFromPlaylist(playlistId, track.id),
       });
-    }
 
-    items.push({
-      label: "Remove from this Playlist",
-      danger: true,
-      action: () => removeFromPlaylist(playlistId, track.id),
-    });
+      return items;
+    },
+    [
+      playlistId,
+      favorites,
+      sortedTracks,
+      playTrack,
+      toggleFavorite,
+      downloadTrack,
+      removeFromPlaylist,
+      buildPlaylistSubmenu,
+    ],
+  );
 
-    return items;
-  }, [
-    contextMenu,
-    playlists,
-    playlistId,
-    favorites,
-    sortedTracks,
-    downloadTrack,
-  ]);
+  // Handle context menu / action sheet display
+  const handleTrackMenu = useCallback(
+    async (track: Track, position: { x: number; y: number }) => {
+      const items = await getMenuItemsForTrack(track);
+      showMenu(items, position, {
+        title: track.title,
+        subtitle: track.artist,
+        coverImage: track.cover_image,
+      });
+    },
+    [getMenuItemsForTrack, showMenu],
+  );
+
+  const handleContextMenu = useCallback(
+    async (e: React.MouseEvent, track: Track) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleTrackMenu(track, { x: e.clientX, y: e.clientY });
+    },
+    [handleTrackMenu],
+  );
 
   const handleSort = (
     column: "title" | "artist" | "album" | "duration" | "date_added",
@@ -756,20 +747,42 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                 <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
                   {formatDuration(track.duration)}
                 </div>
+
+                {/* Mobile more button */}
+                {isMobile && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const items = await getMenuItemsForTrack(track);
+                      showMenu(
+                        items,
+                        { x: e.clientX, y: e.clientY },
+                        {
+                          title: track.title,
+                          subtitle: track.artist,
+                          coverImage: track.cover_image,
+                        },
+                      );
+                    }}
+                    className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors"
+                    aria-label="More options"
+                  >
+                    <svg
+                      className="w-5 h-5 text-theme-muted"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+                )}
               </div>
             );
           })
         )}
       </div>
-
-      {/* Context Menu */}
-      {contextMenu.isOpen && (
-        <ContextMenu
-          items={menuItems}
-          position={{ x: contextMenu.x, y: contextMenu.y }}
-          onClose={closeContextMenu}
-        />
-      )}
 
       {/* Delete Confirmation Modal */}
       {details && (
@@ -798,6 +811,12 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
           playlistName={details.playlist.title}
         />
       )}
+
+      {/* Create Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+      />
     </div>
   );
 };
