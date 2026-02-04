@@ -8,7 +8,11 @@ import {
   configureJellyfin,
   getProviderConfigs,
   removeProviderConfig,
+  getHifiConfig,
+  setHifiConfig,
+  resetHifiConfig,
   ProviderConfig,
+  HifiInstanceConfig,
 } from "../api/providers";
 import { factoryReset } from "../api/library";
 
@@ -141,6 +145,26 @@ const JellyfinIcon = () => (
     xmlns="http://www.w3.org/2000/svg"
   >
     <path d="M12 .002C8.826.002-1.398 18.537.16 21.666c1.56 3.129 22.14 3.094 23.682 0C25.384 18.573 15.177 0 12 0zm7.76 18.949c-1.008 2.028-14.493 2.05-15.514 0C3.224 16.9 9.92 4.755 12.003 4.755c2.081 0 8.77 12.166 7.759 14.196zM12 9.198c-1.054 0-4.446 6.15-3.93 7.189.518 1.04 7.348 1.027 7.86 0 .511-1.027-2.874-7.19-3.93-7.19z" />
+  </svg>
+);
+
+const HifiIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 10v3" />
+    <path d="M6 6v11" />
+    <path d="M10 3v18" />
+    <path d="M14 8v7" />
+    <path d="M18 5v13" />
+    <path d="M22 10v3" />
   </svg>
 );
 
@@ -337,6 +361,15 @@ export const Settings = ({
   const [subsonicError, setSubsonicError] = useState<string | null>(null);
   const [jellyfinError, setJellyfinError] = useState<string | null>(null);
 
+  // HiFi Instance state
+  const [hifiConfig, setHifiConfigState] = useState<HifiInstanceConfig | null>(
+    null,
+  );
+  const [hifiUrl, setHifiUrl] = useState("");
+  const [hifiLoading, setHifiLoading] = useState(false);
+  const [hifiError, setHifiError] = useState<string | null>(null);
+  const [hifiSuccess, setHifiSuccess] = useState<string | null>(null);
+
   const subsonicConfig = providerConfigs.find(
     (c) => c.provider_id === "subsonic",
   );
@@ -353,9 +386,20 @@ export const Settings = ({
     }
   };
 
+  const loadHifiConfig = async () => {
+    try {
+      const config = await getHifiConfig();
+      setHifiConfigState(config);
+      setHifiUrl(config.endpoints_url);
+    } catch (e) {
+      console.error("Failed to load HiFi config:", e);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && activeTab === "services") {
       loadProviderConfigs();
+      loadHifiConfig();
     }
   }, [isOpen, activeTab]);
 
@@ -403,6 +447,39 @@ export const Settings = ({
       console.error("Failed to disconnect:", e);
     }
   };
+
+  const handleHifiSave = async () => {
+    setHifiError(null);
+    setHifiSuccess(null);
+    setHifiLoading(true);
+    try {
+      await setHifiConfig(hifiUrl);
+      await loadHifiConfig();
+      setHifiSuccess("HiFi instance URL saved successfully");
+      setTimeout(() => setHifiSuccess(null), 3000);
+    } catch (e: any) {
+      setHifiError(e.toString());
+    } finally {
+      setHifiLoading(false);
+    }
+  };
+
+  const handleHifiReset = async () => {
+    setHifiError(null);
+    setHifiSuccess(null);
+    setHifiLoading(true);
+    try {
+      await resetHifiConfig();
+      await loadHifiConfig();
+      setHifiSuccess("HiFi instance URL reset to default");
+      setTimeout(() => setHifiSuccess(null), 3000);
+    } catch (e: any) {
+      setHifiError(e.toString());
+    } finally {
+      setHifiLoading(false);
+    }
+  };
+
   const {
     downloadPath,
     setDownloadPath,
@@ -1453,6 +1530,127 @@ export const Settings = ({
                       </button>
                     </>
                   )}
+                </div>
+
+                {/* HiFi Instance Section */}
+                <div>
+                  <h3
+                    className="text-xs font-semibold uppercase tracking-wider mb-1 mt-6"
+                    style={{ color: theme.colors.textMuted }}
+                  >
+                    Streaming Service
+                  </h3>
+                  <p
+                    className="text-xs mb-4"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Configure HiFi streaming instance
+                  </p>
+                </div>
+
+                <div
+                  className="p-4 rounded-xl space-y-4"
+                  style={{ background: theme.colors.surface }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-lg mt-0.5"
+                        style={{ background: theme.colors.surfaceHover }}
+                      >
+                        <HifiIcon />
+                      </div>
+                      <div>
+                        <h3
+                          className="font-medium mt-0.5"
+                          style={{ color: theme.colors.textPrimary }}
+                        >
+                          HiFi Instance
+                        </h3>
+                        <p
+                          className="text-xs"
+                          style={{
+                            color:
+                              hifiConfig && !hifiConfig.is_default
+                                ? theme.colors.accent
+                                : theme.colors.textSecondary,
+                          }}
+                        >
+                          {hifiConfig && !hifiConfig.is_default
+                            ? "Custom instance configured"
+                            : "Using default instance"}
+                        </p>
+                      </div>
+                    </div>
+                    {hifiConfig && !hifiConfig.is_default && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: theme.colors.accent }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="HiFi Instance URL (e.g., https://your-instance.com/instances.json)"
+                      value={hifiUrl}
+                      onChange={(e) => setHifiUrl(e.target.value)}
+                      className="w-full px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                        border: `1px solid ${theme.colors.border}`,
+                      }}
+                    />
+                    <p
+                      className="text-xs"
+                      style={{ color: theme.colors.textMuted }}
+                    >
+                      This URL should point to a JSON file containing API
+                      endpoint instances. Leave empty or reset to use the
+                      default public instance.
+                    </p>
+                  </div>
+
+                  {hifiError && (
+                    <p className="text-xs" style={{ color: "#ef4444" }}>
+                      {hifiError}
+                    </p>
+                  )}
+                  {hifiSuccess && (
+                    <p
+                      className="text-xs"
+                      style={{ color: theme.colors.accent }}
+                    >
+                      {hifiSuccess}
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleHifiSave}
+                      disabled={hifiLoading || !hifiUrl}
+                      className="flex-1 py-2 pt-[13px] rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      style={{
+                        background: theme.colors.accent,
+                        color: theme.colors.textInverse,
+                      }}
+                    >
+                      {hifiLoading ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={handleHifiReset}
+                      disabled={hifiLoading || (hifiConfig?.is_default ?? true)}
+                      className="py-2 pt-[13px] px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      style={{
+                        background: theme.colors.surfaceHover,
+                        color: theme.colors.textPrimary,
+                      }}
+                    >
+                      Reset to Default
+                    </button>
+                  </div>
                 </div>
 
                 {/* Info Note */}

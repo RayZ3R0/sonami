@@ -182,10 +182,11 @@ export const TitleBar = ({
             {setActiveTab && (
               <button
                 onClick={() => setActiveTab("home")}
-                className={`flex items-center justify-center p-2 rounded-lg transition-all ${activeTab === "home"
-                  ? "bg-theme-surface-active text-theme-primary"
-                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
-                  }`}
+                className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                  activeTab === "home"
+                    ? "bg-theme-surface-active text-theme-primary"
+                    : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
+                }`}
                 title="Home"
               >
                 <svg

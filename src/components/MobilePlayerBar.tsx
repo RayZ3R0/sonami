@@ -26,7 +26,9 @@ export const MobilePlayerBar = ({ onNavigate }: MobilePlayerBarProps) => {
   } = usePlayer();
   const { currentTime, duration } = usePlaybackProgress();
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [touchDelta, setTouchDelta] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -37,17 +39,20 @@ export const MobilePlayerBar = ({ onNavigate }: MobilePlayerBarProps) => {
     setTouchDelta(0);
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart) return;
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStart.x;
-    const deltaY = Math.abs(touch.clientY - touchStart.y);
-    
-    // Only track horizontal swipes
-    if (deltaY < 50) {
-      setTouchDelta(deltaX);
-    }
-  }, [touchStart]);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStart) return;
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = Math.abs(touch.clientY - touchStart.y);
+
+      // Only track horizontal swipes
+      if (deltaY < 50) {
+        setTouchDelta(deltaX);
+      }
+    },
+    [touchStart],
+  );
 
   const handleTouchEnd = useCallback(() => {
     if (Math.abs(touchDelta) > 80) {
@@ -80,14 +85,17 @@ export const MobilePlayerBar = ({ onNavigate }: MobilePlayerBarProps) => {
       ? `${currentTrack.provider_id}:${currentTrack.external_id}`
       : null;
   const isLiked =
-    favorites.has(trackId) || (compositeKey ? favorites.has(compositeKey) : false);
+    favorites.has(trackId) ||
+    (compositeKey ? favorites.has(compositeKey) : false);
 
   // Get a color hint from the cover image for accent
   const getQualityLabel = () => {
     if (!playbackQuality) return null;
     const { quality, source } = playbackQuality;
-    if (source === "LOCAL") return { label: "LOCAL", color: "text-emerald-400" };
-    if (quality === "LOSSLESS") return { label: "HI-RES", color: "text-amber-400" };
+    if (source === "LOCAL")
+      return { label: "LOCAL", color: "text-emerald-400" };
+    if (quality === "LOSSLESS")
+      return { label: "HI-RES", color: "text-amber-400" };
     if (quality === "HIGH") return { label: "HQ", color: "text-cyan-400" };
     return null;
   };
@@ -111,7 +119,9 @@ export const MobilePlayerBar = ({ onNavigate }: MobilePlayerBarProps) => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{
-          transform: touchStart ? `translateX(${touchDelta * 0.3}px)` : undefined,
+          transform: touchStart
+            ? `translateX(${touchDelta * 0.3}px)`
+            : undefined,
           transition: touchStart ? "none" : "transform 0.3s ease-out",
         }}
       >
@@ -171,13 +181,17 @@ export const MobilePlayerBar = ({ onNavigate }: MobilePlayerBarProps) => {
                 {currentTrack.title}
               </p>
               {qualityInfo && (
-                <span className={`text-[8px] font-bold ${qualityInfo.color} bg-white/5 px-1 py-0.5 rounded`}>
+                <span
+                  className={`text-[8px] font-bold ${qualityInfo.color} bg-white/5 px-1 py-0.5 rounded`}
+                >
                   {qualityInfo.label}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-white/50 truncate">{currentTrack.artist}</p>
+              <p className="text-xs text-white/50 truncate">
+                {currentTrack.artist}
+              </p>
               <span className="text-[10px] text-white/30 tabular-nums">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>

@@ -23,10 +23,7 @@ interface ContextMenuContextType {
     meta?: ActionSheetMeta,
   ) => void;
   /** Show action sheet explicitly (works on both desktop and mobile) */
-  showActionSheet: (
-    items: ContextMenuItem[],
-    meta?: ActionSheetMeta,
-  ) => void;
+  showActionSheet: (items: ContextMenuItem[], meta?: ActionSheetMeta) => void;
   /** Hide any open menu */
   hideMenu: () => void;
   /** Whether a menu is currently open */
@@ -45,7 +42,7 @@ export const useContextMenu = () => {
 
 export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
   const isMobile = useIsMobile();
-  
+
   // Desktop context menu state
   const [contextMenu, setContextMenu] = useState<{
     items: ContextMenuItem[];
@@ -60,7 +57,7 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
 
   const showMenu = useCallback(
     (
-      items: ContextMenuItem[], 
+      items: ContextMenuItem[],
       position: { x: number; y: number },
       meta?: ActionSheetMeta,
     ) => {
@@ -90,9 +87,11 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
   const isMenuOpen = contextMenu !== null || actionSheet !== null;
 
   return (
-    <ContextMenuContext.Provider value={{ showMenu, showActionSheet, hideMenu, isMenuOpen }}>
+    <ContextMenuContext.Provider
+      value={{ showMenu, showActionSheet, hideMenu, isMenuOpen }}
+    >
       {children}
-      
+
       {/* Desktop Context Menu */}
       {contextMenu && !isMobile && (
         <ContextMenu

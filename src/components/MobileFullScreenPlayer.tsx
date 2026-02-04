@@ -52,8 +52,11 @@ export const MobileFullScreenPlayer = ({
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPosition, setSeekPosition] = useState(0);
   const [showLyrics, setShowLyrics] = useState(false);
-  const [bgColor, setBgColor] = useState({ primary: "#1a1a2e", secondary: "#0a0a0f" });
-  
+  const [bgColor, setBgColor] = useState({
+    primary: "#1a1a2e",
+    secondary: "#0a0a0f",
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const seekBarRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
@@ -79,7 +82,10 @@ export const MobileFullScreenPlayer = ({
         ctx.drawImage(img, 0, 0, 50, 50);
         const imageData = ctx.getImageData(0, 0, 50, 50).data;
 
-        let r = 0, g = 0, b = 0, count = 0;
+        let r = 0,
+          g = 0,
+          b = 0,
+          count = 0;
         for (let i = 0; i < imageData.length; i += 16) {
           r += imageData[i];
           g += imageData[i + 1];
@@ -116,16 +122,19 @@ export const MobileFullScreenPlayer = ({
     setIsDragging(true);
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    const deltaY = touch.clientY - startY.current;
-    lastY.current = touch.clientY;
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      const deltaY = touch.clientY - startY.current;
+      lastY.current = touch.clientY;
 
-    if (deltaY > 0) {
-      setDragY(deltaY);
-    }
-  }, [isDragging]);
+      if (deltaY > 0) {
+        setDragY(deltaY);
+      }
+    },
+    [isDragging],
+  );
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
@@ -142,26 +151,32 @@ export const MobileFullScreenPlayer = ({
   }, [dragY, onClose]);
 
   // Seek bar touch handling
-  const handleSeekStart = useCallback((e: React.TouchEvent) => {
-    e.stopPropagation();
-    if (!seekBarRef.current) return;
-    const touch = e.touches[0];
-    const rect = seekBarRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
-    const percent = x / rect.width;
-    setSeekPosition(percent * duration);
-    setIsSeeking(true);
-  }, [duration]);
+  const handleSeekStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.stopPropagation();
+      if (!seekBarRef.current) return;
+      const touch = e.touches[0];
+      const rect = seekBarRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
+      const percent = x / rect.width;
+      setSeekPosition(percent * duration);
+      setIsSeeking(true);
+    },
+    [duration],
+  );
 
-  const handleSeekMove = useCallback((e: React.TouchEvent) => {
-    if (!isSeeking || !seekBarRef.current) return;
-    e.stopPropagation();
-    const touch = e.touches[0];
-    const rect = seekBarRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
-    const percent = x / rect.width;
-    setSeekPosition(percent * duration);
-  }, [isSeeking, duration]);
+  const handleSeekMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isSeeking || !seekBarRef.current) return;
+      e.stopPropagation();
+      const touch = e.touches[0];
+      const rect = seekBarRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
+      const percent = x / rect.width;
+      setSeekPosition(percent * duration);
+    },
+    [isSeeking, duration],
+  );
 
   const handleSeekEnd = useCallback(() => {
     if (isSeeking) {
@@ -180,38 +195,49 @@ export const MobileFullScreenPlayer = ({
         ? `${currentTrack.provider_id}:${currentTrack.external_id}`
         : null;
     const isLiked =
-      favorites.has(trackId) || (compositeKey ? favorites.has(compositeKey) : false);
+      favorites.has(trackId) ||
+      (compositeKey ? favorites.has(compositeKey) : false);
 
     const playlistItems = await buildPlaylistSubmenu(currentTrack as any);
 
-    showActionSheet([
-      {
-        label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
-        action: () => toggleFavorite(currentTrack as any),
-      },
-      ...playlistItems,
-      { label: "divider" },
-      {
-        label: "Download",
-        action: () => downloadTrack(currentTrack),
-      },
-      {
-        label: "Share",
-        action: () => {
-          if (navigator.share) {
-            navigator.share({
-              title: currentTrack.title,
-              text: `${currentTrack.title} by ${currentTrack.artist}`,
-            });
-          }
+    showActionSheet(
+      [
+        {
+          label: isLiked ? "Remove from Liked Songs" : "Add to Liked Songs",
+          action: () => toggleFavorite(currentTrack as any),
         },
+        ...playlistItems,
+        { label: "divider" },
+        {
+          label: "Download",
+          action: () => downloadTrack(currentTrack),
+        },
+        {
+          label: "Share",
+          action: () => {
+            if (navigator.share) {
+              navigator.share({
+                title: currentTrack.title,
+                text: `${currentTrack.title} by ${currentTrack.artist}`,
+              });
+            }
+          },
+        },
+      ],
+      {
+        title: currentTrack.title,
+        subtitle: currentTrack.artist,
+        coverImage: currentTrack.cover_image,
       },
-    ], {
-      title: currentTrack.title,
-      subtitle: currentTrack.artist,
-      coverImage: currentTrack.cover_image,
-    });
-  }, [currentTrack, favorites, toggleFavorite, buildPlaylistSubmenu, downloadTrack, showActionSheet]);
+    );
+  }, [
+    currentTrack,
+    favorites,
+    toggleFavorite,
+    buildPlaylistSubmenu,
+    downloadTrack,
+    showActionSheet,
+  ]);
 
   if (!isOpen || !currentTrack) return null;
 
@@ -225,7 +251,8 @@ export const MobileFullScreenPlayer = ({
       ? `${currentTrack.provider_id}:${currentTrack.external_id}`
       : null;
   const isLiked =
-    favorites.has(trackId) || (compositeKey ? favorites.has(compositeKey) : false);
+    favorites.has(trackId) ||
+    (compositeKey ? favorites.has(compositeKey) : false);
 
   const content = (
     <div
@@ -234,7 +261,9 @@ export const MobileFullScreenPlayer = ({
       style={{
         background: `linear-gradient(180deg, ${bgColor.primary} 0%, ${bgColor.secondary} 100%)`,
         transform: `translateY(${isClosing ? "100%" : `${dragY}px`})`,
-        transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        transition: isDragging
+          ? "none"
+          : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
       {/* Header */}
@@ -255,7 +284,11 @@ export const MobileFullScreenPlayer = ({
             stroke="currentColor"
             strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
 
@@ -367,7 +400,10 @@ export const MobileFullScreenPlayer = ({
           <div className="w-full h-1 rounded-full bg-white/20 overflow-hidden">
             <div
               className="h-full bg-white rounded-full transition-all"
-              style={{ width: `${progress}%`, transition: isSeeking ? "none" : "width 0.1s linear" }}
+              style={{
+                width: `${progress}%`,
+                transition: isSeeking ? "none" : "width 0.1s linear",
+              }}
             />
           </div>
           {/* Thumb */}
@@ -377,8 +413,12 @@ export const MobileFullScreenPlayer = ({
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-xs text-white/50 tabular-nums">{formatTime(displayTime)}</span>
-          <span className="text-xs text-white/50 tabular-nums">{formatTime(duration)}</span>
+          <span className="text-xs text-white/50 tabular-nums">
+            {formatTime(displayTime)}
+          </span>
+          <span className="text-xs text-white/50 tabular-nums">
+            {formatTime(duration)}
+          </span>
         </div>
       </div>
 
@@ -466,7 +506,13 @@ export const MobileFullScreenPlayer = ({
             <polyline points="7 23 3 19 7 15" />
             <path d="M21 13v2a4 4 0 0 1-4 4H3" />
             {repeatMode === "one" && (
-              <text x="10" y="14" fontSize="8" fill="currentColor" fontWeight="bold">
+              <text
+                x="10"
+                y="14"
+                fontSize="8"
+                fill="currentColor"
+                fontWeight="bold"
+              >
                 1
               </text>
             )}

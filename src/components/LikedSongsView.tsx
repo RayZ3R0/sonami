@@ -263,7 +263,13 @@ export const LikedSongsView = () => {
 
       return items;
     },
-    [sortedFavorites, playTrack, refreshFavorites, downloadTrack, buildPlaylistSubmenu]
+    [
+      sortedFavorites,
+      playTrack,
+      refreshFavorites,
+      downloadTrack,
+      buildPlaylistSubmenu,
+    ],
   );
 
   // Handle context menu / action sheet display
@@ -276,7 +282,7 @@ export const LikedSongsView = () => {
         coverImage: track.cover_image,
       });
     },
-    [getMenuItemsForTrack, showMenu]
+    [getMenuItemsForTrack, showMenu],
   );
 
   const handleContextMenu = useCallback(
@@ -285,7 +291,7 @@ export const LikedSongsView = () => {
       e.stopPropagation();
       await handleTrackMenu(track, { x: e.clientX, y: e.clientY });
     },
-    [handleTrackMenu]
+    [handleTrackMenu],
   );
 
   const handleDownloadAll = async () => {
@@ -372,10 +378,11 @@ export const LikedSongsView = () => {
           <button
             onClick={handleShufflePlay}
             disabled={favorites.length === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${shuffle
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+              shuffle
                 ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
                 : "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary"
-              }`}
+            }`}
           >
             <svg
               className="w-5 h-5"
@@ -482,10 +489,11 @@ export const LikedSongsView = () => {
                 key={track.id}
                 onClick={() => handlePlayTrack(track)}
                 onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`flex w-full items-center md:grid md:grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-3 md:gap-4 px-3 md:px-4 py-2.5 rounded-lg group transition-colors cursor-pointer border-b md:border-none border-white/5 last:border-0 ${isCurrentTrack
+                className={`flex w-full items-center md:grid md:grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-3 md:gap-4 px-3 md:px-4 py-2.5 rounded-lg group transition-colors cursor-pointer border-b md:border-none border-white/5 last:border-0 ${
+                  isCurrentTrack
                     ? "bg-pink-500/10 text-pink-500"
                     : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                  }`}
+                }`}
               >
                 {/* Number / Playing indicator */}
                 <div className="hidden md:flex items-center text-xs font-medium justify-center">
@@ -588,7 +596,7 @@ export const LikedSongsView = () => {
                     const externalId =
                       unifiedTrack.external_id ||
                       (providerId === "tidal" &&
-                        /^\d+$/.test(track.id.replace("tidal:", ""))
+                      /^\d+$/.test(track.id.replace("tidal:", ""))
                         ? track.id.replace("tidal:", "")
                         : undefined);
 
@@ -678,17 +686,27 @@ export const LikedSongsView = () => {
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
-                      const items = await getMenuItemsForTrack(mapToTrack(track));
-                      showMenu(items, { x: e.clientX, y: e.clientY }, {
-                        title: track.title,
-                        subtitle: track.artist,
-                        coverImage: track.cover_image,
-                      });
+                      const items = await getMenuItemsForTrack(
+                        mapToTrack(track),
+                      );
+                      showMenu(
+                        items,
+                        { x: e.clientX, y: e.clientY },
+                        {
+                          title: track.title,
+                          subtitle: track.artist,
+                          coverImage: track.cover_image,
+                        },
+                      );
                     }}
                     className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors md:hidden"
                     aria-label="More options"
                   >
-                    <svg className="w-5 h-5 text-theme-muted" fill="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      className="w-5 h-5 text-theme-muted"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <circle cx="12" cy="5" r="2" />
                       <circle cx="12" cy="12" r="2" />
                       <circle cx="12" cy="19" r="2" />

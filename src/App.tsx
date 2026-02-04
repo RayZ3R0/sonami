@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { DesktopLayout } from "./layouts/desktop/DesktopLayout";
 import { MobileLayout } from "./layouts/mobile/MobileLayout";
 import { WelcomePage } from "./components/WelcomePage";
+import {
+  UpdateNotificationModal,
+  useUpdateNotification,
+} from "./components/UpdateNotificationModal";
 import { libraryHasData } from "./api/library";
 import "./styles.css";
 
@@ -62,6 +66,7 @@ function App() {
             <DownloadProvider>
               <SpotifyImportProvider>
                 <InputController />
+                <UpdateNotificationWrapper />
                 {showOnboarding ? (
                   <WelcomePage onComplete={() => setShowOnboarding(false)} />
                 ) : isMobile ? (
@@ -76,6 +81,15 @@ function App() {
       </ToastProvider>
     </ThemeProvider>
   );
+}
+
+// Wrapper component to use the update notification hook inside ThemeProvider
+function UpdateNotificationWrapper() {
+  const { shouldShow, dismiss } = useUpdateNotification();
+
+  if (!shouldShow) return null;
+
+  return <UpdateNotificationModal onClose={dismiss} />;
 }
 
 export default App;

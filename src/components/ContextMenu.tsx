@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useLayoutEffect, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import { createPortal } from "react-dom";
 
 export interface ContextMenuItem {
@@ -28,72 +34,149 @@ interface Bounds {
 // Auto-generate icons based on label text
 function getDefaultIcon(label: string): React.ReactNode {
   const l = label.toLowerCase();
-  
-  if (l.includes('play') && !l.includes('playlist')) {
+
+  if (l.includes("play") && !l.includes("playlist")) {
     return (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
         <path d="M8 5v14l11-7z" />
       </svg>
     );
   }
-  if (l.includes('like') || l.includes('favorite') || l.includes('heart') || l.includes('liked songs')) {
-    const isFilled = l.includes('remove') || l.includes('unlike');
+  if (
+    l.includes("like") ||
+    l.includes("favorite") ||
+    l.includes("heart") ||
+    l.includes("liked songs")
+  ) {
+    const isFilled = l.includes("remove") || l.includes("unlike");
     return (
-      <svg className="w-4 h-4" fill={isFilled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg
+        className="w-4 h-4"
+        fill={isFilled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
     );
   }
-  if (l.includes('playlist') || l.includes('add to')) {
+  if (l.includes("playlist") || l.includes("add to")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+        />
       </svg>
     );
   }
-  if (l.includes('download')) {
+  if (l.includes("download")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+        />
       </svg>
     );
   }
-  if (l.includes('remove') || l.includes('delete')) {
+  if (l.includes("remove") || l.includes("delete")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+        />
       </svg>
     );
   }
-  if (l.includes('queue')) {
+  if (l.includes("queue")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4 6h16M4 10h16M4 14h16M4 18h16"
+        />
       </svg>
     );
   }
-  if (l.includes('share')) {
+  if (l.includes("share")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+        />
       </svg>
     );
   }
-  if (l.includes('create') || l.includes('new')) {
+  if (l.includes("create") || l.includes("new")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
       </svg>
     );
   }
-  if (l.includes('edit') || l.includes('rename')) {
+  if (l.includes("edit") || l.includes("rename")) {
     return (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        />
       </svg>
     );
   }
-  
+
   return null;
 }
 
@@ -124,19 +207,19 @@ function SubMenu({
 
     const menuRect = ref.current.getBoundingClientRect();
     const padding = 8;
-    
+
     const spaceRight = containerBounds.right - parentRect.right - padding;
     const spaceLeft = parentRect.left - containerBounds.left - padding;
     const spaceBelow = containerBounds.bottom - parentRect.top - padding;
     const spaceAbove = parentRect.bottom - containerBounds.top - padding;
-    
+
     let flipX = false;
     let flipY = false;
     let left: number | undefined;
     let right: number | undefined;
     let top: number | undefined;
     let bottom: number | undefined;
-    
+
     if (menuRect.width <= spaceRight) {
       left = parentRect.right - 2;
     } else if (menuRect.width <= spaceLeft) {
@@ -150,7 +233,7 @@ function SubMenu({
         flipX = true;
       }
     }
-    
+
     const menuHeight = Math.min(menuRect.height, 320);
     if (menuHeight <= spaceBelow) {
       top = parentRect.top - 4;
@@ -161,31 +244,31 @@ function SubMenu({
       const idealTop = parentRect.top + (parentRect.height - menuHeight) / 2;
       top = Math.max(
         containerBounds.top + padding,
-        Math.min(idealTop, containerBounds.bottom - menuHeight - padding)
+        Math.min(idealTop, containerBounds.bottom - menuHeight - padding),
       );
     }
-    
+
     const maxHeight = Math.min(
       320,
-      containerBounds.bottom - (top ?? parentRect.top) - padding
+      containerBounds.bottom - (top ?? parentRect.top) - padding,
     );
 
     setPosition({ left, right, top, bottom, maxHeight, flipX, flipY });
   }, [parentRect, containerBounds]);
 
   const style: React.CSSProperties = {
-    position: 'fixed',
+    position: "fixed",
     ...(position.left !== undefined && { left: position.left }),
     ...(position.right !== undefined && { right: position.right }),
     ...(position.top !== undefined && { top: position.top }),
     ...(position.bottom !== undefined && { bottom: position.bottom }),
     ...(position.maxHeight !== undefined && { maxHeight: position.maxHeight }),
-    transformOrigin: `${position.flipX ? 'right' : 'left'} ${position.flipY ? 'bottom' : 'top'}`,
+    transformOrigin: `${position.flipX ? "right" : "left"} ${position.flipY ? "bottom" : "top"}`,
   };
 
   // Filter out dividers for submenus if they're at the start or end
   const filteredItems = items.filter((item, idx) => {
-    if (item.label === 'divider') {
+    if (item.label === "divider") {
       if (idx === 0 || idx === items.length - 1) return false;
     }
     return true;
@@ -197,19 +280,22 @@ function SubMenu({
       style={style}
       className="context-menu-panel animate-in fade-in zoom-in-95 duration-100"
     >
-      <div className="overflow-y-auto themed-scrollbar" style={{ maxHeight: position.maxHeight ?? 320 }}>
-        {filteredItems.map((item, index) => (
-          item.label === 'divider' ? (
+      <div
+        className="overflow-y-auto themed-scrollbar"
+        style={{ maxHeight: position.maxHeight ?? 320 }}
+      >
+        {filteredItems.map((item, index) =>
+          item.label === "divider" ? (
             <div key={index} className="my-1.5 mx-3 h-px bg-white/[0.08]" />
           ) : (
-            <ContextMenuItemRow 
-              key={index} 
-              item={item} 
+            <ContextMenuItemRow
+              key={index}
+              item={item}
               closeMenu={closeMenu}
               containerBounds={containerBounds}
             />
-          )
-        ))}
+          ),
+        )}
       </div>
     </div>
   );
@@ -305,7 +391,9 @@ function ContextMenuItemRow({
           ${showSubmenu || isActive ? "context-menu-item-active" : ""}
         `}
       >
-        <span className={`context-menu-icon ${item.danger ? 'text-red-400' : ''}`}>
+        <span
+          className={`context-menu-icon ${item.danger ? "text-red-400" : ""}`}
+        >
           {icon}
         </span>
         <span className="context-menu-label">{item.label}</span>
@@ -317,20 +405,27 @@ function ContextMenuItemRow({
             stroke="currentColor"
             strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5l7 7-7 7"
+            />
           </svg>
         )}
       </button>
 
-      {showSubmenu && item.submenu && rowRect && createPortal(
-        <SubMenu 
-          items={item.submenu} 
-          closeMenu={closeMenu}
-          parentRect={rowRect}
-          containerBounds={containerBounds || defaultBounds}
-        />,
-        document.body
-      )}
+      {showSubmenu &&
+        item.submenu &&
+        rowRect &&
+        createPortal(
+          <SubMenu
+            items={item.submenu}
+            closeMenu={closeMenu}
+            parentRect={rowRect}
+            containerBounds={containerBounds || defaultBounds}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
@@ -402,7 +497,7 @@ export const ContextMenu = ({
 
       xPos = Math.max(
         bounds.left + padding,
-        Math.min(xPos, bounds.right - menuWidth - padding)
+        Math.min(xPos, bounds.right - menuWidth - padding),
       );
 
       let yPos = clickY;
@@ -415,13 +510,13 @@ export const ContextMenu = ({
 
       yPos = Math.max(
         bounds.top + padding,
-        Math.min(yPos, bounds.bottom - menuHeight - padding)
+        Math.min(yPos, bounds.bottom - menuHeight - padding),
       );
 
       const availableHeight = bounds.bottom - yPos - padding;
       const maxHeight = Math.min(380, availableHeight);
 
-      const transformOrigin = `${flipHorizontal ? 'right' : 'left'} ${flipVertical ? 'bottom' : 'top'}`;
+      const transformOrigin = `${flipHorizontal ? "right" : "left"} ${flipVertical ? "bottom" : "top"}`;
 
       setMenuPosition({
         x: xPos,
@@ -447,14 +542,18 @@ export const ContextMenu = ({
     };
 
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (["ArrowUp", "ArrowDown", "Enter", "Escape", "Tab"].includes(event.key)) {
+      if (
+        ["ArrowUp", "ArrowDown", "Enter", "Escape", "Tab"].includes(event.key)
+      ) {
         event.stopPropagation();
         event.stopImmediatePropagation();
         event.preventDefault();
       }
 
       // Filter out dividers for navigation
-      const navigableItems = items.filter(i => i.label !== 'divider' && !i.disabled);
+      const navigableItems = items.filter(
+        (i) => i.label !== "divider" && !i.disabled,
+      );
 
       switch (event.key) {
         case "Escape":
@@ -464,7 +563,10 @@ export const ContextMenu = ({
           setActiveIndex((prev) => (prev + 1) % navigableItems.length);
           break;
         case "ArrowUp":
-          setActiveIndex((prev) => (prev - 1 + navigableItems.length) % navigableItems.length);
+          setActiveIndex(
+            (prev) =>
+              (prev - 1 + navigableItems.length) % navigableItems.length,
+          );
           break;
         case "Enter":
           if (activeIndex >= 0 && navigableItems[activeIndex]) {
@@ -491,7 +593,7 @@ export const ContextMenu = ({
 
   const menuStyle: React.CSSProperties = menuPosition
     ? {
-        position: 'fixed',
+        position: "fixed",
         left: menuPosition.x,
         top: menuPosition.y,
         maxHeight: menuPosition.maxHeight,
@@ -499,20 +601,20 @@ export const ContextMenu = ({
         opacity: 1,
       }
     : {
-        position: 'fixed',
+        position: "fixed",
         left: position.x,
         top: position.y,
         opacity: 0,
-        pointerEvents: 'none',
+        pointerEvents: "none",
       };
 
   // Filter items for rendering
   const renderItems = items.filter((item, idx) => {
-    if (item.label === 'divider') {
+    if (item.label === "divider") {
       // Don't render divider at start or end
       if (idx === 0 || idx === items.length - 1) return false;
       // Don't render consecutive dividers
-      if (items[idx - 1]?.label === 'divider') return false;
+      if (items[idx - 1]?.label === "divider") return false;
     }
     return true;
   });
@@ -524,12 +626,12 @@ export const ContextMenu = ({
       style={menuStyle}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div 
+      <div
         className="overflow-y-auto themed-scrollbar"
         style={{ maxHeight: menuPosition?.maxHeight ?? 380 }}
       >
-        {renderItems.map((item, index) => (
-          item.label === 'divider' ? (
+        {renderItems.map((item, index) =>
+          item.label === "divider" ? (
             <div key={index} className="my-1.5 mx-3 h-px bg-white/[0.08]" />
           ) : (
             <ContextMenuItemRow
@@ -540,8 +642,8 @@ export const ContextMenu = ({
               onMouseEnter={() => setActiveIndex(index)}
               containerBounds={containerBounds}
             />
-          )
-        ))}
+          ),
+        )}
       </div>
     </div>
   );

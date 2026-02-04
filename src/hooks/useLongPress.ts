@@ -51,7 +51,11 @@ export function useLongPress({
   }, []);
 
   const startPress = useCallback(
-    (e: React.TouchEvent | React.MouseEvent, clientX: number, clientY: number) => {
+    (
+      e: React.TouchEvent | React.MouseEvent,
+      clientX: number,
+      clientY: number,
+    ) => {
       if (disabled) return;
 
       isLongPressRef.current = false;
@@ -66,7 +70,7 @@ export function useLongPress({
         onLongPress(eventRef.current!);
       }, threshold);
     },
-    [disabled, threshold, onLongPress, clearTimer, triggerHaptic]
+    [disabled, threshold, onLongPress, clearTimer, triggerHaptic],
   );
 
   const endPress = useCallback(
@@ -81,7 +85,7 @@ export function useLongPress({
       startPosRef.current = null;
       eventRef.current = null;
     },
-    [clearTimer, onClick, disabled]
+    [clearTimer, onClick, disabled],
   );
 
   const handleMove = useCallback(
@@ -97,7 +101,7 @@ export function useLongPress({
         startPosRef.current = null;
       }
     },
-    [clearTimer]
+    [clearTimer],
   );
 
   // Touch handlers
@@ -106,14 +110,14 @@ export function useLongPress({
       const touch = e.touches[0];
       startPress(e, touch.clientX, touch.clientY);
     },
-    [startPress]
+    [startPress],
   );
 
   const onTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       endPress(e);
     },
-    [endPress]
+    [endPress],
   );
 
   const onTouchMove = useCallback(
@@ -121,7 +125,7 @@ export function useLongPress({
       const touch = e.touches[0];
       handleMove(touch.clientX, touch.clientY);
     },
-    [handleMove]
+    [handleMove],
   );
 
   // Mouse handlers (for desktop testing and hybrid devices)
@@ -131,14 +135,14 @@ export function useLongPress({
       if (e.button !== 0) return;
       startPress(e, e.clientX, e.clientY);
     },
-    [startPress]
+    [startPress],
   );
 
   const onMouseUp = useCallback(
     (e: React.MouseEvent) => {
       endPress(e);
     },
-    [endPress]
+    [endPress],
   );
 
   const onMouseLeave = useCallback(() => {
@@ -147,11 +151,14 @@ export function useLongPress({
   }, [clearTimer]);
 
   // Prevent native context menu on mobile
-  const onContextMenu = useCallback((e: React.MouseEvent) => {
-    if (!disabled) {
-      e.preventDefault();
-    }
-  }, [disabled]);
+  const onContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!disabled) {
+        e.preventDefault();
+      }
+    },
+    [disabled],
+  );
 
   return {
     onTouchStart,

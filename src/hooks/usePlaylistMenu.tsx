@@ -46,12 +46,22 @@ export function usePlaylistMenu({
           items.push({
             label: playlist.title,
             icon: isInPlaylist ? (
-              <svg className="w-4 h-4 text-theme-accent" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-4 h-4 text-theme-accent"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
               </svg>
             ) : (
               // Empty circle icon for visual consistency
-              <svg className="w-4 h-4 opacity-30" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg
+                className="w-4 h-4 opacity-30"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
                 <circle cx="12" cy="12" r="8" />
               </svg>
             ),
@@ -81,8 +91,18 @@ export function usePlaylistMenu({
       items.push({
         label: "Create New Playlist",
         icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4v16m8-8H4"
+            />
           </svg>
         ),
         action: () => {
@@ -92,7 +112,7 @@ export function usePlaylistMenu({
 
       return items;
     },
-    [playlists, refreshPlaylists, onCreatePlaylistClick]
+    [playlists, refreshPlaylists, onCreatePlaylistClick],
   );
 
   /**
@@ -106,7 +126,7 @@ export function usePlaylistMenu({
         submenu,
       };
     },
-    [buildPlaylistSubmenu]
+    [buildPlaylistSubmenu],
   );
 
   return {

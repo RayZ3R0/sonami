@@ -128,3 +128,68 @@ pub async fn remove_provider_config(
     log::info!("Removed provider config: {}", provider_id);
     Ok(())
 }
+
+#[derive(serde::Serialize)]
+pub struct HifiInstanceConfig {
+    pub endpoints_url: String,
+    pub is_default: bool,
+}
+
+#[tauri::command]
+pub async fn get_hifi_config() -> Result<HifiInstanceConfig, String> {
+    use crate::tidal::config::{HifiConfig, DEFAULT_ENDPOINTS_URL};
+
+    let config = HifiConfig::load();
+    let is_default =
+        config.endpoints_url == DEFAULT_ENDPOINTS_URL || config.endpoints_url.is_empty();
+
+    Ok(HifiInstanceConfig {
+        endpoints_url: config.endpoints_url,
+        is_default,
+    })
+}
+
+#[tauri::command]
+pub async fn set_hifi_config(endpoints_url: String) -> Result<String, String> {
+    use crate::tidal::config::HifiConfig;
+
+    let config = HifiConfig {
+        endpoints_url: endpoints_url.clone(),
+    };
+
+    config
+        .save()
+        .map_err(|e| format!("Failed to save HiFi config: {}", e))?;
+
+    // Clear the endpoint cache so it reloads with new URL
+    let cache_path = crate::tidal::config::get_cache_file_path();
+    if cache_path.exists() {
+        let _ = std::fs::remove_file(&cache_path);
+        log::info!("Cleared endpoint cache after URL change");
+    }
+
+    log::info!("HiFi instance URL updated to: {}", endpoints_url);
+    Ok("HiFi configuration saved successfully".to_string())
+}
+
+#[tauri::command]
+pub async fn reset_hifi_config() -> Result<String, String> {
+    use crate::tidal::config::{HifiConfig, DEFAULT_ENDPOINTS_URL};
+
+    let config = HifiConfig {
+        endpoints_url: DEFAULT_ENDPOINTS_URL.to_string(),
+    };
+
+    config
+        .save()
+        .map_err(|e| format!("Failed to reset HiFi config: {}", e))?;
+
+    // Clear the endpoint cache
+    let cache_path = crate::tidal::config::get_cache_file_path();
+    if cache_path.exists() {
+        let _ = std::fs::remove_file(&cache_path);
+    }
+
+    log::info!("HiFi instance URL reset to default");
+    Ok("HiFi configuration reset to default".to_string())
+}

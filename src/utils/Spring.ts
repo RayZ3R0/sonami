@@ -24,7 +24,10 @@ export class Spring {
   private target: number;
   private config: SpringConfig;
 
-  constructor(initialValue: number = 0, config: SpringConfig = SPRING_PRESETS.default) {
+  constructor(
+    initialValue: number = 0,
+    config: SpringConfig = SPRING_PRESETS.default,
+  ) {
     this.value = initialValue;
     this.velocity = 0;
     this.target = initialValue;
@@ -60,7 +63,10 @@ export class Spring {
     const distance = Math.abs(this.value - this.target);
     const velocityMagnitude = Math.abs(this.velocity);
 
-    if (distance < this.config.precision && velocityMagnitude < this.config.precision) {
+    if (
+      distance < this.config.precision &&
+      velocityMagnitude < this.config.precision
+    ) {
       this.value = this.target;
       this.velocity = 0;
     }
@@ -79,7 +85,10 @@ export class Spring {
   isAtRest(): boolean {
     const distance = Math.abs(this.value - this.target);
     const velocityMagnitude = Math.abs(this.velocity);
-    return distance < this.config.precision && velocityMagnitude < this.config.precision;
+    return (
+      distance < this.config.precision &&
+      velocityMagnitude < this.config.precision
+    );
   }
 
   reset(value: number = 0): void {
@@ -147,6 +156,10 @@ export class Spline {
     const a = this.ks[i] * dx - (this.ys[i + 1] - this.ys[i]);
     const b = -this.ks[i + 1] * dx + (this.ys[i + 1] - this.ys[i]);
 
-    return (1 - t) * this.ys[i] + t * this.ys[i + 1] + t * (1 - t) * (a * (1 - t) + b * t);
+    return (
+      (1 - t) * this.ys[i] +
+      t * this.ys[i + 1] +
+      t * (1 - t) * (a * (1 - t) + b * t)
+    );
   }
 }

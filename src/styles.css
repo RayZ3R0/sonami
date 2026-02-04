@@ -1638,3 +1638,19 @@ body {
 .safe-area-bottom {
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
 }
+
+/* Update notification modal animations */
+@keyframes slide-up-sheet {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    animation: slide-up-sheet 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

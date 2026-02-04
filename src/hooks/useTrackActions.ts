@@ -22,7 +22,7 @@ interface UseTrackActionsOptions {
 /**
  * Hook to add context menu / action sheet support to track items.
  * Handles both desktop (right-click) and mobile (long-press) interactions.
- * 
+ *
  * @example
  * ```tsx
  * const trackActions = useTrackActions({
@@ -33,7 +33,7 @@ interface UseTrackActionsOptions {
  *   meta: { title: track.title, subtitle: track.artist, coverImage: track.cover_image },
  *   onClick: () => playTrack(track),
  * });
- * 
+ *
  * return <div {...trackActions.handlers}>Track Item</div>;
  * ```
  */
@@ -51,7 +51,7 @@ export function useTrackActions({
       if (disabled) return;
 
       const items = getMenuItems();
-      
+
       if (isMobile || !("clientX" in e)) {
         // Mobile: show action sheet
         showActionSheet(items, meta);
@@ -59,12 +59,15 @@ export function useTrackActions({
         // Desktop: show context menu at cursor position
         showMenu(
           items,
-          { x: (e as React.MouseEvent).clientX, y: (e as React.MouseEvent).clientY },
-          meta
+          {
+            x: (e as React.MouseEvent).clientX,
+            y: (e as React.MouseEvent).clientY,
+          },
+          meta,
         );
       }
     },
-    [disabled, getMenuItems, isMobile, showActionSheet, showMenu, meta]
+    [disabled, getMenuItems, isMobile, showActionSheet, showMenu, meta],
   );
 
   const handleContextMenu = useCallback(
@@ -76,7 +79,7 @@ export function useTrackActions({
       const items = getMenuItems();
       showMenu(items, { x: e.clientX, y: e.clientY }, meta);
     },
-    [disabled, getMenuItems, showMenu, meta]
+    [disabled, getMenuItems, showMenu, meta],
   );
 
   const longPressHandlers = useLongPress({

@@ -17,7 +17,11 @@ interface ActionSheetItemProps {
   onShowSubmenu: (items: ContextMenuItem[], title: string) => void;
 }
 
-function ActionSheetItem({ item, onClose, onShowSubmenu }: ActionSheetItemProps) {
+function ActionSheetItem({
+  item,
+  onClose,
+  onShowSubmenu,
+}: ActionSheetItemProps) {
   const handleClick = () => {
     if (item.disabled) return;
 
@@ -32,38 +36,78 @@ function ActionSheetItem({ item, onClose, onShowSubmenu }: ActionSheetItemProps)
   // Generate icon based on label if not provided
   const getDefaultIcon = () => {
     const label = item.label.toLowerCase();
-    if (label.includes('play')) {
+    if (label.includes("play")) {
       return (
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
           <path d="M8 5v14l11-7z" />
         </svg>
       );
     }
-    if (label.includes('like') || label.includes('favorite') || label.includes('heart')) {
+    if (
+      label.includes("like") ||
+      label.includes("favorite") ||
+      label.includes("heart")
+    ) {
       return (
-        <svg className="w-5 h-5" fill={label.includes('remove') ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <svg
+          className="w-5 h-5"
+          fill={label.includes("remove") ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       );
     }
-    if (label.includes('playlist') || label.includes('add to')) {
+    if (label.includes("playlist") || label.includes("add to")) {
       return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4v16m8-8H4"
+          />
         </svg>
       );
     }
-    if (label.includes('download')) {
+    if (label.includes("download")) {
       return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+          />
         </svg>
       );
     }
-    if (label.includes('remove') || label.includes('delete')) {
+    if (label.includes("remove") || label.includes("delete")) {
       return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+          />
         </svg>
       );
     }
@@ -84,7 +128,9 @@ function ActionSheetItem({ item, onClose, onShowSubmenu }: ActionSheetItemProps)
       `}
     >
       {icon && (
-        <span className={`w-5 h-5 flex-shrink-0 ${item.danger ? 'text-red-400' : 'text-white/60'}`}>
+        <span
+          className={`w-5 h-5 flex-shrink-0 ${item.danger ? "text-red-400" : "text-white/60"}`}
+        >
           {icon}
         </span>
       )}
@@ -123,12 +169,14 @@ export function ActionSheet({
   const isDraggingRef = useRef(false);
 
   // Current items to display (either root or submenu)
-  const currentItems = submenuStack.length > 0 
-    ? submenuStack[submenuStack.length - 1].items 
-    : items;
-  const currentTitle = submenuStack.length > 0 
-    ? submenuStack[submenuStack.length - 1].title 
-    : title;
+  const currentItems =
+    submenuStack.length > 0
+      ? submenuStack[submenuStack.length - 1].items
+      : items;
+  const currentTitle =
+    submenuStack.length > 0
+      ? submenuStack[submenuStack.length - 1].title
+      : title;
 
   // Handle open/close animations
   useEffect(() => {
@@ -175,7 +223,7 @@ export function ActionSheet({
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   // Handle swipe down to dismiss
@@ -215,9 +263,12 @@ export function ActionSheet({
     isDraggingRef.current = false;
   }, [onClose]);
 
-  const handleShowSubmenu = useCallback((items: ContextMenuItem[], title: string) => {
-    setSubmenuStack((prev) => [...prev, { items, title }]);
-  }, []);
+  const handleShowSubmenu = useCallback(
+    (items: ContextMenuItem[], title: string) => {
+      setSubmenuStack((prev) => [...prev, { items, title }]);
+    },
+    [],
+  );
 
   const handleBack = useCallback(() => {
     setSubmenuStack((prev) => prev.slice(0, -1));
@@ -253,7 +304,10 @@ export function ActionSheet({
         </div>
 
         {/* Header */}
-        {(currentTitle || subtitle || coverImage || submenuStack.length > 0) && (
+        {(currentTitle ||
+          subtitle ||
+          coverImage ||
+          submenuStack.length > 0) && (
           <div className="px-5 pb-4 border-b border-white/10">
             <div className="flex items-center gap-4">
               {/* Back button for submenus */}
@@ -269,7 +323,11 @@ export function ActionSheet({
                     stroke="currentColor"
                     strokeWidth={2}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
                 </button>
               )}
@@ -305,24 +363,27 @@ export function ActionSheet({
               No options available
             </div>
           ) : (
-            currentItems.filter((item, idx) => {
-              // Filter out dividers at start/end
-              if (item.label === 'divider') {
-                if (idx === 0 || idx === currentItems.length - 1) return false;
-              }
-              return true;
-            }).map((item, index) => (
-              item.label === 'divider' ? (
-                <div key={index} className="my-2 mx-5 h-px bg-white/10" />
-              ) : (
-                <ActionSheetItem
-                  key={index}
-                  item={item}
-                  onClose={onClose}
-                  onShowSubmenu={handleShowSubmenu}
-                />
+            currentItems
+              .filter((item, idx) => {
+                // Filter out dividers at start/end
+                if (item.label === "divider") {
+                  if (idx === 0 || idx === currentItems.length - 1)
+                    return false;
+                }
+                return true;
+              })
+              .map((item, index) =>
+                item.label === "divider" ? (
+                  <div key={index} className="my-2 mx-5 h-px bg-white/10" />
+                ) : (
+                  <ActionSheetItem
+                    key={index}
+                    item={item}
+                    onClose={onClose}
+                    onShowSubmenu={handleShowSubmenu}
+                  />
+                ),
               )
-            ))
           )}
         </div>
 
@@ -341,6 +402,6 @@ export function ActionSheet({
         <div className="h-safe-area-inset-bottom bg-[#1e1e24]" />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

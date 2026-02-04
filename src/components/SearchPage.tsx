@@ -231,11 +231,7 @@ const TrackRow = ({
           }}
           className="p-2 mr-2 text-theme-muted hover:text-theme-primary rounded-lg hover:bg-theme-surface-hover transition-colors"
         >
-          <svg
-            className="w-5 h-5"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
           </svg>
         </button>
@@ -366,7 +362,13 @@ export const SearchPage = ({
 
       return items;
     },
-    [favorites, toggleFavorite, handlePlayTrack, convertToTrack, buildPlaylistSubmenu]
+    [
+      favorites,
+      toggleFavorite,
+      handlePlayTrack,
+      convertToTrack,
+      buildPlaylistSubmenu,
+    ],
   );
 
   const handleContextMenu = useCallback(
@@ -374,11 +376,15 @@ export const SearchPage = ({
       e.preventDefault();
       e.stopPropagation();
       const items = await getMenuItemsForTrack(track);
-      showMenu(items, { x: e.clientX, y: e.clientY }, {
-        title: track.title,
-        subtitle: track.artist,
-        coverImage: track.cover,
-      });
+      showMenu(
+        items,
+        { x: e.clientX, y: e.clientY },
+        {
+          title: track.title,
+          subtitle: track.artist,
+          coverImage: track.cover,
+        },
+      );
     },
     [getMenuItemsForTrack, showMenu],
   );
@@ -406,8 +412,10 @@ export const SearchPage = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className={`sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 ${isMobile ? 'pt-0 pb-2' : 'pt-6 pb-2'}`}>
-        <div className={`flex flex-col ${isMobile ? 'gap-2' : 'gap-4'}`}>
+      <div
+        className={`sticky top-0 z-10 bg-theme-background-secondary/95 backdrop-blur-xl border-b border-white/5 px-8 ${isMobile ? "pt-0 pb-2" : "pt-6 pb-2"}`}
+      >
+        <div className={`flex flex-col ${isMobile ? "gap-2" : "gap-4"}`}>
           {!isMobile && (
             <div className="relative group">
               <svg
@@ -445,10 +453,11 @@ export const SearchPage = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${activeTab === tab.id
-                    ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
-                    : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
-                    }`}
+                  className={`px-5 pt-2 pb-1 rounded-full text-sm font-medium transition-all backdrop-blur-sm ${
+                    activeTab === tab.id
+                      ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20"
+                      : "bg-white/5 hover:bg-white/10 text-theme-muted hover:text-white border border-white/5 hover:border-white/10"
+                  }`}
                 >
                   {tab.label}
                 </button>

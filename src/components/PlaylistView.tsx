@@ -255,7 +255,16 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
 
       return items;
     },
-    [playlistId, favorites, sortedTracks, playTrack, toggleFavorite, downloadTrack, removeFromPlaylist, buildPlaylistSubmenu]
+    [
+      playlistId,
+      favorites,
+      sortedTracks,
+      playTrack,
+      toggleFavorite,
+      downloadTrack,
+      removeFromPlaylist,
+      buildPlaylistSubmenu,
+    ],
   );
 
   // Handle context menu / action sheet display
@@ -268,7 +277,7 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
         coverImage: track.cover_image,
       });
     },
-    [getMenuItemsForTrack, showMenu]
+    [getMenuItemsForTrack, showMenu],
   );
 
   const handleContextMenu = useCallback(
@@ -277,7 +286,7 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
       e.stopPropagation();
       await handleTrackMenu(track, { x: e.clientX, y: e.clientY });
     },
-    [handleTrackMenu]
+    [handleTrackMenu],
   );
 
   const handleSort = (
@@ -745,16 +754,24 @@ export const PlaylistView = ({ playlistId, onNavigate }: PlaylistViewProps) => {
                     onClick={async (e) => {
                       e.stopPropagation();
                       const items = await getMenuItemsForTrack(track);
-                      showMenu(items, { x: e.clientX, y: e.clientY }, {
-                        title: track.title,
-                        subtitle: track.artist,
-                        coverImage: track.cover_image,
-                      });
+                      showMenu(
+                        items,
+                        { x: e.clientX, y: e.clientY },
+                        {
+                          title: track.title,
+                          subtitle: track.artist,
+                          coverImage: track.cover_image,
+                        },
+                      );
                     }}
                     className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors"
                     aria-label="More options"
                   >
-                    <svg className="w-5 h-5 text-theme-muted" fill="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      className="w-5 h-5 text-theme-muted"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <circle cx="12" cy="5" r="2" />
                       <circle cx="12" cy="12" r="2" />
                       <circle cx="12" cy="19" r="2" />
