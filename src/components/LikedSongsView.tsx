@@ -1,11 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { getFavorites, removeFavorite, UnifiedTrack } from "../api/favorites";
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
+import { useContextMenu } from "../context/ContextMenuContext";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { usePlaylistMenu } from "../hooks/usePlaylistMenu";
 import { Track } from "../types";
-import { ContextMenu, ContextMenuItem } from "./ContextMenu";
-import { getPlaylistsContainingTrack } from "../api/playlist";
+import { ContextMenuItem } from "./ContextMenu";
 import { DownloadIndicator } from "./DownloadIndicator";
+import { CreatePlaylistModal } from "./CreatePlaylistModal";
 
 type SortColumn = "title" | "artist" | "album" | "duration" | "date_added";
 type SortDirection = "asc" | "desc";
@@ -69,14 +72,25 @@ export const LikedSongsView = () => {
     dataVersion,
     refreshFavorites,
     playlists,
-    addToPlaylist,
+    refreshPlaylists,
   } = usePlayer();
 
   const { downloadTrack, deleteDownloadedTrack, downloads, isTrackCompleted } =
     useDownload();
 
+  const { showMenu } = useContextMenu();
+  const isMobile = useIsMobile();
+
   const [favorites, setFavorites] = useState<UnifiedTrack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+
+  // Playlist menu hook for toggle functionality
+  const { buildPlaylistSubmenu } = usePlaylistMenu({
+    playlists,
+    refreshPlaylists,
+    onCreatePlaylistClick: () => setShowCreatePlaylist(true),
+  });
 
   const sortStorageKey = "sonami-liked-songs-sort";
   const [sortBy, setSortBy] = useState<SortColumn>(() => {
@@ -191,127 +205,88 @@ export const LikedSongsView = () => {
     }
   };
 
-  const [contextMenu, setContextMenu] = useState<{
-    isOpen: boolean;
-    x: number;
-    y: number;
-    track: Track | null;
-    containingPlaylists: Set<string>;
-  }>({
-    isOpen: false,
-    x: 0,
-    y: 0,
-    track: null,
-    containingPlaylists: new Set(),
-  });
+  // Build context menu items for a track
+  const getMenuItemsForTrack = useCallback(
+    async (track: Track): Promise<ContextMenuItem[]> => {
+      // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
+      const source = (track as any).source;
+      const providerId = (track as any).provider_id;
+      const isStreamingTrack =
+        source === "TIDAL" ||
+        source === "SUBSONIC" ||
+        source === "JELLYFIN" ||
+        (track.path && track.path.startsWith("tidal:")) ||
+        (track.path && track.path.startsWith("subsonic:")) ||
+        (track.path && track.path.startsWith("jellyfin:")) ||
+        providerId === "subsonic" ||
+        providerId === "jellyfin" ||
+        (providerId && (track as any).external_id) ||
+        /^\d+$/.test(track.id);
 
-  const closeContextMenu = () =>
-    setContextMenu((prev) => ({ ...prev, isOpen: false }));
+      // Build playlist submenu with toggle functionality
+      const playlistSubmenu = await buildPlaylistSubmenu(track);
 
-  const handleContextMenu = async (e: React.MouseEvent, track: Track) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    console.log("Context Menu Track:", track); // Debug logging
-
-    try {
-      const containing = await getPlaylistsContainingTrack(track.id);
-      setContextMenu({
-        isOpen: true,
-        x: e.clientX,
-        y: e.clientY,
-        track,
-        containingPlaylists: new Set(containing),
-      });
-    } catch (error) {
-      console.error("Failed to fetch containing playlists:", error);
-      setContextMenu({
-        isOpen: true,
-        x: e.clientX,
-        y: e.clientY,
-        track,
-        containingPlaylists: new Set(),
-      });
-    }
-  };
-
-  const menuItems: ContextMenuItem[] = useMemo(() => {
-    if (!contextMenu.track) return [];
-    const track = contextMenu.track;
-
-    const availablePlaylists = playlists.filter(
-      (p) => !contextMenu.containingPlaylists.has(p.id),
-    );
-
-    // Check if track is a streaming track (Tidal, Subsonic, or Jellyfin)
-    const source = (track as any).source;
-    const providerId = (track as any).provider_id;
-    const isStreamingTrack =
-      source === "TIDAL" ||
-      source === "SUBSONIC" ||
-      source === "JELLYFIN" ||
-      (track.path && track.path.startsWith("tidal:")) ||
-      (track.path && track.path.startsWith("subsonic:")) ||
-      (track.path && track.path.startsWith("jellyfin:")) ||
-      providerId === "subsonic" ||
-      providerId === "jellyfin" ||
-      (providerId && (track as any).external_id) ||
-      /^\d+$/.test(track.id);
-
-    const items: ContextMenuItem[] = [
-      {
-        label: "Play",
-        action: () => {
-          // Need to find the index in sortedFavorites to play appropriately if needed,
-          // but playTrack usually handles the queue setup.
-          // mapToTrack logic is needed here actually.
-          const mappedTrack = mapToTrack(track as UnifiedTrack);
-          const tracksForQueue = sortedFavorites.map(mapToTrack);
-          playTrack(mappedTrack, tracksForQueue);
+      const items: ContextMenuItem[] = [
+        {
+          label: "Play",
+          action: () => {
+            const mappedTrack = mapToTrack(track as UnifiedTrack);
+            const tracksForQueue = sortedFavorites.map(mapToTrack);
+            playTrack(mappedTrack, tracksForQueue);
+          },
         },
-      },
-      {
-        label: "Remove from Liked Songs",
-        action: async () => {
-          try {
-            await removeFavorite(track as UnifiedTrack);
-            setFavorites((prev) => prev.filter((t) => t.id !== track.id));
-            refreshFavorites();
-          } catch (err) {
-            console.error("Failed to unfavorite:", err);
-          }
+        {
+          label: "Remove from Liked Songs",
+          danger: true,
+          action: async () => {
+            try {
+              await removeFavorite(track as UnifiedTrack);
+              setFavorites((prev) => prev.filter((t) => t.id !== track.id));
+              refreshFavorites();
+            } catch (err) {
+              console.error("Failed to unfavorite:", err);
+            }
+          },
         },
-      },
-      {
-        label: "Add to Playlist",
-        submenu:
-          availablePlaylists.length > 0
-            ? availablePlaylists.map((p) => ({
-              label: p.title,
-              action: () => addToPlaylist(p.id, track),
-            }))
-            : [{ label: "No available playlists", disabled: true }],
-      },
-    ];
+        {
+          label: "Add to Playlist",
+          submenu: playlistSubmenu,
+        },
+      ];
 
-    if (isStreamingTrack) {
-      items.push({
-        label: "Download",
-        action: () => downloadTrack(track),
+      if (isStreamingTrack) {
+        items.push({
+          label: "Download",
+          action: () => downloadTrack(track),
+        });
+      }
+
+      return items;
+    },
+    [sortedFavorites, playTrack, refreshFavorites, downloadTrack, buildPlaylistSubmenu]
+  );
+
+  // Handle context menu / action sheet display
+  const handleTrackMenu = useCallback(
+    async (track: Track, position: { x: number; y: number }) => {
+      const items = await getMenuItemsForTrack(track);
+      showMenu(items, position, {
+        title: track.title,
+        subtitle: track.artist,
+        coverImage: track.cover_image,
       });
-    }
+    },
+    [getMenuItemsForTrack, showMenu]
+  );
 
-    return items;
-  }, [
-    contextMenu,
-    playlists,
-    sortedFavorites,
-    playTrack,
-    addToPlaylist,
-    removeFavorite,
-    refreshFavorites,
-    downloadTrack,
-  ]);
+  const handleContextMenu = useCallback(
+    async (e: React.MouseEvent, track: Track) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await handleTrackMenu(track, { x: e.clientX, y: e.clientY });
+    },
+    [handleTrackMenu]
+  );
 
   const handleDownloadAll = async () => {
     // Filter for all streaming tracks (Tidal, Subsonic, Jellyfin)
@@ -697,19 +672,40 @@ export const LikedSongsView = () => {
                     </svg>
                   </button>
                 </div>
+
+                {/* Mobile more button */}
+                {isMobile && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const items = await getMenuItemsForTrack(mapToTrack(track));
+                      showMenu(items, { x: e.clientX, y: e.clientY }, {
+                        title: track.title,
+                        subtitle: track.artist,
+                        coverImage: track.cover_image,
+                      });
+                    }}
+                    className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors md:hidden"
+                    aria-label="More options"
+                  >
+                    <svg className="w-5 h-5 text-theme-muted" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
-      {/* Context Menu */}
-      {contextMenu.isOpen && (
-        <ContextMenu
-          items={menuItems}
-          position={{ x: contextMenu.x, y: contextMenu.y }}
-          onClose={closeContextMenu}
-        />
-      )}
+
+      {/* Create Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+      />
     </div>
   );
 };

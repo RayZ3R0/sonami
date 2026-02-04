@@ -1120,16 +1120,16 @@ export const SearchPalette = ({
             </div>
           </div>
         )}
-
-        {contextMenu.isOpen && (
-          <ContextMenu
-            items={contextMenu.items}
-            position={contextMenu.position}
-            onClose={closeContextMenu}
-            containerRef={paletteContainerRef}
-          />
-        )}
       </div>
+
+      {contextMenu.isOpen && (
+        <ContextMenu
+          items={contextMenu.items}
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          containerRef={paletteContainerRef}
+        />
+      )}
     </div>
   );
 };

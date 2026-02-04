@@ -55,6 +55,12 @@
     --theme-border-focus: rgba(255, 255, 255, 0.2);
 
     --theme-shadow-color: rgba(0, 0, 0, 0.5);
+
+    /* Safe area insets for notch devices */
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
 }
 
 /* ============================================
@@ -69,6 +75,19 @@ body {
     overflow: hidden;
     font-smooth: always;
     -webkit-font-smoothing: antialiased;
+}
+
+/* Safe area utility classes */
+.h-safe-area-inset-bottom {
+    height: var(--safe-area-inset-bottom);
+}
+
+.pb-safe {
+    padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.pt-safe {
+    padding-top: var(--safe-area-inset-top);
 }
 
 /* ============================================
@@ -518,6 +537,141 @@ body {
 
 .animate-shimmer {
     animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Context Menu animations (for animate-in utility classes) */
+@keyframes context-menu-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes context-menu-zoom-in-95 {
+    from {
+        transform: scale(0.95);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+.animate-in {
+    animation-duration: 150ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: both;
+}
+
+.animate-in.fade-in {
+    animation-name: context-menu-fade-in;
+}
+
+.animate-in.zoom-in-95 {
+    animation-name: context-menu-zoom-in-95;
+}
+
+.animate-in.fade-in.zoom-in-95 {
+    animation-name: context-menu-fade-in, context-menu-zoom-in-95;
+}
+
+.animate-in.duration-100 {
+    animation-duration: 100ms;
+}
+
+.animate-in.duration-200 {
+    animation-duration: 200ms;
+}
+
+/* ============================================
+   CONTEXT MENU STYLING
+   ============================================ */
+
+.context-menu-panel {
+    z-index: 10000;
+    min-width: 220px;
+    padding: 6px;
+    background: linear-gradient(
+        to bottom,
+        rgba(38, 38, 45, 0.98),
+        rgba(30, 30, 36, 0.98)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.3),
+        0 4px 6px -1px rgba(0, 0, 0, 0.2),
+        0 12px 24px -4px rgba(0, 0, 0, 0.35),
+        0 24px 48px -8px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    overflow: hidden;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: left;
+    transition: all 0.1s ease;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+}
+
+.context-menu-item:hover:not(.context-menu-item-disabled) {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.context-menu-item-active:not(.context-menu-item-disabled) {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.context-menu-item-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.context-menu-item-danger {
+    color: #f87171;
+}
+
+.context-menu-item-danger:hover:not(.context-menu-item-disabled) {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.context-menu-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.context-menu-item:hover:not(.context-menu-item-disabled) .context-menu-icon {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.context-menu-item-danger .context-menu-icon {
+    color: #f87171;
+}
+
+.context-menu-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: translateY(1.6px);
 }
 
 /* ============================================
