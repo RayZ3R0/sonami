@@ -68,6 +68,7 @@ impl AudioManager {
             shutdown: shutdown.clone(),
             url_resolver: url_resolver.clone(),
             discord_rpc: discord_rpc.clone(),
+            playback_notifier: None, // Will be set later via app state
         };
 
         // Context for Decoder

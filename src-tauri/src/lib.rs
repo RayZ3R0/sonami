@@ -12,6 +12,7 @@ pub mod library;
 pub mod lyrics;
 pub mod media_controls;
 pub mod models;
+pub mod playback_notifier;
 pub mod playlist;
 pub mod providers;
 pub mod queue;
@@ -22,6 +23,7 @@ pub mod tidal;
 use audio::AudioManager;
 use discord::DiscordRpcManager;
 use download::DownloadManager;
+use playback_notifier::PlaybackNotifier;
 use souvlaki::MediaControlEvent;
 use tauri::Manager;
 
@@ -41,13 +43,21 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
 
+            // Initialize Discord RPC Manager
             let discord_rpc = std::sync::Arc::new(DiscordRpcManager::new());
-             // Initialize Audio Manager and manage it immediately so it's accessible via State
-            let audio_manager = AudioManager::new(handle.clone(), Some(discord_rpc.clone()));
-            app.manage(audio_manager);
 
-            let _playlist_manager_placeholder = ();
+            // Initialize Audio Manager and manage it immediately so it's accessible via State
+            let audio_manager = AudioManager::new(handle.clone(), Some(discord_rpc.clone()));
+
+            // Create the centralized PlaybackNotifier
+            let playback_notifier = PlaybackNotifier::new(
+                Some(discord_rpc.clone()),
+                audio_manager.media_controls.clone(),
+            );
+
+            app.manage(audio_manager);
             app.manage((*discord_rpc).clone());
+            app.manage(playback_notifier);
 
 
             let download_manager = DownloadManager::new(&handle);
@@ -193,13 +203,14 @@ pub fn run() {
                 }
             });
 
-            // Retrieve audio_manager from state since it was moved
+            // Retrieve audio_manager and playback_notifier from state
             let audio_manager_state = app.state::<AudioManager>();
+            let notifier = app.state::<std::sync::Arc<PlaybackNotifier>>();
 
             let state_for_controls = audio_manager_state.state.clone();
             let queue_for_controls = audio_manager_state.queue.clone();
             let cmd_tx = audio_manager_state.command_tx_clone();
-            let media_controls_for_handler = audio_manager_state.media_controls.clone();
+            let notifier_for_handler = (*notifier).clone();
 
             audio_manager_state
                 .media_controls
@@ -210,7 +221,8 @@ pub fn run() {
                             .store(true, std::sync::atomic::Ordering::SeqCst);
 
                         let position = state_for_controls.get_position_seconds();
-                        media_controls_for_handler.set_playback(true, Some(position));
+                        // Use notifier for both MPRIS and Discord updates
+                        notifier_for_handler.notify_resumed(position);
                     }
                     MediaControlEvent::Pause => {
                         state_for_controls
@@ -218,7 +230,8 @@ pub fn run() {
                             .store(false, std::sync::atomic::Ordering::SeqCst);
 
                         let position = state_for_controls.get_position_seconds();
-                        media_controls_for_handler.set_playback(false, Some(position));
+                        // Use notifier for both MPRIS and Discord updates
+                        notifier_for_handler.notify_paused(position);
                     }
                     MediaControlEvent::Toggle => {
                         let current = state_for_controls
@@ -230,21 +243,29 @@ pub fn run() {
                             .store(new_state, std::sync::atomic::Ordering::SeqCst);
 
                         let position = state_for_controls.get_position_seconds();
-                        media_controls_for_handler.set_playback(new_state, Some(position));
+                        // Use notifier for both MPRIS and Discord updates
+                        if new_state {
+                            notifier_for_handler.notify_resumed(position);
+                        } else {
+                            notifier_for_handler.notify_paused(position);
+                        }
                     }
                     MediaControlEvent::Next => {
                         let track = queue_for_controls.write().get_next_track(true);
                         if let Some(ref track) = track {
                             let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
 
-                            media_controls_for_handler.set_metadata(
-                                &track.title,
-                                &track.artist,
-                                &track.album,
-                                track.cover_image.as_deref(),
-                                track.duration as f64,
+                            // Use notifier for both MPRIS and Discord updates
+                            notifier_for_handler.notify_playing(
+                                playback_notifier::TrackMetadata::new(
+                                    &track.title,
+                                    &track.artist,
+                                    &track.album,
+                                    track.duration as f64,
+                                    track.cover_image.clone(),
+                                ),
+                                0.0,
                             );
-                            media_controls_for_handler.set_playback(true, Some(0.0));
                         }
                     }
                     MediaControlEvent::Previous => {
@@ -252,14 +273,17 @@ pub fn run() {
                         if let Some(ref track) = track {
                             let _ = cmd_tx.send(audio::DecoderCommand::Load(track.path.clone()));
 
-                            media_controls_for_handler.set_metadata(
-                                &track.title,
-                                &track.artist,
-                                &track.album,
-                                track.cover_image.as_deref(),
-                                track.duration as f64,
+                            // Use notifier for both MPRIS and Discord updates
+                            notifier_for_handler.notify_playing(
+                                playback_notifier::TrackMetadata::new(
+                                    &track.title,
+                                    &track.artist,
+                                    &track.album,
+                                    track.duration as f64,
+                                    track.cover_image.clone(),
+                                ),
+                                0.0,
                             );
-                            media_controls_for_handler.set_playback(true, Some(0.0));
                         }
                     }
                     MediaControlEvent::Stop => {
@@ -267,11 +291,14 @@ pub fn run() {
                         state_for_controls
                             .is_playing
                             .store(false, std::sync::atomic::Ordering::SeqCst);
-                        media_controls_for_handler.set_stopped();
+                        // Use notifier for both MPRIS and Discord updates
+                        notifier_for_handler.notify_stopped();
                     }
                     MediaControlEvent::SetPosition(position) => {
                         let seconds = position.0.as_secs_f64();
                         let _ = cmd_tx.send(audio::DecoderCommand::Seek(seconds));
+                        // Notify seek for position update
+                        notifier_for_handler.notify_seek(seconds);
                     }
                     MediaControlEvent::Seek(direction) => {
                         use souvlaki::SeekDirection;
@@ -282,6 +309,8 @@ pub fn run() {
                             SeekDirection::Backward => (current_pos - 5.0).max(0.0),
                         };
                         let _ = cmd_tx.send(audio::DecoderCommand::Seek(new_pos));
+                        // Notify seek for position update
+                        notifier_for_handler.notify_seek(new_pos);
                     }
                     MediaControlEvent::SetVolume(volume) => {
                         state_for_controls.set_volume(volume as f32);
@@ -289,19 +318,22 @@ pub fn run() {
                     _ => {}
                 });
 
-            let media_controls_for_position = audio_manager_state.media_controls.clone();
+            // Position sync is now handled by PlaybackNotifier's background thread
+            // We just need to feed it position updates from the audio state
+            let notifier_for_position = (*notifier).clone();
             let state_for_position = audio_manager_state.state.clone();
             std::thread::spawn(move || {
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    std::thread::sleep(std::time::Duration::from_millis(500));
 
                     let is_playing = state_for_position
                         .is_playing
                         .load(std::sync::atomic::Ordering::Relaxed);
                     let position = state_for_position.get_position_seconds();
 
-                    if position > 0.0 || is_playing {
-                        media_controls_for_position.set_playback(is_playing, Some(position));
+                    // Feed position to notifier (it handles MPRIS updates internally)
+                    if is_playing && position > 0.0 {
+                        notifier_for_position.update_position(position);
                     }
                 }
             });
