@@ -78,7 +78,8 @@ const CloseIcon = () => (
 const NOTIFICATION_SHOWN_KEY = "sonami_update_notification_shown_v0.1.10";
 
 // Public HiFi instances URL
-const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
+const PUBLIC_HIFI_INSTANCES_URL =
+  "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 
 interface UpdateNotificationModalProps {
   onClose: () => void;
@@ -182,8 +183,8 @@ export const UpdateNotificationModal = ({
                   HiFi Instance Configuration
                 </h3>
                 <p className="text-sm text-theme-secondary leading-relaxed">
-                  Configure your HiFi instance URL in Settings → Services.
-                  Copy the public URL below to get started:
+                  Configure your HiFi instance URL in Settings → Services. Copy
+                  the public URL below to get started:
                 </p>
               </div>
 

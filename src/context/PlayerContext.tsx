@@ -159,7 +159,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback" | "services">("appearance");
+  const [settingsTab, setSettingsTab] = useState<
+    "appearance" | "playback" | "services"
+  >("appearance");
   const [crossfadeEnabled, setCrossfadeEnabled] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_ENABLED);
     return saved !== "false";
@@ -785,7 +787,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const openSettings = (tab: "appearance" | "playback" | "services" = "appearance") => {
+  const openSettings = (
+    tab: "appearance" | "playback" | "services" = "appearance",
+  ) => {
     setSettingsTab(tab);
     setIsSettingsOpen(true);
   };

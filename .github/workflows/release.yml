@@ -128,6 +128,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup NDK
+        run: sdkmanager "ndk;26.1.10909125"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -137,10 +140,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
 
-      - name: Setup NDK
-        run: |
-          sdkmanager "ndk;26.1.10909125"
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            src-tauri/gen/android/.gradle
+          key: gradle-${{ hashFiles('src-tauri/gen/android/**/*.gradle.kts', 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -151,13 +161,32 @@ jobs:
       - name: Build Android APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-        run: npm run tauri -- android build --apk true
+        run: bun run tauri android build --apk
+
+      - name: Prepare APK for upload
+        id: apk
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+
+          # Find the universal APK (handles both custom-named and default outputs)
+          UNIVERSAL_APK=$(find src-tauri/gen/android/app/build/outputs/apk -type f -name "*universal*release*.apk" 2>/dev/null | head -1)
+
+          if [ -z "$UNIVERSAL_APK" ]; then
+            echo "::error::No universal APK found. Build output:"
+            find src-tauri/gen/android/app/build/outputs -type f -name "*.apk" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Found APK: $UNIVERSAL_APK"
+          RELEASE_APK="Sonami_${VERSION}_android-universal.apk"
+          cp "$UNIVERSAL_APK" "$RELEASE_APK"
+          echo "apk_path=$RELEASE_APK" >> $GITHUB_OUTPUT
 
       - name: Upload APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.create-release.outputs.version }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          files: ${{ steps.apk.outputs.apk_path }}
 
   publish-release:
     needs: [create-release, build, build-android]

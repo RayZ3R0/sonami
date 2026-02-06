@@ -91,7 +91,12 @@ function UpdateNotificationWrapper() {
 
   if (!shouldShow) return null;
 
-  return <UpdateNotificationModal onClose={dismiss} onOpenSettings={() => openSettings("services")} />;
+  return (
+    <UpdateNotificationModal
+      onClose={dismiss}
+      onOpenSettings={() => openSettings("services")}
+    />
+  );
 }
 
 export default App;

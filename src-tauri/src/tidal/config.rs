@@ -25,17 +25,9 @@ pub fn get_hifi_config_path() -> PathBuf {
     get_cache_dir().join("hifi_config.json")
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct HifiConfig {
     pub endpoints_url: String,
-}
-
-impl Default for HifiConfig {
-    fn default() -> Self {
-        Self {
-            endpoints_url: String::new(),
-        }
-    }
 }
 
 impl HifiConfig {
