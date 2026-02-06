@@ -369,6 +369,10 @@ export const Settings = ({
   const [hifiLoading, setHifiLoading] = useState(false);
   const [hifiError, setHifiError] = useState<string | null>(null);
   const [hifiSuccess, setHifiSuccess] = useState<string | null>(null);
+  const [hifiUrlCopied, setHifiUrlCopied] = useState(false);
+
+  // Public HiFi instances URL (shown in UI for user to copy)
+  const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 
   const subsonicConfig = providerConfigs.find(
     (c) => c.provider_id === "subsonic",
@@ -471,12 +475,22 @@ export const Settings = ({
     try {
       await resetHifiConfig();
       await loadHifiConfig();
-      setHifiSuccess("HiFi instance URL reset to default");
+      setHifiSuccess("HiFi instance URL cleared");
       setTimeout(() => setHifiSuccess(null), 3000);
     } catch (e: any) {
       setHifiError(e.toString());
     } finally {
       setHifiLoading(false);
+    }
+  };
+
+  const handleCopyHifiUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(PUBLIC_HIFI_INSTANCES_URL);
+      setHifiUrlCopied(true);
+      setTimeout(() => setHifiUrlCopied(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy URL:", e);
     }
   };
 
@@ -1578,7 +1592,7 @@ export const Settings = ({
                         >
                           {hifiConfig && !hifiConfig.is_default
                             ? "Custom instance configured"
-                            : "Using default instance"}
+                            : "No instance configured"}
                         </p>
                       </div>
                     </div>
@@ -1590,10 +1604,88 @@ export const Settings = ({
                     )}
                   </div>
 
+                  {/* Public URL with copy button */}
+                  <div
+                    className="p-3 rounded-lg space-y-2"
+                    style={{
+                      background: theme.colors.surfaceHover,
+                      border: `1px solid ${theme.colors.border}`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: theme.colors.textSecondary }}
+                      >
+                        Public Instance URL
+                      </span>
+                      <button
+                        onClick={handleCopyHifiUrl}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors"
+                        style={{
+                          background: hifiUrlCopied
+                            ? theme.colors.accent + "20"
+                            : theme.colors.surface,
+                          color: hifiUrlCopied
+                            ? theme.colors.accent
+                            : theme.colors.textSecondary,
+                        }}
+                      >
+                        {hifiUrlCopied ? (
+                          <>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect
+                                x="9"
+                                y="9"
+                                width="13"
+                                height="13"
+                                rx="2"
+                                ry="2"
+                              />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <code
+                      className="block text-xs break-all select-all"
+                      style={{ color: theme.colors.textMuted }}
+                    >
+                      {PUBLIC_HIFI_INSTANCES_URL}
+                    </code>
+                  </div>
+
                   <div className="space-y-3">
                     <input
                       type="text"
-                      placeholder="HiFi Instance URL (e.g., https://your-instance.com/instances.json)"
+                      placeholder="Paste your HiFi Instance URL here"
                       value={hifiUrl}
                       onChange={(e) => setHifiUrl(e.target.value)}
                       className="w-full px-3 py-2 pt-[13px] rounded-lg text-sm outline-none"
@@ -1607,9 +1699,9 @@ export const Settings = ({
                       className="text-xs"
                       style={{ color: theme.colors.textMuted }}
                     >
-                      This URL should point to a JSON file containing API
-                      endpoint instances. Leave empty or reset to use the
-                      default public instance.
+                      Copy the public URL above or use your own self-hosted
+                      instance URL. The URL should point to a JSON file
+                      containing API endpoint instances.
                     </p>
                   </div>
 
@@ -1648,7 +1740,7 @@ export const Settings = ({
                         color: theme.colors.textPrimary,
                       }}
                     >
-                      Reset to Default
+                      Clear
                     </button>
                   </div>
                 </div>

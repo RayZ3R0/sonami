@@ -9,20 +9,28 @@
 //! - State-based updates with sequence numbers to force immediate updates
 //! - Paused state auto-clear after 30 seconds
 //! - Thread-safe state management
+//!
+//! Note: Discord IPC is not available on Android, so this module provides
+//! no-op stubs on that platform.
 
+#[cfg(not(target_os = "android"))]
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(not(target_os = "android"))]
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(not(target_os = "android"))]
 const DISCORD_APPLICATION_ID: &str = "1459143320604508251";
 
 /// How long to wait before clearing paused activity
+#[cfg(not(target_os = "android"))]
 const PAUSE_CLEAR_DELAY: Duration = Duration::from_secs(30);
 
 /// How often to check for state updates (faster for better responsiveness)
+#[cfg(not(target_os = "android"))]
 const UPDATE_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Debug)]
@@ -40,17 +48,23 @@ enum PresenceState {
 
     Playing {
         track: TrackInfo,
+        #[allow(dead_code)]
         started_at: Instant,
+        #[allow(dead_code)]
         position_secs: u64,
         /// Sequence number to force updates even if track is same
+        #[allow(dead_code)]
         seq: u64,
     },
 
     Paused {
         track: TrackInfo,
+        #[allow(dead_code)]
         paused_at: Instant,
+        #[allow(dead_code)]
         position_secs: u64,
         /// Sequence number to force updates
+        #[allow(dead_code)]
         seq: u64,
     },
 }
@@ -72,6 +86,7 @@ impl Default for DiscordRpcManager {
 }
 
 impl DiscordRpcManager {
+    #[cfg(not(target_os = "android"))]
     pub fn new() -> Self {
         let manager = Self {
             enabled: Arc::new(AtomicBool::new(false)),
@@ -93,20 +108,44 @@ impl DiscordRpcManager {
         manager
     }
 
+    #[cfg(target_os = "android")]
+    pub fn new() -> Self {
+        log::info!("Discord: Android stub initialized (no-op)");
+        Self {
+            enabled: Arc::new(AtomicBool::new(false)),
+            connected: Arc::new(AtomicBool::new(false)),
+            state: Arc::new(RwLock::new(PresenceState::Idle)),
+            shutdown: Arc::new(AtomicBool::new(false)),
+            sequence: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
     /// Get next sequence number (always increments)
     fn next_seq(&self) -> u64 {
         self.sequence.fetch_add(1, Ordering::SeqCst)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn connect(&self) {
         log::info!("Discord: Enabling Rich Presence");
         self.enabled.store(true, Ordering::SeqCst);
     }
 
+    #[cfg(target_os = "android")]
+    pub fn connect(&self) {
+        // No-op on Android
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn disconnect(&self) {
         log::info!("Discord: Disabling Rich Presence");
         self.enabled.store(false, Ordering::SeqCst);
         *self.state.write() = PresenceState::Idle;
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn disconnect(&self) {
+        // No-op on Android
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -117,6 +156,7 @@ impl DiscordRpcManager {
         self.connected.load(Ordering::Relaxed)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn set_playing(&self, track: TrackInfo, position_secs: u64) {
         if !self.enabled.load(Ordering::Relaxed) {
             log::debug!(
@@ -143,6 +183,12 @@ impl DiscordRpcManager {
         };
     }
 
+    #[cfg(target_os = "android")]
+    pub fn set_playing(&self, _track: TrackInfo, _position_secs: u64) {
+        // No-op on Android
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn set_paused(&self, track: TrackInfo, position_secs: u64) {
         if !self.enabled.load(Ordering::Relaxed) {
             log::debug!("Discord: set_paused called but RPC is disabled");
@@ -165,6 +211,11 @@ impl DiscordRpcManager {
         };
     }
 
+    #[cfg(target_os = "android")]
+    pub fn set_paused(&self, _track: TrackInfo, _position_secs: u64) {
+        // No-op on Android
+    }
+
     pub fn set_idle(&self) {
         log::info!("Discord: Setting idle state");
         *self.state.write() = PresenceState::Idle;
@@ -181,6 +232,7 @@ impl Drop for DiscordRpcManager {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 fn discord_worker_thread(
     enabled: Arc<AtomicBool>,
     connected: Arc<AtomicBool>,
@@ -315,6 +367,7 @@ fn discord_worker_thread(
 
 /// Calculate a hash of the current state for change detection
 /// Uses sequence number to force updates when state content is similar
+#[cfg(not(target_os = "android"))]
 fn calculate_state_hash(state: &PresenceState) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -360,6 +413,7 @@ fn calculate_state_hash(state: &PresenceState) -> u64 {
     hasher.finish()
 }
 
+#[cfg(not(target_os = "android"))]
 fn update_playing_activity(
     client: &mut DiscordIpcClient,
     track: &TrackInfo,
@@ -420,6 +474,7 @@ fn update_playing_activity(
 }
 
 /// Update Discord activity for paused state
+#[cfg(not(target_os = "android"))]
 fn update_paused_activity(
     client: &mut DiscordIpcClient,
     track: &TrackInfo,

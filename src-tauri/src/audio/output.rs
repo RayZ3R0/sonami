@@ -20,9 +20,20 @@ macro_rules! debug_cf {
 }
 
 pub fn run_audio_output(context: AudioContext) {
+    // On Android, give the system some time to fully initialize before starting audio
+    #[cfg(target_os = "android")]
+    {
+        log::info!("Android: Waiting for audio system to initialize...");
+        thread::sleep(Duration::from_millis(500));
+    }
+
     let host = cpal::default_host();
     let mut current_device_name: Option<String> = None;
     let mut no_device_notified = false;
+
+    // Track consecutive failures for Android recovery
+    #[cfg(target_os = "android")]
+    let mut consecutive_failures = 0u32;
 
     loop {
         if context.shutdown.load(Ordering::Relaxed) {
@@ -32,10 +43,15 @@ pub fn run_audio_output(context: AudioContext) {
         let device = match host.default_output_device() {
             Some(d) => {
                 no_device_notified = false;
+                #[cfg(target_os = "android")]
+                {
+                    consecutive_failures = 0;
+                }
                 d
             }
             None => {
                 if !no_device_notified {
+                    log::warn!("No audio output device found");
                     let _ = context.app_handle.emit(
                         "audio-error",
                         AudioError {
@@ -46,6 +62,19 @@ pub fn run_audio_output(context: AudioContext) {
                     );
                     no_device_notified = true;
                 }
+
+                // On Android, track failures and potentially reinitialize
+                #[cfg(target_os = "android")]
+                {
+                    consecutive_failures += 1;
+                    if consecutive_failures > 10 {
+                        log::error!(
+                            "Android: Too many consecutive audio failures, will keep trying..."
+                        );
+                        consecutive_failures = 0;
+                    }
+                }
+
                 thread::sleep(Duration::from_secs(1));
                 continue;
             }

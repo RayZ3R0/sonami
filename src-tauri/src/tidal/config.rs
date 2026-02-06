@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use super::models::Quality;
 
-// Default HiFi instances URL - can be overridden by user
-pub const DEFAULT_ENDPOINTS_URL: &str = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
+// No default URL - user must configure their own HiFi instance
 pub const CACHE_TTL_SECONDS: u64 = 86400; // 24 hours
 pub const REQUEST_TIMEOUT_SECONDS: u64 = 10;
 pub const RATE_LIMIT_SLEEP_MS: u64 = 2000;
@@ -34,7 +33,7 @@ pub struct HifiConfig {
 impl Default for HifiConfig {
     fn default() -> Self {
         Self {
-            endpoints_url: DEFAULT_ENDPOINTS_URL.to_string(),
+            endpoints_url: String::new(),
         }
     }
 }
@@ -62,11 +61,11 @@ impl HifiConfig {
     }
 
     pub fn get_endpoints_url(&self) -> &str {
-        if self.endpoints_url.is_empty() {
-            DEFAULT_ENDPOINTS_URL
-        } else {
-            &self.endpoints_url
-        }
+        &self.endpoints_url
+    }
+
+    pub fn is_configured(&self) -> bool {
+        !self.endpoints_url.is_empty()
     }
 }
 

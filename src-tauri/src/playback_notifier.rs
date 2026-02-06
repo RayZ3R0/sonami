@@ -356,7 +356,8 @@ impl PlaybackNotifier {
         }
 
         // Update Media Controls (MPRIS) with new position
-        self.media_controls.set_playback(is_playing, Some(position_secs));
+        self.media_controls
+            .set_playback(is_playing, Some(position_secs));
 
         *self.last_update.lock() = Instant::now();
     }
@@ -372,7 +373,8 @@ impl PlaybackNotifier {
         }
 
         self.is_playing.store(false, Ordering::Relaxed);
-        self.current_position.store(0f64.to_bits(), Ordering::Relaxed);
+        self.current_position
+            .store(0f64.to_bits(), Ordering::Relaxed);
 
         // Update Discord
         if let Some(ref discord) = self.discord_rpc {
@@ -432,7 +434,8 @@ impl PlaybackNotifier {
             track.cover_url.as_deref(),
             track.duration_secs,
         );
-        self.media_controls.set_playback(is_playing, Some(position_secs));
+        self.media_controls
+            .set_playback(is_playing, Some(position_secs));
 
         *self.last_update.lock() = Instant::now();
     }

@@ -4,6 +4,7 @@ import { MiniPlayerBar } from "./MiniPlayerBar";
 import { SyncedLyrics, LyricsData } from "./SyncedLyrics";
 import { invoke } from "@tauri-apps/api/core";
 import { captureAppScreenshot } from "../utils/screenshot";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import ColorThief from "colorthief";
 
@@ -507,6 +508,23 @@ export const FullScreenView = memo(
             </span>
           </button>
         </div>
+
+        {/* Window drag region - allows dragging the window from fullscreen view */}
+        <div
+          className="fixed top-0 left-[120px] right-0 h-12 z-[100] cursor-default"
+          onMouseDown={async (e) => {
+            // Don't start drag if clicking on interactive elements
+            const target = e.target as HTMLElement;
+            if (target.closest("button, input, [data-no-drag]")) {
+              return;
+            }
+            try {
+              await getCurrentWindow().startDragging();
+            } catch {
+              // Ignore drag errors
+            }
+          }}
+        />
 
         {/* Screenshot button - dev only, invisible, top right */}
         {import.meta.env.DEV && (

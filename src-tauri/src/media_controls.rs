@@ -1,10 +1,40 @@
 use base64::{engine::general_purpose, Engine as _};
 use parking_lot::RwLock;
-use souvlaki::{
-    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
-};
+#[cfg(not(target_os = "android"))]
+use souvlaki::{MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
+#[cfg(not(target_os = "android"))]
 use std::io::Write;
 use std::time::Duration;
+
+// Re-export MediaControlEvent and SeekDirection for use in other modules (or provide stub for Android)
+#[cfg(not(target_os = "android"))]
+pub use souvlaki::MediaControlEvent;
+#[cfg(not(target_os = "android"))]
+pub use souvlaki::SeekDirection;
+
+#[cfg(target_os = "android")]
+#[derive(Debug, Clone)]
+pub enum MediaControlEvent {
+    Play,
+    Pause,
+    Toggle,
+    Next,
+    Previous,
+    Stop,
+    Seek(SeekDirection),
+    SetPosition(std::time::Duration),
+    SetVolume(f64),
+    OpenUri(String),
+    Raise,
+    Quit,
+}
+
+#[cfg(target_os = "android")]
+#[derive(Debug, Clone, Copy)]
+pub enum SeekDirection {
+    Forward,
+    Backward,
+}
 
 struct CachedMetadata {
     title: String,
@@ -27,6 +57,7 @@ impl Default for CachedMetadata {
 }
 
 pub struct MediaControlsManager {
+    #[cfg(not(target_os = "android"))]
     controls: RwLock<Option<MediaControls>>,
     metadata: RwLock<CachedMetadata>,
 }
@@ -41,7 +72,8 @@ impl Default for MediaControlsManager {
 }
 
 impl MediaControlsManager {
-    #[cfg(not(target_os = "windows"))]
+    // Linux/macOS implementation
+    #[cfg(all(not(target_os = "windows"), not(target_os = "android")))]
     pub fn new() -> Self {
         let config = PlatformConfig {
             dbus_name: "sonami",
@@ -56,10 +88,20 @@ impl MediaControlsManager {
         }
     }
 
+    // Windows implementation
     #[cfg(target_os = "windows")]
     pub fn new() -> Self {
         Self {
             controls: RwLock::new(None),
+            metadata: RwLock::new(CachedMetadata::default()),
+        }
+    }
+
+    // Android stub implementation
+    #[cfg(target_os = "android")]
+    pub fn new() -> Self {
+        log::info!("MediaControlsManager: Android stub initialized (no-op)");
+        Self {
             metadata: RwLock::new(CachedMetadata::default()),
         }
     }
@@ -77,6 +119,7 @@ impl MediaControlsManager {
         }
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn attach_handler<F>(&self, handler: F)
     where
         F: Fn(MediaControlEvent) + Send + 'static,
@@ -84,6 +127,14 @@ impl MediaControlsManager {
         if let Some(ref mut controls) = *self.controls.write() {
             let _ = controls.attach(handler);
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn attach_handler<F>(&self, _handler: F)
+    where
+        F: Fn(MediaControlEvent) + Send + 'static,
+    {
+        // No-op on Android - media controls handled by system
     }
 
     pub fn set_metadata(
@@ -94,6 +145,7 @@ impl MediaControlsManager {
         cover_url: Option<&str>,
         duration_secs: f64,
     ) {
+        #[cfg(not(target_os = "android"))]
         let processed_cover_url = cover_url.and_then(|url| {
             if url.starts_with("data:") {
                 let cache_id = format!("{}_{}", title, artist);
@@ -110,6 +162,9 @@ impl MediaControlsManager {
             }
         });
 
+        #[cfg(target_os = "android")]
+        let processed_cover_url: Option<String> = cover_url.map(|s| s.to_string());
+
         {
             let mut cached = self.metadata.write();
             cached.title = title.to_string();
@@ -122,6 +177,7 @@ impl MediaControlsManager {
         self.apply_metadata();
     }
 
+    #[cfg(not(target_os = "android"))]
     fn apply_metadata(&self) {
         if let Some(ref mut controls) = *self.controls.write() {
             let cached = self.metadata.read();
@@ -142,6 +198,12 @@ impl MediaControlsManager {
         }
     }
 
+    #[cfg(target_os = "android")]
+    fn apply_metadata(&self) {
+        // No-op on Android
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn set_playback(&self, playing: bool, position_secs: Option<f64>) {
         if let Some(ref mut controls) = *self.controls.write() {
             let progress = position_secs.map(|secs| MediaPosition(Duration::from_secs_f64(secs)));
@@ -155,14 +217,25 @@ impl MediaControlsManager {
         }
     }
 
+    #[cfg(target_os = "android")]
+    pub fn set_playback(&self, _playing: bool, _position_secs: Option<f64>) {
+        // No-op on Android
+    }
+
     pub fn set_playback_simple(&self, playing: bool) {
         self.set_playback(playing, None);
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn set_stopped(&self) {
         if let Some(ref mut controls) = *self.controls.write() {
             let _ = controls.set_playback(MediaPlayback::Stopped);
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn set_stopped(&self) {
+        // No-op on Android
     }
 
     pub fn get_duration(&self) -> f64 {
@@ -170,6 +243,7 @@ impl MediaControlsManager {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 fn save_cover_art_to_temp(cover_data: &[u8], track_id: &str) -> Option<String> {
     use std::fs;
 
@@ -199,6 +273,7 @@ fn save_cover_art_to_temp(cover_data: &[u8], track_id: &str) -> Option<String> {
     Some(format!("file://{}", cover_path.to_string_lossy()))
 }
 
+#[cfg(not(target_os = "android"))]
 fn data_url_to_file_url(data_url: &str, track_id: &str) -> Option<String> {
     if !data_url.starts_with("data:") {
         return Some(data_url.to_string());

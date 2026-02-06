@@ -39,12 +39,6 @@ rubato = "0.16"       # High-quality sample rate conversion
 crossbeam-channel = "0.5"  # Better channels for audio threads
 rand = "0.9.2"
 
-# OS Media Controls (MPRIS on Linux, SMTC on Windows)
-souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
-
-# Discord Rich Presence (cross-platform)
-discord-rich-presence = "1.0"
-
 chrono = "0.4.42"
 reqwest = { version = "0.12.9", default-features = false, features = ["json", "blocking", "stream", "rustls-tls"] }
 futures-util = "0.3"
@@ -64,6 +58,9 @@ md5 = "0.8.0"
 hex = "0.4.3"
 thiserror = "2.0.18"
 
+# OS Media Controls (MPRIS on Linux, SMTC on Windows) - Desktop only
 [target.'cfg(not(target_os = "android"))'.dependencies]
+souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
+discord-rich-presence = "1.0"
 tauri-plugin-screenshots = "2.2.0"
 

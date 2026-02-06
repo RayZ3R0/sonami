@@ -77,6 +77,9 @@ const CloseIcon = () => (
 // Storage key for tracking if notification has been shown
 const NOTIFICATION_SHOWN_KEY = "sonami_update_notification_shown_v0.1.10";
 
+// Public HiFi instances URL
+const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
+
 interface UpdateNotificationModalProps {
   onClose: () => void;
 }
@@ -86,6 +89,17 @@ export const UpdateNotificationModal = ({
 }: UpdateNotificationModalProps) => {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
+  const [urlCopied, setUrlCopied] = useState(false);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(PUBLIC_HIFI_INSTANCES_URL);
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy URL:", e);
+    }
+  };
 
   const handleSetupClick = () => {
     // Open the GitHub repo for HiFi setup instructions
@@ -157,10 +171,87 @@ export const UpdateNotificationModal = ({
                   HiFi Instance Configuration
                 </h3>
                 <p className="text-sm text-theme-secondary leading-relaxed">
-                  You can now configure your own HiFi instance URL in Settings →
-                  Services. This gives you full control over your streaming
-                  endpoints.
+                  Configure your HiFi instance URL in Settings → Services.
+                  Copy the public URL below to get started:
                 </p>
+              </div>
+
+              {/* Public URL with copy button */}
+              <div
+                className="p-4 rounded-xl"
+                style={{
+                  background: theme.colors.surface,
+                  border: `1px solid ${theme.colors.border}`,
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    Public Instance URL
+                  </span>
+                  <button
+                    onClick={handleCopyUrl}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
+                    style={{
+                      background: urlCopied
+                        ? theme.colors.accent
+                        : theme.colors.surfaceHover,
+                      color: urlCopied
+                        ? theme.colors.textInverse
+                        : theme.colors.textSecondary,
+                    }}
+                  >
+                    {urlCopied ? (
+                      <>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect
+                            x="9"
+                            y="9"
+                            width="13"
+                            height="13"
+                            rx="2"
+                            ry="2"
+                          />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy URL
+                      </>
+                    )}
+                  </button>
+                </div>
+                <code
+                  className="block text-xs break-all select-all leading-relaxed"
+                  style={{ color: theme.colors.textMuted }}
+                >
+                  {PUBLIC_HIFI_INSTANCES_URL}
+                </code>
               </div>
 
               <div
@@ -171,9 +262,8 @@ export const UpdateNotificationModal = ({
                   Self-Hosting Support
                 </h3>
                 <p className="text-sm text-theme-secondary leading-relaxed">
-                  Host your own HiFi instance for enhanced privacy and
-                  reliability. Click below to learn how to set up your own
-                  instance.
+                  Want more control? Host your own HiFi instance for enhanced
+                  privacy and reliability.
                 </p>
               </div>
             </div>
@@ -282,9 +372,87 @@ export const UpdateNotificationModal = ({
                 🎵 HiFi Instance Configuration
               </h3>
               <p className="text-xs text-theme-secondary leading-relaxed">
-                Configure your own HiFi streaming instance URL in Settings →
-                Services for full control over your endpoints.
+                Configure your HiFi streaming instance URL in Settings →
+                Services. Copy the public URL below to get started.
               </p>
+            </div>
+
+            {/* Public URL with copy button */}
+            <div
+              className="p-3 rounded-xl border"
+              style={{
+                background: theme.colors.surfaceHover,
+                borderColor: theme.colors.border,
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: theme.colors.textSecondary }}
+                >
+                  Public Instance URL
+                </span>
+                <button
+                  onClick={handleCopyUrl}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all"
+                  style={{
+                    background: urlCopied
+                      ? theme.colors.accent
+                      : theme.colors.surface,
+                    color: urlCopied
+                      ? theme.colors.textInverse
+                      : theme.colors.textSecondary,
+                  }}
+                >
+                  {urlCopied ? (
+                    <>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <code
+                className="block text-xs break-all select-all"
+                style={{ color: theme.colors.textMuted }}
+              >
+                {PUBLIC_HIFI_INSTANCES_URL}
+              </code>
             </div>
 
             <div
@@ -298,8 +466,8 @@ export const UpdateNotificationModal = ({
                 🖥️ Self-Hosting Support
               </h3>
               <p className="text-xs text-theme-secondary leading-relaxed">
-                Host your own HiFi instance for enhanced privacy. Click below to
-                learn how.
+                Want more control? Host your own HiFi instance for enhanced
+                privacy.
               </p>
             </div>
           </div>
@@ -315,17 +483,6 @@ export const UpdateNotificationModal = ({
               }}
             >
               Dismiss
-            </button>
-            <button
-              onClick={handleSetupClick}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{
-                background: theme.colors.accent,
-                color: theme.colors.textInverse,
-              }}
-            >
-              <span>Setup Guide</span>
-              <ExternalLinkIcon />
             </button>
           </div>
         </div>

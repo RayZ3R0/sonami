@@ -137,11 +137,11 @@ pub struct HifiInstanceConfig {
 
 #[tauri::command]
 pub async fn get_hifi_config() -> Result<HifiInstanceConfig, String> {
-    use crate::tidal::config::{HifiConfig, DEFAULT_ENDPOINTS_URL};
+    use crate::tidal::config::HifiConfig;
 
     let config = HifiConfig::load();
-    let is_default =
-        config.endpoints_url == DEFAULT_ENDPOINTS_URL || config.endpoints_url.is_empty();
+    // is_default now means "not configured" (empty URL)
+    let is_default = config.endpoints_url.is_empty();
 
     Ok(HifiInstanceConfig {
         endpoints_url: config.endpoints_url,
@@ -174,15 +174,15 @@ pub async fn set_hifi_config(endpoints_url: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn reset_hifi_config() -> Result<String, String> {
-    use crate::tidal::config::{HifiConfig, DEFAULT_ENDPOINTS_URL};
+    use crate::tidal::config::HifiConfig;
 
     let config = HifiConfig {
-        endpoints_url: DEFAULT_ENDPOINTS_URL.to_string(),
+        endpoints_url: String::new(),
     };
 
     config
         .save()
-        .map_err(|e| format!("Failed to reset HiFi config: {}", e))?;
+        .map_err(|e| format!("Failed to clear HiFi config: {}", e))?;
 
     // Clear the endpoint cache
     let cache_path = crate::tidal::config::get_cache_file_path();
@@ -190,6 +190,6 @@ pub async fn reset_hifi_config() -> Result<String, String> {
         let _ = std::fs::remove_file(&cache_path);
     }
 
-    log::info!("HiFi instance URL reset to default");
-    Ok("HiFi configuration reset to default".to_string())
+    log::info!("HiFi instance URL cleared");
+    Ok("HiFi configuration cleared".to_string())
 }
