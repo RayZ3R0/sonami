@@ -318,7 +318,10 @@ impl PlayHistoryManager {
     }
 
     /// Get the top albums by play count
-    pub async fn get_top_albums(&self, limit: i64) -> Result<Vec<(String, String, String, i64)>, String> {
+    pub async fn get_top_albums(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<(String, String, String, i64)>, String> {
         // Returns (album_id, album_title, artist_name, play_count)
         let rows: Vec<(String, String, String, i64)> = sqlx::query_as(
             r#"

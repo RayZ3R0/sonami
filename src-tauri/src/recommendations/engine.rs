@@ -141,31 +141,19 @@ impl RecommendationEngine {
                             .await
                             {
                                 Ok(section) => {
-                                    let uri = section
-                                        .source_playlist_uri
-                                        .as_deref()
-                                        .unwrap_or("");
-                                    if let Err(e) =
-                                        pcache_clone.set(&artist, &section, uri).await
-                                    {
+                                    let uri = section.source_playlist_uri.as_deref().unwrap_or("");
+                                    if let Err(e) = pcache_clone.set(&artist, &section, uri).await {
                                         log::warn!(
                                             "Background refresh cache write failed for '{}': {}",
                                             artist,
                                             e
                                         );
                                     } else {
-                                        log::info!(
-                                            "Background refresh complete for '{}'",
-                                            artist
-                                        );
+                                        log::info!("Background refresh complete for '{}'", artist);
                                     }
                                 }
                                 Err(e) => {
-                                    log::warn!(
-                                        "Background refresh failed for '{}': {}",
-                                        artist,
-                                        e
-                                    );
+                                    log::warn!("Background refresh failed for '{}': {}", artist, e);
                                 }
                             }
                         });
@@ -189,9 +177,7 @@ impl RecommendationEngine {
                 .artist_radio(artist_name)
                 .await
                 .map_err(|e| RecommendationError::SpotifyApi(e.to_string()))?
-                .ok_or_else(|| {
-                    RecommendationError::NoRadioPlaylist(artist_name.to_string())
-                })?
+                .ok_or_else(|| RecommendationError::NoRadioPlaylist(artist_name.to_string()))?
         };
 
         log::info!("Found radio playlist: {}", playlist_uri);
@@ -234,7 +220,11 @@ impl RecommendationEngine {
         // Store in persistent cache
         if let Some(pcache) = self.persistent_cache.get() {
             if let Err(e) = pcache.set(&cache_key, &section, &playlist_uri).await {
-                log::warn!("Failed to persist recommendation cache for '{}': {}", artist_name, e);
+                log::warn!(
+                    "Failed to persist recommendation cache for '{}': {}",
+                    artist_name,
+                    e
+                );
             }
         }
 
@@ -355,13 +345,9 @@ impl RecommendationEngine {
                         tokio::time::sleep(PROVIDER_SEARCH_DELAY).await;
                         search_count += 1;
 
-                        if let Some(match_info) = Self::try_search(
-                            provider.as_ref(),
-                            &romanized_query,
-                            r_title,
-                            r_artist,
-                        )
-                        .await
+                        if let Some(match_info) =
+                            Self::try_search(provider.as_ref(), &romanized_query, r_title, r_artist)
+                                .await
                         {
                             track.matched_provider_id = Some(provider.id().to_string());
                             track.matched_external_id = Some(match_info.external_id);
@@ -513,7 +499,8 @@ impl RecommendationEngine {
 
                     log::debug!("Trying romanized search: {}", romanized_query);
                     if let Some(match_info) =
-                        Self::try_search(provider.as_ref(), &romanized_query, r_title, r_artist).await
+                        Self::try_search(provider.as_ref(), &romanized_query, r_title, r_artist)
+                            .await
                     {
                         track.matched_provider_id = Some(provider.id().to_string());
                         track.matched_external_id = Some(match_info.external_id);
@@ -527,8 +514,13 @@ impl RecommendationEngine {
                 tokio::time::sleep(PROVIDER_SEARCH_DELAY).await;
                 search_count += 1;
 
-                if let Some(match_info) =
-                    Self::try_search(provider.as_ref(), &clean_title, &clean_title, &primary_artist).await
+                if let Some(match_info) = Self::try_search(
+                    provider.as_ref(),
+                    &clean_title,
+                    &clean_title,
+                    &primary_artist,
+                )
+                .await
                 {
                     track.matched_provider_id = Some(provider.id().to_string());
                     track.matched_external_id = Some(match_info.external_id);
@@ -549,6 +541,10 @@ impl RecommendationEngine {
 
     /// Execute a single search and check results for a match.
     ///
+    /// Uses a tiered approach similar to Spotify import:
+    /// 1. Trust first result if it's a good match (Tidal's ranking is usually good)
+    /// 2. Fall back to scanning first 5 results with fuzzy matching
+    ///
     /// Returns MatchedTrackInfo with complete track data if a good match is found.
     async fn try_search(
         provider: &dyn crate::providers::traits::MusicProvider,
@@ -558,12 +554,34 @@ impl RecommendationEngine {
     ) -> Option<MatchedTrackInfo> {
         match provider.search_tracks_only(query).await {
             Ok(results) => {
-                // Check first few results for a good match (same logic as Spotify import)
+                if results.is_empty() {
+                    return None;
+                }
+
+                let target_artist = expected_artist.to_lowercase();
+                let target_title = expected_title.to_lowercase();
+
+                // Tier 1: Check first result (trust provider ranking)
+                if let Some(first) = results.first() {
+                    let first_artist = first.artist.to_lowercase();
+                    let first_title = first.title.to_lowercase();
+
+                    // If the first result looks like a reasonable match, accept it
+                    let artist_ok = first_artist.contains(&target_artist)
+                        || target_artist.contains(&first_artist)
+                        || Self::fuzzy_artist_match(&first_artist, &target_artist);
+                    let title_ok =
+                        first_title.contains(&target_title) || target_title.contains(&first_title);
+
+                    if artist_ok && title_ok {
+                        return Self::extract_match_info(first, provider);
+                    }
+                }
+
+                // Tier 2: Scan first 5 results for exact substring match
                 for result_track in results.iter().take(5) {
                     let result_artist = result_track.artist.to_lowercase();
                     let result_title = result_track.title.to_lowercase();
-                    let target_artist = expected_artist.to_lowercase();
-                    let target_title = expected_title.to_lowercase();
 
                     let artist_match = result_artist.contains(&target_artist)
                         || target_artist.contains(&result_artist);
@@ -571,29 +589,7 @@ impl RecommendationEngine {
                         || target_title.contains(&result_title);
 
                     if artist_match && title_match {
-                        // Strip provider prefix from ID (e.g. "tidal:12345" -> "12345")
-                        // Provider search returns IDs like "provider:id" but we store
-                        // only the raw external ID; the provider_id is stored separately.
-                        let raw_id = result_track
-                            .id
-                            .split_once(':')
-                            .map(|(_, id)| id.to_string())
-                            .unwrap_or_else(|| result_track.id.clone());
-                        
-                        log::debug!(
-                            "Match found: original_id='{}', stripped_id='{}', provider='{}', artist_id={:?}, album_id={:?}",
-                            result_track.id,
-                            raw_id,
-                            provider.id(),
-                            result_track.artist_id,
-                            result_track.album_id,
-                        );
-                        
-                        return Some(MatchedTrackInfo {
-                            external_id: raw_id,
-                            artist_id: result_track.artist_id.clone(),
-                            album_id: result_track.album_id.clone(),
-                        });
+                        return Self::extract_match_info(result_track, provider);
                     }
                 }
                 None
@@ -603,6 +599,49 @@ impl RecommendationEngine {
                 None
             }
         }
+    }
+
+    /// Helper to extract MatchedTrackInfo from a search result
+    fn extract_match_info(
+        result_track: &crate::models::Track,
+        provider: &dyn crate::providers::traits::MusicProvider,
+    ) -> Option<MatchedTrackInfo> {
+        // Strip provider prefix from ID (e.g. "tidal:12345" -> "12345")
+        let raw_id = result_track
+            .id
+            .split_once(':')
+            .map(|(_, id)| id.to_string())
+            .unwrap_or_else(|| result_track.id.clone());
+
+        log::debug!(
+            "Match found: original_id='{}', stripped_id='{}', provider='{}', artist_id={:?}, album_id={:?}",
+            result_track.id,
+            raw_id,
+            provider.id(),
+            result_track.artist_id,
+            result_track.album_id,
+        );
+
+        Some(MatchedTrackInfo {
+            external_id: raw_id,
+            artist_id: result_track.artist_id.clone(),
+            album_id: result_track.album_id.clone(),
+        })
+    }
+
+    /// Fuzzy artist match - handles common variations like "feat.", "ft.", "&", etc.
+    fn fuzzy_artist_match(a: &str, b: &str) -> bool {
+        // Normalize common artist separators
+        fn normalize(s: &str) -> String {
+            s.replace(" feat. ", " ")
+                .replace(" ft. ", " ")
+                .replace(" x ", " ")
+                .replace(" & ", " ")
+                .replace(" and ", " ")
+        }
+        let an = normalize(a);
+        let bn = normalize(b);
+        an.contains(&bn) || bn.contains(&an)
     }
 
     /// Extract the primary (first) artist from a comma-separated artist string.
@@ -639,11 +678,7 @@ impl RecommendationEngine {
         }
 
         // Also strip "feat." / "ft." suffixes that aren't in parens
-        let result = result
-            .split(" feat.")
-            .next()
-            .unwrap_or(&result)
-            .to_string();
+        let result = result.split(" feat.").next().unwrap_or(&result).to_string();
         let result = result.split(" ft.").next().unwrap_or(&result).to_string();
 
         result.trim().to_string()

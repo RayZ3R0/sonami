@@ -52,7 +52,19 @@ export const addToPlaylist = async (
   playlistId: string,
   track: Track,
 ): Promise<void> => {
-  return await invoke("add_to_playlist", { playlistId, track });
+  console.log("[api/playlist] addToPlaylist called");
+  console.log("[api/playlist] playlistId:", playlistId);
+  console.log("[api/playlist] track:", JSON.parse(JSON.stringify(track)));
+  console.log("[api/playlist] track.source:", (track as any).source);
+  console.log("[api/playlist] track.provider_id:", (track as any).provider_id);
+  console.log("[api/playlist] track.external_id:", (track as any).external_id);
+  try {
+    await invoke("add_to_playlist", { playlistId, track });
+    console.log("[api/playlist] addToPlaylist SUCCESS");
+  } catch (e) {
+    console.error("[api/playlist] addToPlaylist FAILED:", e);
+    throw e;
+  }
 };
 
 export const removeFromPlaylist = async (

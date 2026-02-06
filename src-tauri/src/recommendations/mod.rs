@@ -10,4 +10,4 @@ pub mod types;
 
 pub use engine::RecommendationEngine;
 pub use errors::RecommendationError;
-pub use types::{RecommendedTrack, RecommendationSection};
+pub use types::{RecommendationSection, RecommendedTrack};

@@ -28,14 +28,27 @@ const toPlayableTrack = (rec: RecommendedTrack): Track | null => {
     return null;
   }
 
+  // Derive source from provider_id — backend requires this field
+  const sourceMap: Record<string, "LOCAL" | "TIDAL" | "SUBSONIC" | "JELLYFIN"> =
+    {
+      local: "LOCAL",
+      tidal: "TIDAL",
+      subsonic: "SUBSONIC",
+      jellyfin: "JELLYFIN",
+    };
+  const source = sourceMap[rec.matched_provider_id!] || "LOCAL";
+
   return {
     id: rec.matched_local_id || crypto.randomUUID(),
     title: rec.title,
     artist: rec.artist,
+    artist_id: rec.matched_artist_id,
     album: rec.album || "",
+    album_id: rec.matched_album_id,
     duration: Math.floor(rec.duration_ms / 1000),
     cover_image: rec.cover_url,
     path: `${rec.matched_provider_id}:${rec.matched_external_id}`,
+    source,
     provider_id: rec.matched_provider_id,
     external_id: rec.matched_external_id,
   };
@@ -98,15 +111,31 @@ const SeedChip = ({
 }) => (
   <button
     onClick={onToggle}
-    className={`flex-shrink-0 flex items-center gap-2 px-4 h-9 rounded-full text-sm font-medium transition-all duration-200 ring-1 pt-[1px] ${isSelected
-      ? "bg-theme-accent text-white ring-theme-accent shadow-lg shadow-theme-accent/20"
-      : "bg-theme-surface text-theme-secondary ring-white/5 hover:bg-theme-surface-hover hover:text-theme-primary"
-      }`}
+    className={`flex-shrink-0 flex items-center gap-2 px-4 h-9 rounded-full text-sm font-medium transition-all duration-200 ring-1 pt-[1px] ${
+      isSelected
+        ? "bg-theme-accent text-white ring-theme-accent shadow-lg shadow-theme-accent/20"
+        : "bg-theme-surface text-theme-secondary ring-white/5 hover:bg-theme-surface-hover hover:text-theme-primary"
+    }`}
   >
     {isSelected && isLoading && (
-      <svg className="w-3 h-3 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <svg
+        className="w-3 h-3 animate-spin flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
       </svg>
     )}
     <span className="truncate max-w-[140px]">{artist.name}</span>
@@ -138,37 +167,42 @@ const RecommendedTrackCard = ({
 
   return (
     <div
-      className={`flex-none w-[180px] md:w-[200px] lg:w-[220px] group select-none ${playable ? "cursor-pointer" : "cursor-default"
-        }`}
+      className={`flex-none w-[180px] md:w-[200px] lg:w-[220px] group select-none ${
+        playable ? "cursor-pointer" : "cursor-default"
+      }`}
       onClick={playable ? onPlay : undefined}
       onContextMenu={playable ? onContextMenu : undefined}
     >
       {/* Cover */}
       <div
-        className={`relative aspect-square w-full rounded-2xl overflow-hidden shadow-sm transition-all duration-300 mb-3 bg-theme-surface ${playable
-          ? "hover:shadow-xl transform group-hover:-translate-y-1"
-          : ""
-          }`}
+        className={`relative aspect-square w-full rounded-2xl overflow-hidden shadow-sm transition-all duration-300 mb-3 bg-theme-surface ${
+          playable ? "hover:shadow-xl transform group-hover:-translate-y-1" : ""
+        }`}
       >
         <ImageWithFallback
           src={track.cover_url}
           alt={track.title}
-          className={`w-full h-full object-cover ${!playable ? "opacity-40 grayscale" : ""
-            }`}
+          className={`w-full h-full object-cover ${
+            !playable ? "opacity-40 grayscale" : ""
+          }`}
           iconType="music"
         />
 
         {/* Playable overlay */}
         {playable && (
           <div
-            className={`absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center ${isTrackPlaying ? "bg-black/40" : "opacity-0 group-hover:opacity-100"
-              }`}
+            className={`absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center ${
+              isTrackPlaying
+                ? "bg-black/40"
+                : "opacity-0 group-hover:opacity-100"
+            }`}
           >
             <div
-              className={`w-12 h-12 rounded-full bg-theme-accent text-white flex items-center justify-center shadow-2xl transform transition-all duration-300 ${isTrackPlaying
-                ? "scale-100"
-                : "translate-y-4 group-hover:translate-y-0 group-hover:scale-100"
-                }`}
+              className={`w-12 h-12 rounded-full bg-theme-accent text-white flex items-center justify-center shadow-2xl transform transition-all duration-300 ${
+                isTrackPlaying
+                  ? "scale-100"
+                  : "translate-y-4 group-hover:translate-y-0 group-hover:scale-100"
+              }`}
             >
               {isTrackPlaying ? (
                 <div className="flex items-end gap-[3px] h-4 mb-1">
@@ -209,12 +243,13 @@ const RecommendedTrackCard = ({
       {/* Meta */}
       <div className="px-1">
         <h3
-          className={`font-semibold truncate text-base mb-0.5 transition-colors ${isCurrent
-            ? "text-theme-accent"
-            : playable
-              ? "text-theme-primary group-hover:text-white"
-              : "text-theme-muted"
-            }`}
+          className={`font-semibold truncate text-base mb-0.5 transition-colors ${
+            isCurrent
+              ? "text-theme-accent"
+              : playable
+                ? "text-theme-primary group-hover:text-white"
+                : "text-theme-muted"
+          }`}
         >
           {track.title}
         </h3>
@@ -239,8 +274,15 @@ const SectionCarousel = ({
   showOnlyPlayable,
 }: {
   section: RecommendationSection;
-  onPlayTrack: (track: RecommendedTrack, section: RecommendationSection) => void;
-  onContextMenu: (e: React.MouseEvent, track: RecommendedTrack, section: RecommendationSection) => void;
+  onPlayTrack: (
+    track: RecommendedTrack,
+    section: RecommendationSection,
+  ) => void;
+  onContextMenu: (
+    e: React.MouseEvent,
+    track: RecommendedTrack,
+    section: RecommendationSection,
+  ) => void;
   currentTrackId?: string;
   isPlaying: boolean;
   showOnlyPlayable: boolean;
@@ -327,27 +369,49 @@ const SectionCarousel = ({
           <button
             onClick={() => handleScroll("left")}
             disabled={!canScrollLeft}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ring-1 ring-white/5 ${canScrollLeft
-              ? "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary shadow-sm"
-              : "bg-theme-surface/50 text-theme-muted/30 cursor-default"
-              }`}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ring-1 ring-white/5 ${
+              canScrollLeft
+                ? "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary shadow-sm"
+                : "bg-theme-surface/50 text-theme-muted/30 cursor-default"
+            }`}
             aria-label="Scroll left"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <button
             onClick={() => handleScroll("right")}
             disabled={!canScrollRight}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ring-1 ring-white/5 ${canScrollRight
-              ? "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary shadow-sm"
-              : "bg-theme-surface/50 text-theme-muted/30 cursor-default"
-              }`}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ring-1 ring-white/5 ${
+              canScrollRight
+                ? "bg-theme-surface hover:bg-theme-surface-hover text-theme-primary shadow-sm"
+                : "bg-theme-surface/50 text-theme-muted/30 cursor-default"
+            }`}
             aria-label="Scroll right"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
@@ -356,12 +420,13 @@ const SectionCarousel = ({
       {/* Track cards — no wheel scroll, arrow-only, GPU-accelerated */}
       <div
         ref={scrollRef}
-        className="flex gap-5 scroll-smooth pl-8 pr-6 md:pl-10 md:pr-8 pb-2 overflow-x-auto overflow-y-hidden no-scrollbar"
+        className="flex gap-5 scroll-smooth pb-2 overflow-x-auto overflow-y-hidden no-scrollbar"
         style={{
           WebkitOverflowScrolling: "touch",
           willChange: "transform",
         }}
       >
+        <div className="shrink-0 w-3 md:w-5" aria-hidden="true" />
         {tracks.map((track, idx) => {
           const playable = toPlayableTrack(track);
           const isCurrent = !!playable && currentTrackId === playable.id;
@@ -377,6 +442,7 @@ const SectionCarousel = ({
             />
           );
         })}
+        <div className="shrink-0 w-1 md:w-3" aria-hidden="true" />
       </div>
     </div>
   );
@@ -428,9 +494,24 @@ const ProgressiveLoadingBar = ({
   if (loaded >= total) return null;
   return (
     <div className="flex items-center gap-3 pl-8 pr-6 md:pl-10 md:pr-8 py-4 text-sm text-theme-muted">
-      <svg className="w-4 h-4 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <svg
+        className="w-4 h-4 animate-spin flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
       </svg>
       Loading more recommendations… ({loaded}/{total})
     </div>
@@ -445,7 +526,9 @@ interface DiscoverPageProps {
   onNavigate: (tab: string) => void;
 }
 
-export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => {
+export const DiscoverPage = ({
+  onNavigate: _onNavigate,
+}: DiscoverPageProps) => {
   const queryClient = useQueryClient();
   const {
     playTrack,
@@ -481,8 +564,8 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
           artistName,
         }),
       enabled: !!artistName,
-      staleTime: 24 * 60 * 60 * 1000,    // 24 hours
-      gcTime: 24 * 60 * 60 * 1000,       // 24 hours
+      staleTime: 24 * 60 * 60 * 1000, // 24 hours
+      gcTime: 24 * 60 * 60 * 1000, // 24 hours
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -495,7 +578,8 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
     .map((q) => q.data as RecommendationSection);
 
   const loadingRecs = artistQueries.some((q) => q.isLoading);
-  const isError = artistQueries.every((q) => q.isError) && artistQueries.length > 0;
+  const isError =
+    artistQueries.every((q) => q.isError) && artistQueries.length > 0;
   const error = artistQueries.find((q) => q.error)?.error;
   const loading = loadingArtists;
 
@@ -506,21 +590,18 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
 
   // -- Handlers --
 
-  const toggleArtist = useCallback(
-    (name: string) => {
-      setSelectedArtists((prev) => {
-        const exists = prev.includes(name);
-        if (exists) {
-          const next = prev.filter((n) => n !== name);
-          return next;
-        }
-        if (prev.length >= 10) return prev;
-        if (prev.length === 0) return [name];
-        return [...prev, name];
-      });
-    },
-    [],
-  );
+  const toggleArtist = useCallback((name: string) => {
+    setSelectedArtists((prev) => {
+      const exists = prev.includes(name);
+      if (exists) {
+        const next = prev.filter((n) => n !== name);
+        return next;
+      }
+      if (prev.length >= 10) return prev;
+      if (prev.length === 0) return [name];
+      return [...prev, name];
+    });
+  }, []);
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({
@@ -530,7 +611,12 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
 
   const handlePlayTrack = useCallback(
     async (rec: RecommendedTrack, section: RecommendationSection) => {
-      if (!isPlayable(rec) || !rec.matched_external_id || !rec.matched_provider_id) return;
+      if (
+        !isPlayable(rec) ||
+        !rec.matched_external_id ||
+        !rec.matched_provider_id
+      )
+        return;
 
       try {
         if (rec.matched_provider_id === "tidal") {
@@ -553,7 +639,10 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
             coverUrl: rec.cover_url || null,
             quality: streamQuality,
           });
-        } else if (rec.matched_provider_id === "subsonic" || rec.matched_provider_id === "jellyfin") {
+        } else if (
+          rec.matched_provider_id === "subsonic" ||
+          rec.matched_provider_id === "jellyfin"
+        ) {
           // Use play_provider_track for generic providers
           await invoke("play_provider_track", {
             providerId: rec.matched_provider_id,
@@ -694,13 +783,24 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
             {/* Playable-only toggle */}
             <button
               onClick={() => setShowOnlyPlayable((v) => !v)}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ring-1 ${showOnlyPlayable
-                ? "bg-theme-accent/15 text-theme-accent ring-theme-accent/30"
-                : "bg-theme-surface text-theme-muted ring-white/5 hover:text-theme-secondary"
-                }`}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ring-1 ${
+                showOnlyPlayable
+                  ? "bg-theme-accent/15 text-theme-accent ring-theme-accent/30"
+                  : "bg-theme-surface text-theme-muted ring-white/5 hover:text-theme-secondary"
+              }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
               </svg>
               Playable
             </button>
@@ -711,8 +811,18 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
               aria-label="Refresh recommendations"
               title="Refresh"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
             </button>
           </div>
@@ -722,13 +832,17 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
         {topArtists.length > 0 && (
           <div className="mt-4 mb-8">
             <div
-              className="flex gap-2.5 overflow-x-auto pl-8 pr-6 md:pl-10 md:pr-8 pt-1 pb-3 scrollbar-hide"
+              className="flex gap-2.5 overflow-x-auto pt-1 pb-3 scrollbar-hide"
               style={{
                 scrollbarWidth: "none",
                 msOverflowStyle: "none",
-                WebkitOverflowScrolling: "touch"
+                WebkitOverflowScrolling: "touch",
               }}
             >
+              <div
+                className="shrink-0 w-[1.375rem] md:w-[1.875rem]"
+                aria-hidden="true"
+              />
               {topArtists.map((artist) => (
                 <SeedChip
                   key={artist.id}
@@ -738,6 +852,10 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
                   onToggle={() => toggleArtist(artist.name)}
                 />
               ))}
+              <div
+                className="shrink-0 w-[0.875rem] md:w-[1.375rem]"
+                aria-hidden="true"
+              />
             </div>
           </div>
         )}
@@ -746,8 +864,18 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
         {isError && (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              <svg
+                className="w-8 h-8 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
               </svg>
             </div>
             <p className="text-theme-secondary font-medium mb-1">
@@ -791,7 +919,10 @@ export const DiscoverPage = ({ onNavigate: _onNavigate }: DiscoverPageProps) => 
 
             {/* Progressive loading indicator */}
             {!loadingRecs && sections.length > 0 && (
-              <ProgressiveLoadingBar loaded={sections.length} total={seedArtists.length} />
+              <ProgressiveLoadingBar
+                loaded={sections.length}
+                total={seedArtists.length}
+              />
             )}
 
             {/* Nothing came back at all */}

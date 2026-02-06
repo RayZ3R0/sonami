@@ -90,10 +90,8 @@ impl RecommendationCache {
                     artist_name: key,
                     section,
                     playlist_uri,
-                    cached_at: DateTime::from_timestamp(cached_at, 0)
-                        .unwrap_or_else(Utc::now),
-                    expires_at: DateTime::from_timestamp(expires_at, 0)
-                        .unwrap_or_else(Utc::now),
+                    cached_at: DateTime::from_timestamp(cached_at, 0).unwrap_or_else(Utc::now),
+                    expires_at: DateTime::from_timestamp(expires_at, 0).unwrap_or_else(Utc::now),
                 }))
             }
             None => Ok(None),
@@ -111,8 +109,7 @@ impl RecommendationCache {
     ) -> Result<(), RecommendationError> {
         let key = artist_name.to_lowercase();
         let now = Utc::now();
-        let expires = now
-            + TimeDelta::seconds(PERSISTENT_CACHE_TTL_SECS);
+        let expires = now + TimeDelta::seconds(PERSISTENT_CACHE_TTL_SECS);
         let section_json = serde_json::to_string(section).map_err(|e| {
             RecommendationError::Internal(format!("Failed to serialize section: {}", e))
         })?;

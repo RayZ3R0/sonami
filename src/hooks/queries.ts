@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { Playlist } from "../types";
-import {
-  RecommendationSection,
-  TopArtistInfo,
-} from "../types/recommendations";
+import { RecommendationSection, TopArtistInfo } from "../types/recommendations";
 
 import { getRecentlyPlayed, getMostPlayed } from "../api/history";
 import { getPlaylistDetails } from "../api/playlist";
@@ -23,11 +20,7 @@ export const QUERY_KEYS = {
     artists,
     limit,
   ],
-  artistRecommendations: (name: string) => [
-    "discover",
-    "artist-recs",
-    name,
-  ],
+  artistRecommendations: (name: string) => ["discover", "artist-recs", name],
 };
 
 // --- Playlists ---
@@ -71,8 +64,8 @@ export const useTopArtists = (limit: number = 10) => {
   return useQuery({
     queryKey: QUERY_KEYS.topArtists(limit),
     queryFn: () => invoke<TopArtistInfo[]>("get_top_artists", { limit }),
-    staleTime: 24 * 60 * 60 * 1000,     // 24 hours
-    gcTime: 24 * 60 * 60 * 1000,        // 24 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -86,8 +79,8 @@ export const useArtistRecommendations = (artistName: string) => {
         artistName,
       }),
     enabled: !!artistName,
-    staleTime: 24 * 60 * 60 * 1000,     // 24 hours
-    gcTime: 24 * 60 * 60 * 1000,        // 24 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });

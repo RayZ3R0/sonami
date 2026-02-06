@@ -82,37 +82,101 @@ pub async fn add_to_playlist(
     playlist_id: String,
     track: UnifiedTrack,
 ) -> Result<(), String> {
-    if playlist
-        .add_track_entry(&playlist_id, &track.id)
-        .await
-        .is_ok()
-    {
-        return Ok(());
-    }
+    log::info!("[add_to_playlist] === START ===");
+    log::info!("[add_to_playlist] playlist_id={}", playlist_id);
+    log::info!("[add_to_playlist] track.id={}", track.id);
+    log::info!("[add_to_playlist] track.title={}", track.title);
+    log::info!("[add_to_playlist] track.artist={}", track.artist);
+    log::info!("[add_to_playlist] track.source={:?}", track.source);
+    log::info!(
+        "[add_to_playlist] track.provider_id={:?}",
+        track.provider_id
+    );
+    log::info!(
+        "[add_to_playlist] track.external_id={:?}",
+        track.external_id
+    );
+    log::info!("[add_to_playlist] track.artist_id={:?}", track.artist_id);
+    log::info!("[add_to_playlist] track.album_id={:?}", track.album_id);
+    log::info!("[add_to_playlist] track.path={}", track.path);
 
-    // Generic Provider Import
+    // 1. If we have provider info, look up (or import) by external_id — most reliable
     if let (Some(provider_id), Some(external_id)) = (&track.provider_id, &track.external_id) {
+        log::info!(
+            "[add_to_playlist] Branch: has provider_id={} external_id={}",
+            provider_id,
+            external_id
+        );
+
+        // Check if the track already exists in the DB by external_id
+        match playlist
+            .find_track_id_by_external_id(provider_id, external_id)
+            .await
+        {
+            Ok(Some(db_id)) => {
+                log::info!(
+                    "[add_to_playlist] Found existing track in DB: db_id={}",
+                    db_id
+                );
+                let result = playlist.add_track_entry(&playlist_id, &db_id).await;
+                log::info!("[add_to_playlist] add_track_entry result: {:?}", result);
+                return result;
+            }
+            Ok(None) => {
+                log::info!("[add_to_playlist] Track not in DB, will import");
+            }
+            Err(e) => {
+                log::error!(
+                    "[add_to_playlist] find_track_id_by_external_id error: {}",
+                    e
+                );
+            }
+        }
+
+        // Not in DB yet — import it first
         let import_track = crate::models::Track {
             id: external_id.clone(),
             title: track.title.clone(),
             artist: track.artist.clone(),
-            artist_id: None,
+            artist_id: track.artist_id.clone(),
             album: track.album.clone(),
-            album_id: None,
+            album_id: track.album_id.clone(),
             duration: track.duration,
             cover_url: track.cover_image.clone(),
         };
+        log::info!("[add_to_playlist] Importing external track...");
 
-        if let Ok(new_id) = library
+        match library
             .import_external_track(&import_track, provider_id)
             .await
         {
-            playlist.add_track_entry(&playlist_id, &new_id).await?;
-            return Ok(());
+            Ok(new_id) => {
+                log::info!("[add_to_playlist] Import success, new_id={}", new_id);
+                let result = playlist.add_track_entry(&playlist_id, &new_id).await;
+                log::info!("[add_to_playlist] add_track_entry result: {:?}", result);
+                return result;
+            }
+            Err(e) => {
+                log::error!("[add_to_playlist] import_external_track failed: {}", e);
+                return Err(format!("Failed to import track: {}", e));
+            }
         }
     }
 
-    Err("Failed to add track to playlist".to_string())
+    // 2. No provider info — try adding by track.id directly (local tracks already in DB)
+    log::info!(
+        "[add_to_playlist] Branch: no provider info, using track.id={}",
+        track.id
+    );
+    let result = playlist
+        .add_track_entry(&playlist_id, &track.id)
+        .await
+        .map_err(|e| {
+            log::error!("[add_to_playlist] Direct add_track_entry failed: {}", e);
+            format!("Failed to add track to playlist: {}", e)
+        });
+    log::info!("[add_to_playlist] === END result={:?} ===", result);
+    result
 }
 
 #[command]
