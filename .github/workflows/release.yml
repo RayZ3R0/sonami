@@ -116,6 +116,7 @@ jobs:
   build-android:
     needs: create-release
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -189,7 +190,7 @@ jobs:
           files: ${{ steps.apk.outputs.apk_path }}
 
   publish-release:
-    needs: [create-release, build, build-android]
+    needs: [create-release, build]
     runs-on: ubuntu-latest
     steps:
       - uses: softprops/action-gh-release@v2
