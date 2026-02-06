@@ -52,7 +52,33 @@ impl PlayHistoryManager {
         .await
         .map_err(|e| e.to_string())?;
 
-        // 3. Update playlist statistics if context is playlist?
+        // 3. Update artist statistics
+        sqlx::query(
+            r#"
+            UPDATE artists SET play_count = COALESCE(play_count, 0) + 1, last_played_at = ?
+            WHERE id = (SELECT artist_id FROM tracks WHERE id = ?)
+            "#,
+        )
+        .bind(now)
+        .bind(track_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        // 4. Update album statistics (if track has album)
+        sqlx::query(
+            r#"
+            UPDATE albums SET play_count = COALESCE(play_count, 0) + 1, last_played_at = ?
+            WHERE id = (SELECT album_id FROM tracks WHERE id = ? AND album_id IS NOT NULL)
+            "#,
+        )
+        .bind(now)
+        .bind(track_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        // 5. Update playlist statistics if context is playlist?
         // Optional feature for later.
 
         tx.commit().await.map_err(|e| e.to_string())?;
@@ -268,5 +294,51 @@ impl PlayHistoryManager {
             .map_err(|e| e.to_string())?;
 
         Ok(count.0)
+    }
+
+    /// Get the top artists by play count for recommendation seeding
+    pub async fn get_top_artists(&self, limit: i64) -> Result<Vec<(String, String, i64)>, String> {
+        // Returns (artist_id, artist_name, play_count)
+        let rows: Vec<(String, String, i64)> = sqlx::query_as(
+            r#"
+            SELECT id, name, play_count
+            FROM artists
+            WHERE play_count > 0
+            ORDER BY play_count DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        log::info!("Fetched {} top artists for recommendations", rows.len());
+        Ok(rows)
+    }
+
+    /// Get the top albums by play count
+    pub async fn get_top_albums(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<(String, String, String, i64)>, String> {
+        // Returns (album_id, album_title, artist_name, play_count)
+        let rows: Vec<(String, String, String, i64)> = sqlx::query_as(
+            r#"
+            SELECT al.id, al.title, a.name as artist_name, al.play_count
+            FROM albums al
+            JOIN artists a ON al.artist_id = a.id
+            WHERE al.play_count > 0
+            ORDER BY al.play_count DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        log::info!("Fetched {} top albums for recommendations", rows.len());
+        Ok(rows)
     }
 }

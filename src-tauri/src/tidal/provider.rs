@@ -138,6 +138,40 @@ impl MusicProvider for TidalProvider {
         })
     }
 
+    async fn search_tracks_only(&self, query: &str) -> Result<Vec<Track>> {
+        let tracks_res = self
+            .client
+            .search_tracks(query)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        Ok(tracks_res
+            .items
+            .into_iter()
+            .map(|t| Track {
+                id: format!("tidal:{}", t.id),
+                title: t.title,
+                artist: t
+                    .artist
+                    .as_ref()
+                    .map(|a| a.name.clone())
+                    .unwrap_or_default(),
+                artist_id: t.artist.as_ref().map(|a| format!("tidal:{}", a.id)),
+                album: t
+                    .album
+                    .as_ref()
+                    .map(|a| a.title.clone())
+                    .unwrap_or_default(),
+                album_id: t.album.as_ref().map(|a| format!("tidal:{}", a.id)),
+                duration: t.duration.unwrap_or(0) as u64,
+                cover_url: t
+                    .cover
+                    .or_else(|| t.album.as_ref().and_then(|a| a.cover.clone()))
+                    .map(|c| crate::tidal::models::get_cover_url(&c, 640)),
+            })
+            .collect())
+    }
+
     async fn get_stream_url(&self, track_id: &str, quality: Quality) -> Result<StreamInfo> {
         let tid = track_id
             .parse::<u64>()

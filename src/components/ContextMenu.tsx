@@ -529,15 +529,20 @@ export const ContextMenu = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
+      const target = event.target as Node;
+      // Check if click is inside the main menu
+      if (menuRef.current && menuRef.current.contains(target)) return;
+      // Check if click is inside any portaled submenu (they share the same class)
+      const panel = (target as Element).closest?.(".context-menu-panel");
+      if (panel) return;
+      onClose();
     };
 
     const handleScroll = (event: Event) => {
-      if (menuRef.current?.contains(event.target as Node)) {
-        return;
-      }
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      // Don't close when scrolling inside a portaled submenu
+      if ((target as Element).closest?.(".context-menu-panel")) return;
       onClose();
     };
 

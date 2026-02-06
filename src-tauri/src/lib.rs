@@ -16,6 +16,7 @@ pub mod playback_notifier;
 pub mod playlist;
 pub mod providers;
 pub mod queue;
+pub mod recommendations;
 pub mod spotify;
 pub mod subsonic;
 pub mod tidal;
@@ -83,6 +84,10 @@ pub fn run() {
             let provider_manager = std::sync::Arc::new(providers::ProviderManager::new());
             app.manage(provider_manager.clone());
 
+            // Initialize the recommendation engine (reused across requests for caching)
+            let rec_engine = recommendations::RecommendationEngine::new(provider_manager.clone());
+            app.manage(rec_engine);
+
 
             let provider_manager_clone = provider_manager.clone();
             let handle_clone = handle.clone();
@@ -132,6 +137,16 @@ pub fn run() {
                         handle_clone_db.manage(hist_manager);
 
                         log::info!("Database, Library, Playlist, Favorites & History Managers initialized successfully");
+
+                        // Wire persistent cache into recommendation engine
+                        let rec_engine = handle_clone_db.state::<recommendations::RecommendationEngine>();
+                        rec_engine.init_persistent_cache(pool.clone());
+
+                        // Evict expired cache entries on startup
+                        let pcache = crate::recommendations::cache::RecommendationCache::new(pool.clone());
+                        if let Err(e) = pcache.evict_expired().await {
+                            log::warn!("Failed to evict expired recommendation cache: {}", e);
+                        }
 
                         // Initialize Persistence for Download Manager
                         let db_ref = handle_clone_db.state::<database::DatabaseManager>();
@@ -468,6 +483,10 @@ pub fn run() {
             commands::providers::get_hifi_config,
             commands::providers::set_hifi_config,
             commands::providers::reset_hifi_config,
+
+            commands::recommendations::get_recommendations,
+            commands::recommendations::get_artist_recommendations,
+            commands::recommendations::get_top_artists,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

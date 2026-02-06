@@ -68,13 +68,30 @@ export function usePlaylistMenu({
             action: async () => {
               try {
                 if (isInPlaylist) {
+                  console.log(
+                    "[usePlaylistMenu] Removing track from playlist:",
+                    playlist.id,
+                    track.id,
+                  );
                   await removeFromPlaylist(playlist.id, track.id);
                 } else {
+                  console.log(
+                    "[usePlaylistMenu] Adding track to playlist:",
+                    playlist.id,
+                  );
+                  console.log(
+                    "[usePlaylistMenu] Track object:",
+                    JSON.parse(JSON.stringify(track)),
+                  );
                   await addToPlaylist(playlist.id, track);
                 }
+                console.log("[usePlaylistMenu] Playlist update SUCCESS");
                 refreshPlaylists?.();
               } catch (error) {
-                console.error("Failed to update playlist:", error);
+                console.error(
+                  "[usePlaylistMenu] Failed to update playlist:",
+                  error,
+                );
               }
             },
           });

@@ -234,6 +234,33 @@ export const Sidebar = ({
               )}
             </button>
             <button
+              onClick={() => setActiveTab("discover")}
+              className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
+                activeTab === "discover"
+                  ? "bg-theme-surface-active text-theme-primary"
+                  : "text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
+              }`}
+              title="Discover"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5 flex-shrink-0"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+              </svg>
+              {!isCollapsed && (
+                <span className="text-[13px] font-medium pt-[4.4px]">
+                  Discover
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab("favorites")}
               className={`flex items-center ${isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"} rounded-xl transition-all duration-200 group ${
                 activeTab === "favorites"

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TrackSource {
+    #[default]
     Local,
     Tidal,
     Subsonic,
@@ -60,6 +61,7 @@ pub struct UnifiedTrack {
     pub album: String,
     pub album_id: Option<String>,
     pub duration: u64,
+    #[serde(default)]
     pub source: TrackSource,
     pub cover_image: Option<String>,
     pub path: String,

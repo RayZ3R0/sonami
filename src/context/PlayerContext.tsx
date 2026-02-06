@@ -443,12 +443,39 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
   const addToPlaylist = async (playlistId: string, track: Track) => {
     try {
+      console.log("[addToPlaylist] === START ===");
+      console.log("[addToPlaylist] playlistId:", playlistId);
+      console.log(
+        "[addToPlaylist] track object:",
+        JSON.parse(JSON.stringify(track)),
+      );
+      console.log("[addToPlaylist] track.id:", track.id);
+      console.log("[addToPlaylist] track.source:", (track as any).source);
+      console.log(
+        "[addToPlaylist] track.provider_id:",
+        (track as any).provider_id,
+      );
+      console.log(
+        "[addToPlaylist] track.external_id:",
+        (track as any).external_id,
+      );
+      console.log("[addToPlaylist] track.path:", track.path);
+      console.log("[addToPlaylist] track.artist_id:", (track as any).artist_id);
+      console.log("[addToPlaylist] track.album_id:", (track as any).album_id);
+      console.log("[addToPlaylist] Invoking add_to_playlist command...");
       await invoke("add_to_playlist", { playlistId, track });
+      console.log("[addToPlaylist] === SUCCESS ===");
       await refreshPlaylists();
       bumpDataVersion(); // Trigger reactive updates in views
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.playlists });
     } catch (e) {
-      console.error("Failed to add to playlist:", e);
+      console.error("[addToPlaylist] === FAILED ===");
+      console.error("[addToPlaylist] Error:", e);
+      console.error("[addToPlaylist] Error type:", typeof e);
+      console.error(
+        "[addToPlaylist] Full track was:",
+        JSON.parse(JSON.stringify(track)),
+      );
     }
   };
 

@@ -44,6 +44,16 @@ impl PublicPlaylist {
         let mut all_tracks = Vec::new();
         let mut response = self.get_playlist_info(CHUNK_SIZE, 0).await?;
 
+        // DEBUG: Write full response to file for inspection
+        if let Ok(response_str) = serde_json::to_string_pretty(&response) {
+            let debug_path = "/tmp/spotify_playlist_response.json";
+            let _ = std::fs::write(debug_path, response_str);
+            eprintln!("[SPOTAPI DEBUG] Wrote response to {}", debug_path);
+        }
+
+        // DEBUG: Log response structure
+        eprintln!("[SPOTAPI DEBUG] Response keys: {:?}", response.as_object().map(|o| o.keys().collect::<Vec<_>>()));
+        
         let content = response
             .get_mut("data")
             .and_then(|d| d.get_mut("playlistV2"))

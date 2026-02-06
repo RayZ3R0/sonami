@@ -479,242 +479,242 @@ export const LikedSongsView = () => {
           {sortedFavorites.map((track, index) => {
             const isCurrentTrack = currentTrack?.id === track.id;
             if (index === 0)
-              console.log("First Track Data:", {
-                title: track.title,
-                local_path: track.local_path,
-                audio_quality: track.audio_quality,
-              });
-            return (
-              <div
-                key={track.id}
-                onClick={() => handlePlayTrack(track)}
-                onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
-                className={`flex w-full items-center md:grid md:grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-3 md:gap-4 px-3 md:px-4 py-2.5 rounded-lg group transition-colors cursor-pointer border-b md:border-none border-white/5 last:border-0 ${
-                  isCurrentTrack
-                    ? "bg-pink-500/10 text-pink-500"
-                    : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
-                }`}
-              >
-                {/* Number / Playing indicator */}
-                <div className="hidden md:flex items-center text-xs font-medium justify-center">
-                  {isCurrentTrack && isPlaying ? (
-                    <div className="flex gap-0.5 items-end h-4">
-                      <div
-                        className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
-                        style={{ height: "60%", animationDelay: "0s" }}
-                      />
-                      <div
-                        className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
-                        style={{ height: "100%", animationDelay: "0.2s" }}
-                      />
-                      <div
-                        className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
-                        style={{ height: "40%", animationDelay: "0.4s" }}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <span
-                        className={`group-hover:hidden ${isCurrentTrack ? "text-pink-500" : "opacity-60"}`}
-                      >
-                        {index + 1}
-                      </span>
-                      <svg
-                        className="w-4 h-4 hidden group-hover:block text-theme-primary"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </>
-                  )}
-                </div>
+              // console.log("First Track Data:", {
+              //   title: track.title,
+              //   local_path: track.local_path,
+              //   audio_quality: track.audio_quality,
+              // });
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handlePlayTrack(track)}
+                  onContextMenu={(e) => handleContextMenu(e, mapToTrack(track))}
+                  className={`flex w-full items-center md:grid md:grid-cols-[16px_1fr_1fr_1fr_120px_24px_48px_32px] gap-3 md:gap-4 px-3 md:px-4 py-2.5 rounded-lg group transition-colors cursor-pointer border-b md:border-none border-white/5 last:border-0 ${
+                    isCurrentTrack
+                      ? "bg-pink-500/10 text-pink-500"
+                      : "hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
+                  }`}
+                >
+                  {/* Number / Playing indicator */}
+                  <div className="hidden md:flex items-center text-xs font-medium justify-center">
+                    {isCurrentTrack && isPlaying ? (
+                      <div className="flex gap-0.5 items-end h-4">
+                        <div
+                          className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
+                          style={{ height: "60%", animationDelay: "0s" }}
+                        />
+                        <div
+                          className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
+                          style={{ height: "100%", animationDelay: "0.2s" }}
+                        />
+                        <div
+                          className="w-1 bg-pink-500 animate-equalizer rounded-t-sm"
+                          style={{ height: "40%", animationDelay: "0.4s" }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <span
+                          className={`group-hover:hidden ${isCurrentTrack ? "text-pink-500" : "opacity-60"}`}
+                        >
+                          {index + 1}
+                        </span>
+                        <svg
+                          className="w-4 h-4 hidden group-hover:block text-theme-primary"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </>
+                    )}
+                  </div>
 
-                {/* Title & Cover */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {track.cover_image ? (
-                    <img
-                      src={track.cover_image}
-                      alt={track.album}
-                      className="w-10 h-10 md:w-10 md:h-10 rounded object-cover shadow-sm flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 md:w-10 md:h-10 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <svg
-                        className="w-5 h-5 opacity-20"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
+                  {/* Title & Cover */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {track.cover_image ? (
+                      <img
+                        src={track.cover_image}
+                        alt={track.album}
+                        className="w-10 h-10 md:w-10 md:h-10 rounded object-cover shadow-sm flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 md:w-10 md:h-10 rounded bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <svg
+                          className="w-5 h-5 opacity-20"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span
+                        className={`truncate font-medium text-sm md:text-base ${isCurrentTrack ? "text-pink-500" : "text-theme-primary"}`}
                       >
-                        <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
+                        {track.title}
+                      </span>
+                      <span className="truncate text-xs text-theme-muted md:hidden">
+                        {track.artist}
+                      </span>
                     </div>
-                  )}
-                  <div className="flex flex-col min-w-0">
-                    <span
-                      className={`truncate font-medium text-sm md:text-base ${isCurrentTrack ? "text-pink-500" : "text-theme-primary"}`}
-                    >
-                      {track.title}
+                  </div>
+
+                  {/* Album */}
+                  <div className="hidden md:flex items-center min-w-0">
+                    <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
+                      {track.album}
                     </span>
-                    <span className="truncate text-xs text-theme-muted md:hidden">
+                  </div>
+
+                  {/* Artist */}
+                  <div className="hidden md:flex items-center min-w-0">
+                    <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
                       {track.artist}
                     </span>
                   </div>
-                </div>
 
-                {/* Album */}
-                <div className="hidden md:flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
-                    {track.album}
-                  </span>
-                </div>
+                  <div className="hidden md:flex items-center text-sm text-theme-muted">
+                    {formatRelativeDate(track.liked_at)}
+                  </div>
 
-                {/* Artist */}
-                <div className="hidden md:flex items-center min-w-0">
-                  <span className="truncate text-theme-muted text-sm group-hover:text-theme-primary transition-colors">
-                    {track.artist}
-                  </span>
-                </div>
+                  {/* Download Indicator */}
+                  <div className="flex items-center justify-center">
+                    {(() => {
+                      const unifiedTrack = track as any;
+                      const source = unifiedTrack.source;
+                      const providerId =
+                        unifiedTrack.provider_id ||
+                        (source === "TIDAL"
+                          ? "tidal"
+                          : source === "SUBSONIC"
+                            ? "subsonic"
+                            : source === "JELLYFIN"
+                              ? "jellyfin"
+                              : undefined);
+                      const externalId =
+                        unifiedTrack.external_id ||
+                        (providerId === "tidal" &&
+                        /^\d+$/.test(track.id.replace("tidal:", ""))
+                          ? track.id.replace("tidal:", "")
+                          : undefined);
 
-                <div className="hidden md:flex items-center text-sm text-theme-muted">
-                  {formatRelativeDate(track.liked_at)}
-                </div>
+                      // Determine track key for download tracking
+                      let trackKey: string | null = null;
+                      let isStreamingTrack = false;
 
-                {/* Download Indicator */}
-                <div className="flex items-center justify-center">
-                  {(() => {
-                    const unifiedTrack = track as any;
-                    const source = unifiedTrack.source;
-                    const providerId =
-                      unifiedTrack.provider_id ||
-                      (source === "TIDAL"
-                        ? "tidal"
-                        : source === "SUBSONIC"
-                          ? "subsonic"
-                          : source === "JELLYFIN"
-                            ? "jellyfin"
-                            : undefined);
-                    const externalId =
-                      unifiedTrack.external_id ||
-                      (providerId === "tidal" &&
-                      /^\d+$/.test(track.id.replace("tidal:", ""))
-                        ? track.id.replace("tidal:", "")
-                        : undefined);
-
-                    // Determine track key for download tracking
-                    let trackKey: string | null = null;
-                    let isStreamingTrack = false;
-
-                    if (providerId && externalId) {
-                      isStreamingTrack = true;
-                      // Uniform format: provider:externalId for all providers
-                      trackKey = `${providerId}:${externalId}`;
-                    }
-
-                    // Fallback for paths if providerId/externalId missing
-                    if (!trackKey && track.path) {
-                      const pathMatch = track.path.match(
-                        /^(tidal|subsonic|jellyfin):(.+)$/,
-                      );
-                      if (pathMatch) {
-                        trackKey = track.path; // Already in correct format
+                      if (providerId && externalId) {
                         isStreamingTrack = true;
+                        // Uniform format: provider:externalId for all providers
+                        trackKey = `${providerId}:${externalId}`;
                       }
-                    }
 
-                    const downloadState = trackKey
-                      ? downloads.get(trackKey)
-                      : undefined;
+                      // Fallback for paths if providerId/externalId missing
+                      if (!trackKey && track.path) {
+                        const pathMatch = track.path.match(
+                          /^(tidal|subsonic|jellyfin):(.+)$/,
+                        );
+                        if (pathMatch) {
+                          trackKey = track.path; // Already in correct format
+                          isStreamingTrack = true;
+                        }
+                      }
 
-                    // Check both: local file exists OR completed in this session (via ref)
-                    const isDownloaded =
-                      (unifiedTrack.local_path &&
-                        unifiedTrack.local_path !== "") ||
-                      (unifiedTrack.audio_quality &&
-                        unifiedTrack.audio_quality !== "") ||
-                      (trackKey && isTrackCompleted(trackKey));
+                      const downloadState = trackKey
+                        ? downloads.get(trackKey)
+                        : undefined;
 
-                    return isStreamingTrack ? (
-                      <DownloadIndicator
-                        status={downloadState}
-                        isDownloaded={isDownloaded}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isDownloaded) {
-                            if (providerId && externalId) {
-                              deleteDownloadedTrack(
-                                providerId,
-                                externalId,
-                              ).then(() => {
-                                refreshFavorites();
-                              });
+                      // Check both: local file exists OR completed in this session (via ref)
+                      const isDownloaded =
+                        (unifiedTrack.local_path &&
+                          unifiedTrack.local_path !== "") ||
+                        (unifiedTrack.audio_quality &&
+                          unifiedTrack.audio_quality !== "") ||
+                        (trackKey && isTrackCompleted(trackKey));
+
+                      return isStreamingTrack ? (
+                        <DownloadIndicator
+                          status={downloadState}
+                          isDownloaded={isDownloaded}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isDownloaded) {
+                              if (providerId && externalId) {
+                                deleteDownloadedTrack(
+                                  providerId,
+                                  externalId,
+                                ).then(() => {
+                                  refreshFavorites();
+                                });
+                              }
+                            } else if (!downloadState) {
+                              downloadTrack(mapToTrack(track));
                             }
-                          } else if (!downloadState) {
-                            downloadTrack(mapToTrack(track));
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span />
-                    );
-                  })()}
-                </div>
-
-                {/* Duration */}
-                <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
-                  {formatDuration(track.duration)}
-                </div>
-
-                {/* Unfavorite Button */}
-                <div className="hidden md:flex items-center justify-end">
-                  <button
-                    onClick={(e) => handleUnfavorite(track, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 text-pink-500 hover:text-pink-400 transition-all"
-                    title="Remove from Liked Songs"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Mobile more button */}
-                {isMobile && (
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const items = await getMenuItemsForTrack(
-                        mapToTrack(track),
+                          }}
+                        />
+                      ) : (
+                        <span />
                       );
-                      showMenu(
-                        items,
-                        { x: e.clientX, y: e.clientY },
-                        {
-                          title: track.title,
-                          subtitle: track.artist,
-                          coverImage: track.cover_image,
-                        },
-                      );
-                    }}
-                    className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors md:hidden"
-                    aria-label="More options"
-                  >
-                    <svg
-                      className="w-5 h-5 text-theme-muted"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                    })()}
+                  </div>
+
+                  {/* Duration */}
+                  <div className="flex items-center justify-end text-sm text-theme-muted font-variant-numeric tabular-nums">
+                    {formatDuration(track.duration)}
+                  </div>
+
+                  {/* Unfavorite Button */}
+                  <div className="hidden md:flex items-center justify-end">
+                    <button
+                      onClick={(e) => handleUnfavorite(track, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-white/10 text-pink-500 hover:text-pink-400 transition-all"
+                      title="Remove from Liked Songs"
                     >
-                      <circle cx="12" cy="5" r="2" />
-                      <circle cx="12" cy="12" r="2" />
-                      <circle cx="12" cy="19" r="2" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            );
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Mobile more button */}
+                  {isMobile && (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const items = await getMenuItemsForTrack(
+                          mapToTrack(track),
+                        );
+                        showMenu(
+                          items,
+                          { x: e.clientX, y: e.clientY },
+                          {
+                            title: track.title,
+                            subtitle: track.artist,
+                            coverImage: track.cover_image,
+                          },
+                        );
+                      }}
+                      className="p-1.5 -mr-1 rounded-full hover:bg-white/10 transition-colors md:hidden"
+                      aria-label="More options"
+                    >
+                      <svg
+                        className="w-5 h-5 text-theme-muted"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              );
           })}
         </div>
       )}

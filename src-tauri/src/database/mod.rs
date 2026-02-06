@@ -138,6 +138,49 @@ impl DatabaseManager {
             INSERT OR IGNORE INTO settings (key, value) 
             VALUES ('spotify_import_priority', '["tidal","subsonic","jellyfin"]');
             "#,
+            // Migration 8: Artist & Album Analytics for Recommendations
+            r#"
+            -- Artist Analytics
+            ALTER TABLE artists ADD COLUMN play_count INTEGER DEFAULT 0;
+            ALTER TABLE artists ADD COLUMN last_played_at INTEGER;
+
+            -- Album Analytics
+            ALTER TABLE albums ADD COLUMN play_count INTEGER DEFAULT 0;
+            ALTER TABLE albums ADD COLUMN last_played_at INTEGER;
+
+            -- Backfill artist play counts from tracks
+            UPDATE artists SET play_count = (
+                SELECT COALESCE(SUM(t.play_count), 0) FROM tracks t WHERE t.artist_id = artists.id
+            );
+            UPDATE artists SET last_played_at = (
+                SELECT MAX(t.last_played_at) FROM tracks t WHERE t.artist_id = artists.id
+            );
+
+            -- Backfill album play counts from tracks
+            UPDATE albums SET play_count = (
+                SELECT COALESCE(SUM(t.play_count), 0) FROM tracks t WHERE t.album_id = albums.id
+            );
+            UPDATE albums SET last_played_at = (
+                SELECT MAX(t.last_played_at) FROM tracks t WHERE t.album_id = albums.id
+            );
+
+            -- Indexes for efficient top queries
+            CREATE INDEX IF NOT EXISTS idx_artists_play_count ON artists(play_count DESC);
+            CREATE INDEX IF NOT EXISTS idx_albums_play_count ON albums(play_count DESC);
+            "#,
+            // Migration 9: Persistent recommendation cache (24hr TTL)
+            r#"
+            CREATE TABLE IF NOT EXISTS recommendation_cache (
+                artist_name TEXT PRIMARY KEY,
+                section_json TEXT NOT NULL,
+                playlist_uri TEXT NOT NULL,
+                cached_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_recommendation_cache_expires
+            ON recommendation_cache(expires_at);
+            "#,
         ];
 
         // 3. Apply Migrations
