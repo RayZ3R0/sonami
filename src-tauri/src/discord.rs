@@ -1,15 +1,37 @@
+//! Discord Rich Presence Integration
+//!
+//! This module handles Discord Rich Presence updates for Sonami.
+//! It runs a background worker thread that maintains the connection
+//! to Discord and updates the presence based on playback state.
+//!
+//! Key features:
+//! - Automatic reconnection with exponential backoff
+//! - State-based updates with sequence numbers to force immediate updates
+//! - Paused state auto-clear after 30 seconds
+//! - Thread-safe state management
+//!
+//! Note: Discord IPC is not available on Android, so this module provides
+//! no-op stubs on that platform.
+
+#[cfg(not(target_os = "android"))]
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(not(target_os = "android"))]
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(not(target_os = "android"))]
 const DISCORD_APPLICATION_ID: &str = "1459143320604508251";
 
+/// How long to wait before clearing paused activity
+#[cfg(not(target_os = "android"))]
 const PAUSE_CLEAR_DELAY: Duration = Duration::from_secs(30);
 
-const UPDATE_INTERVAL: Duration = Duration::from_secs(1);
+/// How often to check for state updates (faster for better responsiveness)
+#[cfg(not(target_os = "android"))]
+const UPDATE_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Debug)]
 pub struct TrackInfo {
@@ -26,14 +48,24 @@ enum PresenceState {
 
     Playing {
         track: TrackInfo,
+        #[allow(dead_code)]
         started_at: Instant,
+        #[allow(dead_code)]
         position_secs: u64,
+        /// Sequence number to force updates even if track is same
+        #[allow(dead_code)]
+        seq: u64,
     },
 
     Paused {
         track: TrackInfo,
+        #[allow(dead_code)]
         paused_at: Instant,
+        #[allow(dead_code)]
         position_secs: u64,
+        /// Sequence number to force updates
+        #[allow(dead_code)]
+        seq: u64,
     },
 }
 
@@ -43,6 +75,8 @@ pub struct DiscordRpcManager {
     connected: Arc<AtomicBool>,
     state: Arc<RwLock<PresenceState>>,
     shutdown: Arc<AtomicBool>,
+    /// Sequence counter for forcing updates
+    sequence: Arc<AtomicU64>,
 }
 
 impl Default for DiscordRpcManager {
@@ -52,12 +86,14 @@ impl Default for DiscordRpcManager {
 }
 
 impl DiscordRpcManager {
+    #[cfg(not(target_os = "android"))]
     pub fn new() -> Self {
         let manager = Self {
             enabled: Arc::new(AtomicBool::new(false)),
             connected: Arc::new(AtomicBool::new(false)),
             state: Arc::new(RwLock::new(PresenceState::Idle)),
             shutdown: Arc::new(AtomicBool::new(false)),
+            sequence: Arc::new(AtomicU64::new(0)),
         };
 
         let enabled = manager.enabled.clone();
@@ -72,13 +108,44 @@ impl DiscordRpcManager {
         manager
     }
 
+    #[cfg(target_os = "android")]
+    pub fn new() -> Self {
+        log::info!("Discord: Android stub initialized (no-op)");
+        Self {
+            enabled: Arc::new(AtomicBool::new(false)),
+            connected: Arc::new(AtomicBool::new(false)),
+            state: Arc::new(RwLock::new(PresenceState::Idle)),
+            shutdown: Arc::new(AtomicBool::new(false)),
+            sequence: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    /// Get next sequence number (always increments)
+    fn next_seq(&self) -> u64 {
+        self.sequence.fetch_add(1, Ordering::SeqCst)
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn connect(&self) {
+        log::info!("Discord: Enabling Rich Presence");
         self.enabled.store(true, Ordering::SeqCst);
     }
 
+    #[cfg(target_os = "android")]
+    pub fn connect(&self) {
+        // No-op on Android
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn disconnect(&self) {
+        log::info!("Discord: Disabling Rich Presence");
         self.enabled.store(false, Ordering::SeqCst);
         *self.state.write() = PresenceState::Idle;
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn disconnect(&self) {
+        // No-op on Android
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -89,6 +156,7 @@ impl DiscordRpcManager {
         self.connected.load(Ordering::Relaxed)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn set_playing(&self, track: TrackInfo, position_secs: u64) {
         if !self.enabled.load(Ordering::Relaxed) {
             log::debug!(
@@ -98,35 +166,58 @@ impl DiscordRpcManager {
             return;
         }
 
+        let seq = self.next_seq();
         log::info!(
-            "Discord: Setting playing state for '{}' by '{}'",
+            "Discord: Setting playing state for '{}' by '{}' at {}s (seq={})",
             track.title,
-            track.artist
+            track.artist,
+            position_secs,
+            seq
         );
 
         *self.state.write() = PresenceState::Playing {
             track,
             started_at: Instant::now(),
             position_secs,
+            seq,
         };
     }
 
+    #[cfg(target_os = "android")]
+    pub fn set_playing(&self, _track: TrackInfo, _position_secs: u64) {
+        // No-op on Android
+    }
+
+    #[cfg(not(target_os = "android"))]
     pub fn set_paused(&self, track: TrackInfo, position_secs: u64) {
         if !self.enabled.load(Ordering::Relaxed) {
             log::debug!("Discord: set_paused called but RPC is disabled");
             return;
         }
 
-        log::info!("Discord: Setting paused state for '{}'", track.title);
+        let seq = self.next_seq();
+        log::info!(
+            "Discord: Setting paused state for '{}' at {}s (seq={})",
+            track.title,
+            position_secs,
+            seq
+        );
 
         *self.state.write() = PresenceState::Paused {
             track,
             paused_at: Instant::now(),
             position_secs,
+            seq,
         };
     }
 
+    #[cfg(target_os = "android")]
+    pub fn set_paused(&self, _track: TrackInfo, _position_secs: u64) {
+        // No-op on Android
+    }
+
     pub fn set_idle(&self) {
+        log::info!("Discord: Setting idle state");
         *self.state.write() = PresenceState::Idle;
     }
 
@@ -141,12 +232,15 @@ impl Drop for DiscordRpcManager {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 fn discord_worker_thread(
     enabled: Arc<AtomicBool>,
     connected: Arc<AtomicBool>,
     state: Arc<RwLock<PresenceState>>,
     shutdown: Arc<AtomicBool>,
 ) {
+    log::info!("Discord: Worker thread started");
+
     let mut client: Option<DiscordIpcClient> = None;
     let mut last_state_hash: u64 = 0;
     let mut reconnect_delay = Duration::from_secs(1);
@@ -154,6 +248,7 @@ fn discord_worker_thread(
 
     loop {
         if shutdown.load(Ordering::Relaxed) {
+            log::info!("Discord: Worker thread shutting down");
             if let Some(ref mut c) = client {
                 let _ = c.clear_activity();
                 let _ = c.close();
@@ -163,6 +258,7 @@ fn discord_worker_thread(
 
         let is_enabled = enabled.load(Ordering::Relaxed);
 
+        // Handle connection logic
         if is_enabled && client.is_none() && last_connect_attempt.elapsed() >= reconnect_delay {
             last_connect_attempt = Instant::now();
 
@@ -173,6 +269,8 @@ fn discord_worker_thread(
                     client = Some(c);
                     connected.store(true, Ordering::Relaxed);
                     reconnect_delay = Duration::from_secs(1);
+                    // Force update on reconnect
+                    last_state_hash = 0;
                 }
                 Err(e) => {
                     log::debug!(
@@ -180,7 +278,6 @@ fn discord_worker_thread(
                         e,
                         reconnect_delay
                     );
-
                     reconnect_delay = (reconnect_delay * 2).min(Duration::from_secs(30));
                 }
             }
@@ -194,20 +291,25 @@ fn discord_worker_thread(
             log::info!("Discord: Disconnected from Discord RPC");
         }
 
+        // Handle state updates
         let mut should_reconnect = false;
         if let Some(ref mut c) = client {
             let current_state = state.read().clone();
 
+            // Auto-clear paused state after delay
             let should_clear = matches!(&current_state, PresenceState::Paused { paused_at, .. }
                 if paused_at.elapsed() >= PAUSE_CLEAR_DELAY);
 
             if should_clear {
+                log::debug!("Discord: Auto-clearing paused state after timeout");
                 drop(state.read());
                 *state.write() = PresenceState::Idle;
+                continue; // Re-loop to pick up new Idle state
             }
 
             let current_hash = calculate_state_hash(&current_state);
 
+            // Update if state changed
             if current_hash != last_state_hash {
                 last_state_hash = current_hash;
 
@@ -220,9 +322,10 @@ fn discord_worker_thread(
                         track,
                         started_at,
                         position_secs,
+                        ..
                     } => {
                         log::debug!(
-                            "Discord: Setting playing activity for '{}' by '{}'",
+                            "Discord: Updating playing activity for '{}' by '{}'",
                             track.title,
                             track.artist
                         );
@@ -233,7 +336,11 @@ fn discord_worker_thread(
                         position_secs,
                         ..
                     } => {
-                        log::debug!("Discord: Setting paused activity for '{}'", track.title);
+                        log::debug!(
+                            "Discord: Updating paused activity for '{}' at {}s",
+                            track.title,
+                            position_secs
+                        );
                         update_paused_activity(c, track, *position_secs)
                     }
                 };
@@ -254,8 +361,13 @@ fn discord_worker_thread(
 
         thread::sleep(UPDATE_INTERVAL);
     }
+
+    log::info!("Discord: Worker thread exited");
 }
 
+/// Calculate a hash of the current state for change detection
+/// Uses sequence number to force updates when state content is similar
+#[cfg(not(target_os = "android"))]
 fn calculate_state_hash(state: &PresenceState) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -269,31 +381,39 @@ fn calculate_state_hash(state: &PresenceState) -> u64 {
         PresenceState::Playing {
             track,
             position_secs,
+            seq,
             ..
         } => {
             1u8.hash(&mut hasher);
             track.title.hash(&mut hasher);
             track.artist.hash(&mut hasher);
-
-            (position_secs / 5).hash(&mut hasher);
+            track.album.hash(&mut hasher);
+            // Include sequence number to force updates on state transitions
+            seq.hash(&mut hasher);
+            // Coarse position for periodic updates (every 15 seconds)
+            (position_secs / 15).hash(&mut hasher);
         }
         PresenceState::Paused {
             track,
             position_secs,
-            paused_at,
+            seq,
+            ..
         } => {
             2u8.hash(&mut hasher);
             track.title.hash(&mut hasher);
             track.artist.hash(&mut hasher);
+            track.album.hash(&mut hasher);
+            // Include sequence number to force updates on state transitions
+            seq.hash(&mut hasher);
+            // Exact position for paused state (doesn't change)
             position_secs.hash(&mut hasher);
-
-            (paused_at.elapsed().as_secs() / 10).hash(&mut hasher);
         }
     }
 
     hasher.finish()
 }
 
+#[cfg(not(target_os = "android"))]
 fn update_playing_activity(
     client: &mut DiscordIpcClient,
     track: &TrackInfo,
@@ -306,7 +426,7 @@ fn update_playing_activity(
         .as_secs() as i64;
 
     let elapsed_since_start = started_at.elapsed().as_secs();
-    let current_position = position_secs + elapsed_since_start;
+    let current_position = position_secs.saturating_add(elapsed_since_start);
     let start_timestamp = now - current_position as i64;
     let end_timestamp = start_timestamp + track.duration_secs as i64;
 
@@ -329,20 +449,24 @@ fn update_playing_activity(
         );
 
     if let Some(ref cover_url) = track.cover_url {
-        activity_builder = activity_builder.assets(
-            activity::Assets::new()
-                .large_image(cover_url)
-                .large_text(&track.album)
-                .small_image("sonami_logo")
-                .small_text("Sonami"),
-        );
+        // Only use cover URL if it's not a data URL (Discord doesn't support those)
+        if !cover_url.starts_with("data:") {
+            activity_builder = activity_builder.assets(
+                activity::Assets::new()
+                    .large_image(cover_url)
+                    .large_text(&track.album)
+                    .small_image("sonami_logo")
+                    .small_text("Sonami"),
+            );
+        }
     }
 
     log::debug!(
-        "Discord: Sending activity - '{}' by '{}' ({} secs)",
+        "Discord: Activity update - '{}' by '{}' ({} secs, pos {})",
         details,
         state_text,
-        track.duration_secs
+        track.duration_secs,
+        current_position
     );
 
     client.set_activity(activity_builder)?;
@@ -350,6 +474,7 @@ fn update_playing_activity(
 }
 
 /// Update Discord activity for paused state
+#[cfg(not(target_os = "android"))]
 fn update_paused_activity(
     client: &mut DiscordIpcClient,
     track: &TrackInfo,
@@ -360,17 +485,15 @@ fn update_paused_activity(
 
     let mins = position_secs / 60;
     let secs = position_secs % 60;
+    let total_mins = track.duration_secs / 60;
+    let total_secs = track.duration_secs % 60;
     let position_text = format!(
         "{} • {:02}:{:02} / {:02}:{:02}",
-        track.album,
-        mins,
-        secs,
-        track.duration_secs / 60,
-        track.duration_secs % 60
+        track.album, mins, secs, total_mins, total_secs
     );
 
     log::debug!(
-        "Discord: Sending paused activity - '{}' at {:02}:{:02}",
+        "Discord: Paused activity update - '{}' at {:02}:{:02}",
         details,
         mins,
         secs
@@ -387,13 +510,15 @@ fn update_paused_activity(
         );
 
     if let Some(ref cover_url) = track.cover_url {
-        activity_builder = activity_builder.assets(
-            activity::Assets::new()
-                .large_image(cover_url)
-                .large_text(&position_text)
-                .small_image("sonami_logo")
-                .small_text("Sonami"),
-        );
+        if !cover_url.starts_with("data:") {
+            activity_builder = activity_builder.assets(
+                activity::Assets::new()
+                    .large_image(cover_url)
+                    .large_text(&position_text)
+                    .small_image("sonami_logo")
+                    .small_text("Sonami"),
+            );
+        }
     }
 
     client.set_activity(activity_builder)?;

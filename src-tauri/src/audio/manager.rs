@@ -40,6 +40,8 @@ impl AudioManager {
         app_handle: AppHandle,
         discord_rpc: Option<Arc<crate::discord::DiscordRpcManager>>,
     ) -> Self {
+        log::info!("AudioManager: Initializing...");
+
         let state = PlaybackState::new();
         let (command_tx, command_rx) = std::sync::mpsc::channel();
         let (event_tx, event_rx) = std::sync::mpsc::channel();
@@ -68,6 +70,7 @@ impl AudioManager {
             shutdown: shutdown.clone(),
             url_resolver: url_resolver.clone(),
             discord_rpc: discord_rpc.clone(),
+            playback_notifier: None, // Will be set later via app state
         };
 
         // Context for Decoder
@@ -86,7 +89,17 @@ impl AudioManager {
         let controller_media = media_controls.clone();
         let controller_buffer = buffer_a.clone();
 
+        // On Android, spawn threads with a small delay to ensure JNI env is ready
+        #[cfg(target_os = "android")]
+        let startup_delay = std::time::Duration::from_millis(100);
+        #[cfg(not(target_os = "android"))]
+        let startup_delay = std::time::Duration::from_millis(0);
+
         thread::spawn(move || {
+            if !startup_delay.is_zero() {
+                thread::sleep(startup_delay);
+            }
+            log::info!("AudioManager: Controller loop starting");
             crate::audio::manager::audio_controller_loop(
                 event_rx,
                 controller_state,
@@ -105,12 +118,22 @@ impl AudioManager {
         // Note: we pass event_tx to the decoder now
         let decoder_event_tx = event_tx;
         thread::spawn(move || {
+            if !startup_delay.is_zero() {
+                thread::sleep(startup_delay);
+            }
+            log::info!("AudioManager: Decoder thread starting");
             decoder_thread(command_rx, decoder_event_tx, context_decoder);
         });
 
         thread::spawn(move || {
+            if !startup_delay.is_zero() {
+                thread::sleep(startup_delay);
+            }
+            log::info!("AudioManager: Audio output thread starting");
             run_audio_output(context_output);
         });
+
+        log::info!("AudioManager: Initialization complete");
 
         Self {
             state,

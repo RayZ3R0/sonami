@@ -17,6 +17,7 @@ import { ToastProvider } from "./components/Toast";
 import { InputController } from "./components/InputController";
 import { ContextMenuProvider } from "./context/ContextMenuContext";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { usePlayer } from "./context/PlayerContext";
 
 function App() {
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -86,10 +87,11 @@ function App() {
 // Wrapper component to use the update notification hook inside ThemeProvider
 function UpdateNotificationWrapper() {
   const { shouldShow, dismiss } = useUpdateNotification();
+  const { openSettings } = usePlayer();
 
   if (!shouldShow) return null;
 
-  return <UpdateNotificationModal onClose={dismiss} />;
+  return <UpdateNotificationModal onClose={dismiss} onOpenSettings={() => openSettings("services")} />;
 }
 
 export default App;

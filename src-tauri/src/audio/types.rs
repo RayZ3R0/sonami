@@ -8,6 +8,7 @@ use super::buffer::AudioBuffer;
 use super::resolver::UrlResolver;
 use crate::dsp::DspChain;
 use crate::media_controls::MediaControlsManager;
+use crate::playback_notifier::PlaybackNotifier;
 use crate::queue::PlayQueue;
 
 #[derive(Clone)]
@@ -24,6 +25,8 @@ pub struct AudioContext {
     pub shutdown: Arc<AtomicBool>,
     pub url_resolver: UrlResolver,
     pub discord_rpc: Option<Arc<crate::discord::DiscordRpcManager>>,
+    /// Centralized playback notifier for Discord + MPRIS
+    pub playback_notifier: Option<Arc<PlaybackNotifier>>,
 }
 
 use serde::Serialize;

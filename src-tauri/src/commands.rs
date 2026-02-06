@@ -175,7 +175,7 @@ pub async fn import_folder(app: AppHandle) -> Result<Vec<Track>, String> {
 pub async fn play_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
     path: String,
 ) -> Result<(), String> {
     log::info!("[Command] play_track called with path: {}", path);
@@ -193,24 +193,17 @@ pub async fn play_track(
 
     if let Some(ref t) = track {
         let _ = app.emit("track-changed", t.clone());
-        state.media_controls.set_metadata(
-            &t.title,
-            &t.artist,
-            &t.album,
-            t.cover_image.as_deref(),
-            t.duration as f64,
-        );
-        state.media_controls.set_playback(true, Some(0.0));
 
-        discord_rpc.set_playing(
-            crate::discord::TrackInfo {
-                title: t.title.clone(),
-                artist: t.artist.clone(),
-                album: t.album.clone(),
-                duration_secs: t.duration,
-                cover_url: t.cover_image.clone(),
-            },
-            0,
+        // Use centralized notifier for both Discord and MPRIS
+        notifier.notify_playing(
+            crate::playback_notifier::TrackMetadata::new(
+                &t.title,
+                &t.artist,
+                &t.album,
+                t.duration as f64,
+                t.cover_image.clone(),
+            ),
+            0.0,
         );
     }
 
@@ -220,25 +213,13 @@ pub async fn play_track(
 #[tauri::command]
 pub async fn pause_track(
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
 ) -> Result<(), String> {
     state.pause();
     let position = state.get_position();
-    state.media_controls.set_playback(false, Some(position));
 
-    let track = state.queue.read().get_current_track();
-    if let Some(ref t) = track {
-        discord_rpc.set_paused(
-            crate::discord::TrackInfo {
-                title: t.title.clone(),
-                artist: t.artist.clone(),
-                album: t.album.clone(),
-                duration_secs: t.duration,
-                cover_url: t.cover_image.clone(),
-            },
-            position as u64,
-        );
-    }
+    // Use centralized notifier for both Discord and MPRIS
+    notifier.notify_paused(position);
 
     Ok(())
 }
@@ -246,32 +227,28 @@ pub async fn pause_track(
 #[tauri::command]
 pub async fn resume_track(
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
 ) -> Result<(), String> {
     state.resume();
     let position = state.get_position();
-    state.media_controls.set_playback(true, Some(position));
 
-    let track = state.queue.read().get_current_track();
-    if let Some(ref t) = track {
-        discord_rpc.set_playing(
-            crate::discord::TrackInfo {
-                title: t.title.clone(),
-                artist: t.artist.clone(),
-                album: t.album.clone(),
-                duration_secs: t.duration,
-                cover_url: t.cover_image.clone(),
-            },
-            position as u64,
-        );
-    }
+    // Use centralized notifier for both Discord and MPRIS
+    notifier.notify_resumed(position);
 
     Ok(())
 }
 
 #[tauri::command]
-pub async fn seek_track(state: State<'_, AudioManager>, position: f64) -> Result<(), String> {
+pub async fn seek_track(
+    state: State<'_, AudioManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
+    position: f64,
+) -> Result<(), String> {
     state.seek(position);
+
+    // Use centralized notifier to update Discord and MPRIS position
+    notifier.notify_seek(position);
+
     Ok(())
 }
 
@@ -357,7 +334,7 @@ pub async fn set_repeat_mode(
 pub async fn next_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
 ) -> Result<(), String> {
     let next_track = {
         let mut q = state.queue.write();
@@ -374,24 +351,17 @@ pub async fn next_track(
         }
 
         let _ = app.emit("track-changed", track.clone());
-        state.media_controls.set_metadata(
-            &track.title,
-            &track.artist,
-            &track.album,
-            track.cover_image.as_deref(),
-            track.duration as f64,
-        );
-        state.media_controls.set_playback(true, Some(0.0));
 
-        discord_rpc.set_playing(
-            crate::discord::TrackInfo {
-                title: track.title.clone(),
-                artist: track.artist.clone(),
-                album: track.album.clone(),
-                duration_secs: track.duration,
-                cover_url: track.cover_image.clone(),
-            },
-            0,
+        // Use centralized notifier for both Discord and MPRIS
+        notifier.notify_playing(
+            crate::playback_notifier::TrackMetadata::new(
+                &track.title,
+                &track.artist,
+                &track.album,
+                track.duration as f64,
+                track.cover_image.clone(),
+            ),
+            0.0,
         );
     }
     Ok(())
@@ -401,7 +371,7 @@ pub async fn next_track(
 pub async fn prev_track(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
 ) -> Result<(), String> {
     let prev_track = {
         let mut q = state.queue.write();
@@ -418,24 +388,17 @@ pub async fn prev_track(
         }
 
         let _ = app.emit("track-changed", track.clone());
-        state.media_controls.set_metadata(
-            &track.title,
-            &track.artist,
-            &track.album,
-            track.cover_image.as_deref(),
-            track.duration as f64,
-        );
-        state.media_controls.set_playback(true, Some(0.0));
 
-        discord_rpc.set_playing(
-            crate::discord::TrackInfo {
-                title: track.title.clone(),
-                artist: track.artist.clone(),
-                album: track.album.clone(),
-                duration_secs: track.duration,
-                cover_url: track.cover_image.clone(),
-            },
-            0,
+        // Use centralized notifier for both Discord and MPRIS
+        notifier.notify_playing(
+            crate::playback_notifier::TrackMetadata::new(
+                &track.title,
+                &track.artist,
+                &track.album,
+                track.duration as f64,
+                track.cover_image.clone(),
+            ),
+            0.0,
         );
     }
     Ok(())
@@ -524,7 +487,7 @@ pub async fn get_lyrics(
 pub async fn play_stream(
     app: AppHandle,
     state: State<'_, AudioManager>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
     url: String,
 ) -> Result<(), String> {
     let track = Track {
@@ -548,20 +511,16 @@ pub async fn play_stream(
 
     state.play(url);
 
-    state
-        .media_controls
-        .set_metadata(&track.title, &track.artist, &track.album, None, 0.0);
-    state.media_controls.set_playback(true, Some(0.0));
-
-    discord_rpc.set_playing(
-        crate::discord::TrackInfo {
-            title: track.title.clone(),
-            artist: track.artist.clone(),
-            album: track.album.clone(),
-            duration_secs: track.duration,
-            cover_url: track.cover_image.clone(),
-        },
-        0,
+    // Use centralized notifier for both Discord and MPRIS
+    notifier.notify_playing(
+        crate::playback_notifier::TrackMetadata::new(
+            &track.title,
+            &track.artist,
+            &track.album,
+            0.0,
+            None,
+        ),
+        0.0,
     );
 
     let _ = app.emit("track-changed", track);
@@ -662,7 +621,7 @@ pub async fn play_tidal_track(
     app: AppHandle,
     audio_state: State<'_, AudioManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
     track_id: u64,
     title: String,
     artist: String,
@@ -703,24 +662,16 @@ pub async fn play_tidal_track(
 
     audio_state.play(stream_info.url);
 
-    audio_state.media_controls.set_metadata(
-        &track.title,
-        &track.artist,
-        &track.album,
-        track.cover_image.as_deref(),
-        track.duration as f64,
-    );
-    audio_state.media_controls.set_playback(true, Some(0.0));
-
-    discord_rpc.set_playing(
-        crate::discord::TrackInfo {
-            title: track.title.clone(),
-            artist: track.artist.clone(),
-            album: track.album.clone(),
-            duration_secs: track.duration,
-            cover_url: track.cover_image.clone(),
-        },
-        0,
+    // Use centralized notifier for both Discord and MPRIS
+    notifier.notify_playing(
+        crate::playback_notifier::TrackMetadata::new(
+            &track.title,
+            &track.artist,
+            &track.album,
+            track.duration as f64,
+            track.cover_image.clone(),
+        ),
+        0.0,
     );
 
     let _ = app.emit("track-changed", track);
@@ -1163,7 +1114,7 @@ pub async fn play_provider_track(
     provider_manager: State<'_, std::sync::Arc<ProviderManager>>,
     library: State<'_, LibraryManager>,
     tidal_state: State<'_, crate::tidal::TidalClient>,
-    discord_rpc: State<'_, crate::discord::DiscordRpcManager>,
+    notifier: State<'_, std::sync::Arc<crate::playback_notifier::PlaybackNotifier>>,
     provider_id: String,
     track_id: String,
     title: String,
@@ -1285,24 +1236,16 @@ pub async fn play_provider_track(
 
     audio_state.play(stream_url);
 
-    audio_state.media_controls.set_metadata(
-        &track.title,
-        &track.artist,
-        &track.album,
-        track.cover_image.as_deref(),
-        track.duration as f64,
-    );
-    audio_state.media_controls.set_playback(true, Some(0.0));
-
-    discord_rpc.set_playing(
-        crate::discord::TrackInfo {
-            title: track.title.clone(),
-            artist: track.artist.clone(),
-            album: track.album.clone(),
-            duration_secs: track.duration,
-            cover_url: track.cover_image.clone(),
-        },
-        0,
+    // Use centralized notifier for both Discord and MPRIS
+    notifier.notify_playing(
+        crate::playback_notifier::TrackMetadata::new(
+            &track.title,
+            &track.artist,
+            &track.album,
+            track.duration as f64,
+            track.cover_image.clone(),
+        ),
+        0.0,
     );
 
     let _ = app.emit("track-changed", track);
