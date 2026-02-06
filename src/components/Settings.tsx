@@ -375,7 +375,8 @@ export const Settings = ({
   const hifiSectionRef = useRef<HTMLDivElement>(null);
 
   // Public HiFi instances URL (shown in UI for user to copy)
-  const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
+  const PUBLIC_HIFI_INSTANCES_URL =
+    "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 
   const subsonicConfig = providerConfigs.find(
     (c) => c.provider_id === "subsonic",
@@ -523,7 +524,10 @@ export const Settings = ({
     if (isOpen && activeTab === "services" && hifiSectionRef.current) {
       // Small delay to ensure the tab content is rendered
       const timer = setTimeout(() => {
-        hifiSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        hifiSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }, 300);
       return () => clearTimeout(timer);
     }

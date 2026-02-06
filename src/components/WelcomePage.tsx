@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useTheme } from "../context/ThemeContext";
-import { configureSubsonic, configureJellyfin, setHifiConfig } from "../api/providers";
+import {
+  configureSubsonic,
+  configureJellyfin,
+  setHifiConfig,
+} from "../api/providers";
 
 interface WelcomePageProps {
   onComplete: () => void;
@@ -8,7 +12,9 @@ interface WelcomePageProps {
 
 export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
   const { theme } = useTheme();
-  const [step, setStep] = useState<"intro" | "subsonic" | "jellyfin" | "hifi">("intro");
+  const [step, setStep] = useState<"intro" | "subsonic" | "jellyfin" | "hifi">(
+    "intro",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +25,8 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
   const [hifiUrl, setHifiUrl] = useState("");
   const [urlCopied, setUrlCopied] = useState(false);
 
-  const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
+  const PUBLIC_HIFI_INSTANCES_URL =
+    "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 
   const handleSkip = () => {
     localStorage.setItem("onboarding_complete", "true");
@@ -81,9 +88,7 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
               className="w-full p-4 pt-[20px] rounded-xl border border-theme-border hover:bg-theme-surface transition-colors flex items-center justify-between group"
               style={{ borderColor: theme.colors.border }}
             >
-              <span className="font-semibold">
-                Configure HiFi (for Tidal)
-              </span>
+              <span className="font-semibold">Configure HiFi (for Tidal)</span>
               <span className="opacity-50 group-hover:translate-x-1 transition-transform">
                 →
               </span>
@@ -153,9 +158,12 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
             {step === "hifi" && "Configure HiFi Instance"}
           </h2>
           <p className="text-sm opacity-70 mt-2">
-            {step === "subsonic" && "Enter your server details to access your library."}
-            {step === "jellyfin" && "Enter your server details to access your library."}
-            {step === "hifi" && "Configure the HiFi instance URL to enable Tidal streaming."}
+            {step === "subsonic" &&
+              "Enter your server details to access your library."}
+            {step === "jellyfin" &&
+              "Enter your server details to access your library."}
+            {step === "hifi" &&
+              "Configure the HiFi instance URL to enable Tidal streaming."}
           </p>
         </div>
 
@@ -177,7 +185,7 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
                 }}
               />
             </div>
-            
+
             <div
               className="p-4 rounded-xl border"
               style={{
@@ -193,8 +201,12 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
                   onClick={handleCopyUrl}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: urlCopied ? theme.colors.accent : theme.colors.surface,
-                    color: urlCopied ? theme.colors.textInverse : theme.colors.textSecondary,
+                    background: urlCopied
+                      ? theme.colors.accent
+                      : theme.colors.surface,
+                    color: urlCopied
+                      ? theme.colors.textInverse
+                      : theme.colors.textSecondary,
                   }}
                 >
                   {urlCopied ? "Copied!" : "Copy"}
@@ -215,7 +227,8 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
                 borderLeft: `3px solid ${theme.colors.accent}`,
               }}
             >
-              💡 Copy the public URL above or use your own self-hosted HiFi instance.
+              💡 Copy the public URL above or use your own self-hosted HiFi
+              instance.
             </div>
           </div>
         ) : (
@@ -277,7 +290,10 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
 
         <button
           onClick={handleConnect}
-          disabled={loading || (step === "hifi" ? !hifiUrl : (!url || !username || !password))}
+          disabled={
+            loading ||
+            (step === "hifi" ? !hifiUrl : !url || !username || !password)
+          }
           className="w-full p-4 rounded-xl bg-theme-accent text-white font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           style={{
             background: theme.colors.accent,
@@ -286,8 +302,10 @@ export const WelcomePage = ({ onComplete }: WelcomePageProps) => {
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : step === "hifi" ? (
+            "Save Configuration"
           ) : (
-            step === "hifi" ? "Save Configuration" : "Connect Library"
+            "Connect Library"
           )}
         </button>
       </div>
