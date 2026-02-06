@@ -5,6 +5,7 @@ import { LikedSongsView } from "./LikedSongsView";
 import { SearchPage } from "./SearchPage";
 import { AlbumPage } from "./AlbumPage";
 import { ArtistPage } from "./ArtistPage";
+import { DiscoverPage } from "./DiscoverPage";
 
 export const MainStage = ({
   activeTab,
@@ -40,6 +41,10 @@ export const MainStage = ({
   if (activeTab.startsWith("artist:")) {
     const artistId = activeTab.replace("artist:", "");
     return <ArtistPage artistId={artistId} onNavigate={setActiveTab} />;
+  }
+
+  if (activeTab === "discover") {
+    return <DiscoverPage onNavigate={setActiveTab} />;
   }
 
   return <HomeView />;

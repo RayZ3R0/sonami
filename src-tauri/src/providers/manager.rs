@@ -67,4 +67,10 @@ impl ProviderManagerArc {
         let providers = self.providers.read().await;
         providers.keys().cloned().collect()
     }
+
+    /// Get all registered providers for iteration (used by recommendation engine)
+    pub async fn get_all_providers(&self) -> Vec<Arc<dyn MusicProvider>> {
+        let providers = self.providers.read().await;
+        providers.values().cloned().collect()
+    }
 }

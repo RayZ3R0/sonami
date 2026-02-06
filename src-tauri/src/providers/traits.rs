@@ -17,6 +17,12 @@ pub trait MusicProvider: Send + Sync {
     /// Search capabilities
     async fn search(&self, query: &str) -> Result<SearchResults>;
 
+    /// Lightweight search returning only tracks (for recommendation matching).
+    /// Default implementation falls back to full search.
+    async fn search_tracks_only(&self, query: &str) -> Result<Vec<Track>> {
+        Ok(self.search(query).await?.tracks)
+    }
+
     /// Playback
     async fn get_stream_url(&self, track_id: &str, quality: Quality) -> Result<StreamInfo>;
 

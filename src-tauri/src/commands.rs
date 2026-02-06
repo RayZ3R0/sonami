@@ -8,6 +8,7 @@ pub mod history;
 pub mod library;
 pub mod playlist;
 pub mod providers;
+pub mod recommendations;
 pub mod spotify;
 
 use crate::audio::AudioManager;
@@ -645,9 +646,9 @@ pub async fn play_tidal_track(
         id: track_id.to_string(),
         title,
         artist,
-        artist_id: artist_id.map(|id| id.to_string()),
+        artist_id: artist_id.map(|id| format!("tidal:{}", id)),
         album,
-        album_id: album_id.map(|id| id.to_string()),
+        album_id: album_id.map(|id| format!("tidal:{}", id)),
         duration,
         cover_image: cover_url,
         path: stream_info.url.clone(),
@@ -1219,9 +1220,9 @@ pub async fn play_provider_track(
         id: local_id,
         title,
         artist,
-        artist_id: artist_id.clone(),
+        artist_id: artist_id.map(|id| format!("{}:{}", provider_id, id)),
         album,
-        album_id: album_id.clone(),
+        album_id: album_id.map(|id| format!("{}:{}", provider_id, id)),
         duration,
         cover_image: cover_url,
         path: stream_url.clone(),
