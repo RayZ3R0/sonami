@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTheme, Theme } from "../context/ThemeContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useDownload } from "../context/DownloadContext";
@@ -371,6 +371,9 @@ export const Settings = ({
   const [hifiSuccess, setHifiSuccess] = useState<string | null>(null);
   const [hifiUrlCopied, setHifiUrlCopied] = useState(false);
 
+  // Ref for HiFi section to scroll to
+  const hifiSectionRef = useRef<HTMLDivElement>(null);
+
   // Public HiFi instances URL (shown in UI for user to copy)
   const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigoana/hifi-instances/refs/heads/main/instances.json";
 
@@ -514,6 +517,17 @@ export const Settings = ({
       setActiveTab(defaultTab);
     }
   }, [isOpen, defaultTab]);
+
+  // Scroll to HiFi section when services tab is opened
+  useEffect(() => {
+    if (isOpen && activeTab === "services" && hifiSectionRef.current) {
+      // Small delay to ensure the tab content is rendered
+      const timer = setTimeout(() => {
+        hifiSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, activeTab]);
 
   // if (!isOpen) return null; <-- Removed early return to allow AnimatePresence to work
 
@@ -1547,7 +1561,7 @@ export const Settings = ({
                 </div>
 
                 {/* HiFi Instance Section */}
-                <div>
+                <div ref={hifiSectionRef}>
                   <h3
                     className="text-xs font-semibold uppercase tracking-wider mb-1 mt-6"
                     style={{ color: theme.colors.textMuted }}

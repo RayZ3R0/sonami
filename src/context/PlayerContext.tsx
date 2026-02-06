@@ -56,6 +56,9 @@ interface PlayerContextType {
   setIsQueueOpen: (open: boolean) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
+  settingsTab: "appearance" | "playback" | "services";
+  setSettingsTab: (tab: "appearance" | "playback" | "services") => void;
+  openSettings: (tab?: "appearance" | "playback" | "services") => void;
   importMusic: () => Promise<void>;
   importFolder: () => Promise<void>;
   playTrack: (track: Track, contextQueue?: Track[]) => Promise<void>;
@@ -156,6 +159,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback" | "services">("appearance");
   const [crossfadeEnabled, setCrossfadeEnabled] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CROSSFADE_ENABLED);
     return saved !== "false";
@@ -781,6 +785,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const openSettings = (tab: "appearance" | "playback" | "services" = "appearance") => {
+    setSettingsTab(tab);
+    setIsSettingsOpen(true);
+  };
+
   const playerValue = useMemo(
     () => ({
       tracks,
@@ -795,6 +804,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setIsQueueOpen,
       isSettingsOpen,
       setIsSettingsOpen,
+      settingsTab,
+      setSettingsTab,
+      openSettings,
       importMusic,
       importFolder,
       playTrack,
@@ -850,6 +862,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       playlists,
       isQueueOpen,
       isSettingsOpen,
+      settingsTab,
       crossfadeEnabled,
       crossfadeDuration,
       playerBarStyle,

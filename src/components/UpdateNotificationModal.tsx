@@ -82,10 +82,12 @@ const PUBLIC_HIFI_INSTANCES_URL = "https://raw.githubusercontent.com/EduardPrigo
 
 interface UpdateNotificationModalProps {
   onClose: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const UpdateNotificationModal = ({
   onClose,
+  onOpenSettings,
 }: UpdateNotificationModalProps) => {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -104,7 +106,7 @@ export const UpdateNotificationModal = ({
   const handleSetupClick = () => {
     // Open the GitHub repo for HiFi setup instructions
     window.open(
-      "https://github.com/sachinsenal0x64/Hifi-Tui?tab=readme-ov-file#-installation-",
+      "https://github.com/sachinsenal0x64/hifi?tab=readme-ov-file#-installation-",
       "_blank",
     );
   };
@@ -113,6 +115,15 @@ export const UpdateNotificationModal = ({
     // Mark as shown so it doesn't appear again
     localStorage.setItem(NOTIFICATION_SHOWN_KEY, "true");
     onClose();
+  };
+
+  const handleConfigureNow = () => {
+    // Mark as shown and open settings
+    localStorage.setItem(NOTIFICATION_SHOWN_KEY, "true");
+    onClose();
+    if (onOpenSettings) {
+      onOpenSettings();
+    }
   };
 
   if (isMobile) {
@@ -271,11 +282,34 @@ export const UpdateNotificationModal = ({
             {/* Actions */}
             <div className="space-y-3">
               <button
-                onClick={handleSetupClick}
+                onClick={handleConfigureNow}
                 className="w-full py-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                 style={{
                   background: theme.colors.accent,
                   color: theme.colors.textInverse,
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>Configure Now</span>
+              </button>
+              <button
+                onClick={handleSetupClick}
+                className="w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                style={{
+                  background: theme.colors.surfaceHover,
+                  color: theme.colors.textPrimary,
                 }}
               >
                 <span>View Setup Guide</span>
@@ -285,7 +319,7 @@ export const UpdateNotificationModal = ({
                 onClick={handleDismiss}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-colors active:scale-[0.98]"
                 style={{
-                  background: theme.colors.surfaceHover,
+                  background: "transparent",
                   color: theme.colors.textSecondary,
                 }}
               >
@@ -475,14 +509,37 @@ export const UpdateNotificationModal = ({
           {/* Actions */}
           <div className="flex gap-3">
             <button
+              onClick={handleConfigureNow}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:opacity-90 flex items-center justify-center gap-2"
+              style={{
+                background: theme.colors.accent,
+                color: theme.colors.textInverse,
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span className="pt-[3px]">Configure</span>
+            </button>
+            <button
               onClick={handleDismiss}
-              className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
+              className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 flex items-center justify-center"
               style={{
                 background: theme.colors.surfaceHover,
                 color: theme.colors.textSecondary,
               }}
             >
-              Dismiss
+              <span className="pt-[3px]">Dismiss</span>
             </button>
           </div>
         </div>

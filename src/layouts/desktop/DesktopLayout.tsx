@@ -17,13 +17,10 @@ export const DesktopLayout = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "playback">(
-    "appearance",
-  );
-  const { setIsSettingsOpen, isSettingsOpen, setIsQueueOpen } = usePlayer();
+  const { setIsSettingsOpen, isSettingsOpen, setIsQueueOpen, settingsTab, setSettingsTab } = usePlayer();
 
   const handleOpenSettings = useCallback(
-    (tab: "appearance" | "playback") => {
+    (tab: "appearance" | "playback" | "services") => {
       if (isSettingsOpen && settingsTab === tab) {
         setIsSettingsOpen(false);
       } else {
@@ -32,7 +29,7 @@ export const DesktopLayout = () => {
         setIsQueueOpen(false);
       }
     },
-    [isSettingsOpen, settingsTab, setIsSettingsOpen, setIsQueueOpen],
+    [isSettingsOpen, settingsTab, setIsSettingsOpen, setIsQueueOpen, setSettingsTab],
   );
 
   const handleKeyDown = useCallback(
